@@ -1,0 +1,12 @@
+{
+ "pid": "patient",
+ "scanid": "scan",
+ "sequenceid": "DTIFIXED",
+ "paths":
+  {
+      "base_dir": "/home/pirc/Desktop/DWI/CHD_tractography/CHP/patient",
+      "dti": "",
+      "regions": "/Regions",
+      "tracts": "/Tracts"
+  }   
+}

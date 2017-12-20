@@ -1,0 +1,345 @@
+{
+ "template" : "neonatal",
+ "method" : 
+  {
+    "name": "Neonatal_DTI",
+    "bet": "true",
+    "eddy_correct": "true",
+    "dtifit": "true",
+    "flirt": "true",
+    "fnirt": "true",
+    "dsi_studio":
+    {
+    "commands":    
+    {
+        "trk":,
+        "ana":
+        {
+            "output":"txt",
+            "export":
+            {
+                "stat"
+            }
+        }
+    }
+    }
+  },
+
+ "tracts":
+  {
+
+    "genu": 
+    {
+        "fa_threshold" : 0.07,
+        "angle_threshold" : 45,
+        "inclusion_masks": 
+        [
+            "genu",
+            "sagittal_l",
+            "sagittal_r"
+        ],
+
+        "exclusion_masks": 
+        [
+            "posteriorgenu",
+            "internalcapsule_l",
+            "internalcapsule_r"
+        ]
+    },
+     
+    "ccbody":
+    {
+        "fa_threshold" : 0.07,
+        "angle_threshold": 45,
+        "inclusion_masks":
+        [
+            "ccbody",
+            "sagittal_l",
+            "sagittal_r"
+        ],
+    
+        "exclusion_masks":
+        [
+            "arcuateaxial_l",
+            "arcuateaxial_r",
+            "arcuateroa",
+            "bodycingulumroa",
+            "bodyfornixroa",
+            "capsulemerge_l",
+            "capsulemerge_r",
+            "midbody"
+        ]
+    },
+
+    "splenium":
+    {
+        "fa_threshold" : 0.07,
+        "angle_threshold" : 45,
+        "inclusion_masks":
+        [
+            "splenium",
+            "sagittal_l",
+            "sagittal_r"
+        ],
+
+        "exclusion_masks":
+        [
+            "arcuatecoronal_l",
+            "arcuatecoronal_r",
+            "fornixbody",
+            "fornixcrura",
+            "midbody",
+            "sfg_l",
+            "sfg_r",
+            "temporalcoronal_l",
+            "temporalcoronal_r"
+        ]
+    },
+     
+    "ifof_l": 
+    {
+        "fa_threshold" : 0.07,
+        "angle_threshold" : 45,
+        "inclusion_masks": 
+        [
+            "inferioroccipital_l",
+            "temporalcoronal_l"
+        ],
+
+        "exclusion_masks": 
+        [
+            "anteriorgenufrontal",
+            "arcuatecoronal_l",
+            "cerebellum_l",
+            "cerebellum_r",
+            "fornixbody",
+            "fornixcrura",
+            "externalcapsule_l",
+            "midbody",
+            "sagittalroa",
+            "uncinatecoronal_l",
+            "uncinateaxial_l"
+        ]
+    },
+     
+    "ifof_r": 
+    {
+        "fa_threshold" : 0.07,
+        "angle_threshold" : 45,
+        "inclusion_masks": 
+        [
+            "inferioroccipital_r",
+            "temporalcoronal_r"
+        ],
+
+        "exclusion_masks": 
+        [
+            "anteriorgenufrontal",
+            "arcuatecoronal_r",
+            "cerebellum_l",
+            "cerebellum_r",
+            "fornixbody",
+            "fornixcrura",
+            "externalcapsule_r",
+            "midbody",
+            "sagittalroa",
+            "uncinatecoronal_r",
+            "uncinateaxial_r"
+        ]
+    },
+    
+    "fof_l": 
+    {
+        "fa_threshold" : 0.07,
+        "angle_threshold" : 45,
+        "inclusion_masks": 
+        [
+            "posteriorcingulum",
+            "temporalcoronal_l",
+            "uncinatecoronal_l"
+        ],
+
+        "exclusion_masks": 
+        [
+            "anteriorgenufrontal",
+            "arcuatecoronal_l",
+            "cerebellum_l",
+            "cerebellum_r",
+            "fornixbody",
+            "fornixcrura",
+            "externalcapsule_l",
+            "midbody",
+            "sagittalroa"
+        ]
+    },
+     
+    "fof_r": 
+    {
+        "fa_threshold" : 0.07,
+        "angle_threshold" : 45,
+        "inclusion_masks": 
+        [
+            "posteriorcingulum",
+            "temporalcoronal_r",
+            "uncinatecoronal_r"
+        ],
+
+        "exclusion_masks": 
+        [
+            "anteriorgenufrontal",
+            "arcuatecoronal_r",
+            "cerebellum_l",
+            "cerebellum_r",
+            "fornixbody",
+            "fornixcrura",
+            "externalcapsule_r",
+            "midbody",
+            "sagittalroa"
+        ]
+    },
+    
+    "slfa_l":
+    {
+        "fa_threshold" : 0.07,
+        "angle_threshold" : 45,
+        "inclusion_masks": 
+        [
+            "arcuatecoronal_l",
+            "posteriorgenu"
+        ],
+     
+        "exclusion_masks":
+        [
+            "arcuateaxial_l",
+            "arcuateroa",
+            "externalcapsule_l",
+            "internalcapsule_l",
+            "midbody",
+            "posteriorcingulum",
+            "sagittalroa",
+            "temporalcoronal_l"
+        ]
+    },
+    
+    "slfp_l":
+    {
+        "fa_threshold" : 0.07,
+        "angle_threshold" : 45,
+        "inclusion_masks": 
+        [
+            "arcuatecoronal_l",
+            "posteriorcingulum"
+        ],
+     
+        "exclusion_masks":
+        [
+            "arcuateroa",
+            "externalcapsule_l",
+            "internalcapsule_l",
+            "inferioroccipital_l",
+            "midbody",
+            "sagittalroa",
+            "temporalcoronal_l"
+        ]
+    },
+    
+    "slfa_r":
+    {
+        "fa_threshold" : 0.07,
+        "angle_threshold" : 45,
+        "inclusion_masks": 
+        [
+            "arcuatecoronal_r",
+            "posteriorgenu"
+        ],
+     
+        "exclusion_masks":
+        [
+            "arcuateaxial_r",
+            "arcuateroa",
+            "externalcapsule_r",
+            "internalcapsule_r",
+            "midbody",
+            "posteriorcingulum",
+            "sagittalroa",
+            "temporalcoronal_r"
+        ]
+    },
+    
+    "slfp_r":
+    {
+        "fa_threshold" : 0.07,
+        "angle_threshold" : 45,
+        "inclusion_masks": 
+        [
+            "arcuatecoronal_r",
+            "posteriorcingulum"
+        ],
+     
+        "exclusion_masks":
+        [
+            "arcuateroa",
+            "externalcapsule_r",
+            "internalcapsule_r",
+            "inferioroccipital_r",
+            "midbody",
+            "sagittalroa",
+            "temporalcoronal_r"
+        ]
+    },
+    
+    "cst_l":
+    {
+        "fa_threshold" : 0.07,
+        "angle_threshold" : 45,
+        "inclusion_masks": 
+        [
+            "anteriorbrainstem",
+            "internalcapsule_l",
+            "medulla",
+            "midbody"
+        ],
+     
+        "exclusion_masks":
+        [
+            "arcuateroa",
+            "cerebellum_l",
+            "cerebellum_r",
+            "cingulumroa_l",
+            "externalcapsule_l",
+            "internalcapsule_r",
+            "fornixbody",
+            "fornixcrura",
+            "sagittalroa",
+            "temporalcoronal_l"
+        ]
+    },
+    
+    "cst_r":
+    {
+        "fa_threshold" : 0.07,
+        "angle_threshold" : 45,
+        "inclusion_masks": 
+        [
+               "anteriorbrainstem",
+               "internalcapsule_r",
+               "medulla",
+               "midbody"
+        ],
+     
+        "exclusion_masks":
+        [
+               "arcuateroa",
+               "cerebellum_l",
+               "cerebellum_r",
+               "cingulumroa_r",
+               "externalcapsule_r",
+               "internalcapsule_l",
+               "fornixbody",
+               "fornixcrura",
+               "sagittalroa",
+               "temporalcoronal_r"
+        ]
+    }
+  }
+}
