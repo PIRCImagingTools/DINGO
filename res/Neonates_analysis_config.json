@@ -10,16 +10,24 @@
     "fnirt": "true",
     "dsi_studio":
     {
-    "commands":    
+    "actions":    
     {
-        "trk":,
+        "trk":
+		{
+			"export":
+			[
+				"stat"
+			],
+			"ref": "T2w"
+		},
         "ana":
         {
-            "output":"txt",
+            "output":".txt",
             "export":
-            {
-                "stat"
-            }
+            [
+                "stat",
+				"tdi"
+            ]
         }
     }
     }
@@ -31,7 +39,7 @@
     "genu": 
     {
         "fa_threshold" : 0.07,
-        "angle_threshold" : 45,
+        "turning_angle" : 45,
         "inclusion_masks": 
         [
             "genu",
@@ -50,7 +58,7 @@
     "ccbody":
     {
         "fa_threshold" : 0.07,
-        "angle_threshold": 45,
+        "turning_angle": 45,
         "inclusion_masks":
         [
             "ccbody",
@@ -74,7 +82,7 @@
     "splenium":
     {
         "fa_threshold" : 0.07,
-        "angle_threshold" : 45,
+        "turning_angle" : 45,
         "inclusion_masks":
         [
             "splenium",
@@ -99,7 +107,7 @@
     "ifof_l": 
     {
         "fa_threshold" : 0.07,
-        "angle_threshold" : 45,
+        "turning_angle" : 45,
         "inclusion_masks": 
         [
             "inferioroccipital_l",
@@ -125,7 +133,7 @@
     "ifof_r": 
     {
         "fa_threshold" : 0.07,
-        "angle_threshold" : 45,
+        "turning_angle" : 45,
         "inclusion_masks": 
         [
             "inferioroccipital_r",
@@ -151,7 +159,7 @@
     "fof_l": 
     {
         "fa_threshold" : 0.07,
-        "angle_threshold" : 45,
+        "turning_angle" : 45,
         "inclusion_masks": 
         [
             "posteriorcingulum",
@@ -176,7 +184,7 @@
     "fof_r": 
     {
         "fa_threshold" : 0.07,
-        "angle_threshold" : 45,
+        "turning_angle" : 45,
         "inclusion_masks": 
         [
             "posteriorcingulum",
@@ -201,7 +209,7 @@
     "slfa_l":
     {
         "fa_threshold" : 0.07,
-        "angle_threshold" : 45,
+        "turning_angle" : 45,
         "inclusion_masks": 
         [
             "arcuatecoronal_l",
@@ -224,7 +232,7 @@
     "slfp_l":
     {
         "fa_threshold" : 0.07,
-        "angle_threshold" : 45,
+        "turning_angle" : 45,
         "inclusion_masks": 
         [
             "arcuatecoronal_l",
@@ -246,7 +254,7 @@
     "slfa_r":
     {
         "fa_threshold" : 0.07,
-        "angle_threshold" : 45,
+        "turning_angle" : 45,
         "inclusion_masks": 
         [
             "arcuatecoronal_r",
@@ -269,7 +277,7 @@
     "slfp_r":
     {
         "fa_threshold" : 0.07,
-        "angle_threshold" : 45,
+        "turning_angle" : 45,
         "inclusion_masks": 
         [
             "arcuatecoronal_r",
@@ -291,7 +299,7 @@
     "cst_l":
     {
         "fa_threshold" : 0.07,
-        "angle_threshold" : 45,
+        "turning_angle" : 45,
         "inclusion_masks": 
         [
             "anteriorbrainstem",
@@ -318,7 +326,7 @@
     "cst_r":
     {
         "fa_threshold" : 0.07,
-        "angle_threshold" : 45,
+        "turning_angle" : 45,
         "inclusion_masks": 
         [
                "anteriorbrainstem",
@@ -340,6 +348,37 @@
                "sagittalroa",
                "temporalcoronal_r"
         ]
-    }
+    },
+	
+	"test_tract":
+	{
+		"fa_threshold" : 0.5,
+		"turning_angle" : 90,
+		"inclusion_masks":
+		[
+			"test_roi1",
+			"test_roi2",
+			"test_roi3",
+			"test_roi4",
+			"test_roi5",
+			"test_roi6"
+		],
+		"exclusion_masks":
+		[
+			"test_roa1",
+			"test_roa2",
+			"test_roa3",
+			"test_roa4",
+			"test_roa5",
+			"test_roa6"
+		],
+		"ends_masks":
+		[
+			"test_end1",
+			"test_end2"
+		],
+		"terminative_mask": "test_ter",
+		"seed_mask": "test_seed"
+	}
   }
 }
