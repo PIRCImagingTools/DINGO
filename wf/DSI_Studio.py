@@ -1,64 +1,65 @@
-from nipype import Node, Function
+from nipype import Node, Function, MapNode, Workflow
+#import nipype.pipeline.engine as pe
 import os
 import glob
+from utils import *
 
 
 
 #Create DSI studio tracking function
-def DSI_TRK(syscfgpath, anacfgpath, subcfgpath):
+def dsi_studio(action, syscfg, anacfg, subcfg):
 	"""Run DSI studio tracking on command line
 	
 	Parameters
 	----------
-	syscfgpath : str (abspath to system config)
-	anacfgpath : str (abspath to analysis config)
-	subcfgpath : str (abspath to subject config)
+	action : str (DSI Studio command to execute)
+	syscfg : dict<json (system config paths)
+	anacfg : dict<json (contains method information, rois, roas, fa and angle
+		thresholds, dsi studio path)
+	subcfg : dict<json (contains paths for input and output)
 
 	Outputs
 	-------
-	trk : .trk.gz file for each tract in anacfg, put in Regionsdir from
-		subcfg
+	various depending on action and export listed in analysis config
 	"""
 	
-	import os
 	import subprocess
 	import logging
 
-	#Get cfg json
-	syscfg = read_config(syscfgpath)
-	anacfg = read_config(anacfgpath)
-	subcfg = read_config(subcfgpath)
+	logger = logging.getLogger(__name__)
 
-	#Check if sub/scan is included in this group for analysis
-	scanlist = anacfg["included_psids"]
-	t_scanlist = frozenset(scanlist)
 	ps_id = patient_scan(subcfg)
-	t_pat_scan = frozenset([ps_id])
-
-	if not bool(t_scanlist.intersection(t_sub_scan)):
-		print "%s: SKIPPED - not part of Method" % (ps_id)
-		return
-
 	#Get needed values from anacfg
 	try:
-		ana_id = anacfg["method"]
-		opts = anacfg["track_opts"]
+		ana_id = anacfg["method"]["name"]
+		if "track_opts" in anacfg["method"]["actions"]["trk"]:
+			opts = anacfg["track_opts"]
 		for tract in anacfg["tracts"]:
 			print tract
 			#Make the commandline string to call DSI Studio
-			TRKCALL = gen_DSISTUDIO_cmd("trk", tract, anacfg, subcfg)
+			logger.info("Generating DSI Studio command for %s:%s:%s" % 
+						(ana_id,ps_id,action))
+			DSICALL = gen_dsistudio_cmd(action, tract, anacfg, subcfg)
 
 			#Call DSI Studio
-			if not TRKCALL: #False if empty
+			if not DSICALL: #False if empty
+				logger.info("Launching DSI Studio for %s:%s:%s" % 
+							(ana_id,ps_id,action))
 				subprocess.call(TRKCALL)
 	except Exception:
-		logger.exception("Error fiber tracking: %s" % (ps_id))
+		logger.exception("Error running DSI Studio: %s:%s:%s" % 
+						(ana_id,ps_id,action))
 		raise
+
+
+def map_dsi_studio(tracts,action,syscfg,anacfg,subcfg)
+	import subprocess
+	import logging
 
 
 
 #Create command line string to run
-def gen_DSISTUDIO_cmd(action, tract, syscfg, anacfg, subcfg):
+def gen_dsistudio_cmd(action, tract, syscfg, anacfg, subcfg):
 	
 	"""Returns string to be called that will execute needed dsi_studio cmd
 	
@@ -215,6 +216,19 @@ def gen_DSISTUDIO_cmd(action, tract, syscfg, anacfg, subcfg):
 
 #subfunction of gen_DSISTUDIO_cmd, used by trk and ana actions
 def gen_regions_cmd(tract, anacfg, subcfg):
+	"""Generate regions portion of dsi studio trk and ana actions
+
+	Parameters
+	----------
+	tract : str (name of tract, e.g. CCBody, CST_L)
+	anacfg : dict<json (contains method information, rois, roas, fa and angle
+		thresholds, dsi studio path)
+	subcfg : dict<json (contains paths for input and output)
+
+	Returns
+	-------
+	List of region commands
+	"""
 	import os
 
 	ps_id = patient_scan(subcfg)
@@ -313,6 +327,19 @@ def gen_regions_cmd(tract, anacfg, subcfg):
 
 #subfunction of gen_DSISTUDIO_cmd, used by trk and ana actions
 def gen_post_process_cmd(action, anacfg, subcfg):
+	"""Generate post processing portion of dsi studio trk and ana actions
+
+	Parameters
+	----------
+	action : str (id of dsi studio action, e.g. trk, ana)
+	anacfg : dict<json (contains method information, rois, roas, fa and angle
+		thresholds, dsi studio path)
+	subcfg : dict<json (contains paths for input and output)
+
+	Returns
+	-------
+	List of post process commands
+	"""
 	import os
 	pp_cmd = []
 	export = []
@@ -367,105 +394,75 @@ def gen_post_process_cmd(action, anacfg, subcfg):
 	return pp_cmd
 
 
-#Return patient/scan id
-def patient_scan(patientcfg):
-	"""Get patient/scan id
 
-	Parameters
-	----------
-	patcfg : dict < json (patient config file with pid, scanid in top level)
-
-	Outputs
-	-------
-	patient_scan_id : str (concatenated)
-	"""
-
-	if "pid" in patientcfg:
-		patient_id = patientcfg["pid"]
-	else:
-		raise KeyError("patient_config:pid")
-	if "scanid" in patientcfg:
-		scan_id = patientcfg["scanid"]
-	else:
-		raise KeyError("patient_config:scanid")
-	ps_id = []
-	ps_id.append(patient_id)
-	ps_id.append("_")
-	ps_id.append(scan_id)
-	patient_scan_id = "".join(ps_id)
-
-	return patient_scan_id
-
-#Convert str to boolean
-def tobool(s):
-	"""Convert string/int true/false values to bool"""
-	sl = s.lower()
-	if sl == True or sl == "true" or sl == "t" or sl == "y" or sl == "yes" or sl == "1" or sl == 1:
-		return True
-	elif sl == False or sl == "false" or sl == "f" or sl == "n" or sl == "no" or sl == "0" or sl == 0:
-		return False
-	else:
-		print "Unexpected value for True/False"
-		raise
-
-
-#Read config.json
-def read_config(configpath):
-	"""Read in json config file
-
-	Parameters
-	----------
-	configpath : str (absolute path to file)
-
-	Returns
-	-------
-	config : dict < json
-	"""
-
-	import logging
-	import json
-	logger = logging.getLogger(__name__)
-	try:
-		#configpath = os.path.join(filepath, filename)
-		with open(configpath) as file:
-			cfg = json.load(file)
-			file.close()
-	except Exception:
-		logger.exception("Config file not found: " + configpath)
-		raise
-	return cfg
-
-def testvalues():
-	syscfgpath = "/home/pirc/Desktop/DWI/DINGO/res/system_config.json"
-	anacfgpath = "/home/pirc/Desktop/DWI/DINGO/res/Neonates_analysis_config.json"
-	subcfgpath = "/home/pirc/Desktop/DWI/DINGO/res/patient_config.json"
-
-	return syscfgpath, anacfgpath, subcfgpath
-
-def main():
+def dsi_main():
 	import nipype.pipeline.engine as pe
-	from nipype.interfaces import fsl
+	import os
+	import logging
+	from utils import *
 
-	#Create BET node
-	rbet = pe.Node(interface=fsl.BET(),name="rbet")
-	rbet.inputs.in_file = ec_file
-	rbet.inputs.out_file = be_file
-	rbet.inputs.robust = True
-	rbet.inputs.mask = True
+	syscfgpath = os.environ["sys_config"]
+	anacfgpath = os.environ["ana_config"]
+	subcfgpath = os.environ["sub_config"]
 
-	#Create EddyCorrect node
-	eddyc = pe.Node(interface=fsl.EddyCorrect(),name="eddyc")
-	eddyc.inputs.in_file = dti_file
-	eddyc.inputs.out_file = ec_file
-	eddyc.inputs.ref_num = 0
+	syscfg = read_config(syscfgpath)
+	anacfg = read_config(anacfgpath)
+
+	#Check for included sub/scan list
+	if "included_psids" in anacfg:
+		scanlist = anacfg["included_psids"]
+		t_scanlist = frozenset(scanlist)
+	else:
+		raise KeyError("included_psids not identified in analysis config")
+
+	for ss in scanlist:
+		
 	
+	subcfg = read_config(subcfgpath)
+	ss_id = patient_scan(subcfg)
+	t_sub_scan = frozenset([ss_id])
+	if not bool(t_scanlist.intersection(t_sub_scan)):
+		print "%s: SKIPPED - not part of Method" % (ss_id)
+		return
 
 	#Create DSI studio tracking action nipype node
-	DSITRK = Node(Function(input_names=["syscfgpath","anacfgpath","subcfgpath"],
-				   output_names=["trk"],
-				   function=DSI_TRK),
-			  name='add_node')
+	DSITRK = Node(Function(input_names=["action","syscfg","anacfg","subcfg"],
+						   output_names=["trk"],
+						   function=dsi_studio),
+				  name="dsi_trk")
 
-	DSITRK.inputs.syscfg = os.environ["sys_config"]
-	DSITRK.inputs.anacfg = os.environ["ana_config"]
-	DSITRK.inputs.subcfg = os.environ["sub_config"]
+	DSITRK.inputs.action = "trk"
+	DSITRK.inputs.syscfg = syscfg
+	DSITRK.inputs.anacfg = anacfg
+	DSITRK.inputs.subcfg = subcfg
+
+#	DSITRK = MapNode(Function(input_names=["action","syscfg","anacfg","subcfg"],
+#								output_names=["trk_list"],
+#								function=dsi_studio),
+#					name="map_dsi_trk",
+#					iterfield=["tracts"])
+#	DSITRK.inputs.action = "trk"
+#	DSITRK.inputs.syscfg = syscfg
+#	DSITRK.inputs.anacfg = anacfg
+#	DSITRK.inputs.subcfg = subcfg
+
+
+	#Create DSI studio analysis action nipype node
+	DSIANA = Node(Function(input_names=["action","syscfg","anacfg","subcfg"],
+						   output_names=["stats"],
+						   function=dsi_studio),
+				  name="dsi_ana")
+
+	DSIANA.inputs.action = "ana"
+	DSIANA.inputs.syscfg = syscfg
+	DSIANA.inputs.anacfg = anacfg
+	DSIANA.inputs.subcfg = subcfg
+
+
+	#Connect trk and ana
+	DSITA = Workflow(name="DSITA")
+	DSITA.base_dir = anacfg["data_dir"]
+	DSITA.connect([
+					(DSITRK, DSIANA, [
+				  ])
+					
