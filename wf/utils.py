@@ -1,10 +1,13 @@
+from wf.DSI_Studio_base import *
+
 #Return patient/scan id
-def patient_scan(patientcfg):
+def patient_scan(patientcfg, addSequence=None):
 	"""Get patient/scan id
 
 	Parameters
 	----------
 	patcfg : dict < json (patient config file with pid, scanid in top level)
+	addSequence : bool (Flag to join sequence id with pid, scanid)
 
 	Outputs
 	-------
@@ -19,10 +22,20 @@ def patient_scan(patientcfg):
 		scan_id = patientcfg["scanid"]
 	else:
 		raise KeyError("patient_config:scanid")
+	if addSequence == None:
+		addSequence = False
 	ps_id = []
 	ps_id.append(patient_id)
 	ps_id.append("_")
 	ps_id.append(scan_id)
+
+	if addSequence: #if True, default False
+		if "sequenceid" in patientcfg:
+			ps_id.append("_")
+			seq_id = patientcfg["sequenceid"]
+			ps_id.append(seq_id)
+		else:
+			raise KeyError("patient_config:sequenceid")
 	patient_scan_id = "".join(ps_id)
 
 	return patient_scan_id
@@ -74,7 +87,7 @@ def read_config(configpath):
 			cfg = json.load(file)
 			file.close()
 	except Exception:
-		logger.exception("Config file not found: " + configpath)
+		logger.exception("Config file could not be read: " + configpath)
 		raise
 	return cfg
 
@@ -83,4 +96,32 @@ def testvalues():
 	anacfgpath = "/home/pirc/Desktop/DWI/DINGO/res/Neonates_analysis_config.json"
 	subcfgpath = "/home/pirc/Desktop/DWI/DINGO/res/patient_config.json"
 
-	return syscfgpath, anacfgpath, subcfgpath
+	syscfg = read_config(syscfgpath)
+	anacfg = read_config(anacfgpath)
+	subcfg = read_config(subcfgpath)
+
+	return syscfg, anacfg, subcfg
+
+def testvals2():
+	source = '/home/pirc/Desktop/DWI/CHD_tractography/CHP/0003_2015_02_25/0003_2015_02_25_DTIFIXED.nii.src.gz.012fy.dti.fib.gz'
+	output = '/home/pirc/Desktop/DWI/CHD_tractography/CHP/0003_2015_02_25/Tracts/testtract.trk.gz'
+	rois = ['/home/pirc/Desktop/DWI/CHD_tractography/CHP/0003_2015_02_25/Regions/CHP_mFAlap_Genu.nii.gz','/home/pirc/Desktop/DWI/CHD_tractography/CHP/0003_2015_02_25/Regions/CHP_mFAlap_Sagittal_L.nii.gz','/home/pirc/Desktop/DWI/CHD_tractography/CHP/0003_2015_02_25/Regions/CHP_mFAlap_Sagittal_R.nii.gz']
+	roas = ['/home/pirc/Desktop/DWI/CHD_tractography/CHP/0003_2015_02_25/Regions/CHP_mFAlap_PosteriorGenu.nii.gz','/home/pirc/Desktop/DWI/CHD_tractography/CHP/0003_2015_02_25/Regions/CHP_mFAlap_InternalCapsule_L.nii.gz','/home/pirc/Desktop/DWI/CHD_tractography/CHP/0003_2015_02_25/Regions/CHP_mFAlap_InternalCapsule_R.nii.gz']
+	fat = 0.1
+	fibc = 1000
+	seedc = 100000
+	method = 0
+	threads = 2
+	
+	trk = DSIStudioTrack()
+	trk.inputs.source = source
+	trk.inputs.output = output
+	trk.inputs.roi = rois
+	trk.inputs.roa = roas
+	trk.inputs.fa_threshold = fat
+	trk.inputs.fiber_count = fibc
+	trk.inputs.seed_count = seedc
+	trk.inputs.method = method
+	trk.inputs.thread_count = threads
+	return trk
+

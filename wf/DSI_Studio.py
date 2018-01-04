@@ -32,8 +32,6 @@ def dsi_studio(action, syscfg, anacfg, subcfg):
 	#Get needed values from anacfg
 	try:
 		ana_id = anacfg["method"]["name"]
-		if "track_opts" in anacfg["method"]["actions"]["trk"]:
-			opts = anacfg["track_opts"]
 		for tract in anacfg["tracts"]:
 			print tract
 			#Make the commandline string to call DSI Studio
@@ -52,7 +50,7 @@ def dsi_studio(action, syscfg, anacfg, subcfg):
 		raise
 
 
-def map_dsi_studio(tracts,action,syscfg,anacfg,subcfg)
+def map_dsi_studio(tracts,action,syscfg,anacfg,subcfg):
 	import subprocess
 	import logging
 
@@ -69,7 +67,6 @@ def gen_dsistudio_cmd(action, tract, syscfg, anacfg, subcfg):
 	tract : str (tract identifier)
 	anacfg : dict<json (contains method information, rois, roas, fa and angle thresholds, dsi studio path)
 	subcfg : dict<json (contains paths for input and output)
-	opts : dict (changes to default arguments for action)
 	"""		
 
 	import os
@@ -398,12 +395,13 @@ def gen_post_process_cmd(action, anacfg, subcfg):
 def dsi_main():
 	import nipype.pipeline.engine as pe
 	import os
+	import re
 	import logging
 	from utils import *
 
 	syscfgpath = os.environ["sys_config"]
 	anacfgpath = os.environ["ana_config"]
-	subcfgpath = os.environ["sub_config"]
+	
 
 	syscfg = read_config(syscfgpath)
 	anacfg = read_config(anacfgpath)
@@ -415,15 +413,22 @@ def dsi_main():
 	else:
 		raise KeyError("included_psids not identified in analysis config")
 
-	for ss in scanlist:
-		
+	for root,dirs,files in os.walk(anacfg["data_dir"]):
+		for f in files:
+			if re.search('config\.json(?!~)',f):
+				potential = read_config(os.path.abspath(os.path.join(root,f)))
+				try:
+					pot_id = patient_scan(potential,True)
+					t_pot_id = frozenset([pot_id])
+					if bool(t_scanlist.intersection(t_pot_id)):
+						print "%s: INCLUDED" % (pot_id)
+						subcfg = potential
+					else:
+						print "%s: SKIPPED - does not match inclusion list" % (pot_id)
+				except KeyError:#not a subject config file
+					pass
+				
 	
-	subcfg = read_config(subcfgpath)
-	ss_id = patient_scan(subcfg)
-	t_sub_scan = frozenset([ss_id])
-	if not bool(t_scanlist.intersection(t_sub_scan)):
-		print "%s: SKIPPED - not part of Method" % (ss_id)
-		return
 
 	#Create DSI studio tracking action nipype node
 	DSITRK = Node(Function(input_names=["action","syscfg","anacfg","subcfg"],
@@ -438,7 +443,7 @@ def dsi_main():
 
 #	DSITRK = MapNode(Function(input_names=["action","syscfg","anacfg","subcfg"],
 #								output_names=["trk_list"],
-#								function=dsi_studio),
+#								function=map_dsi_studio),
 #					name="map_dsi_trk",
 #					iterfield=["tracts"])
 #	DSITRK.inputs.action = "trk"
@@ -463,6 +468,6 @@ def dsi_main():
 	DSITA = Workflow(name="DSITA")
 	DSITA.base_dir = anacfg["data_dir"]
 	DSITA.connect([
-					(DSITRK, DSIANA, [
+					(DSITRK, DSIANA, [()])
 				  ])
 					

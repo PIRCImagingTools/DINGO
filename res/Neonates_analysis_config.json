@@ -1,5 +1,9 @@
 {
- "template" : "neonatal",
+ "data_dir": "/home/pirc/Desktop/DWI/DINGO/res",
+ "included_psids":
+  [
+	"patient_scan_DTIFIXED"
+  ],
  "method" : 
   {
     "name": "Neonatal_DTI",
@@ -17,8 +21,7 @@
 			"export":
 			[
 				"stat"
-			],
-			"ref": "T2w"
+			]
 		},
         "ana":
         {
