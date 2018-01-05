@@ -187,10 +187,11 @@ class DSIStudioFiberInputSpec(DSIStudioInputSpec):
 									"distance < 1 mm")
 	output = File(genfile=True,
 				  argstr="--output=%s",
+				  hash_files=False,
 				  desc="output tract file name, "
 					   "format may be txt, trk, or nii")
-	end_point = File(genfile=True,
-					 argstr="--end_point=%s",
+	end_point = File(argstr="--end_point=%s",
+					 hash_files=False,
 					 desc="endpoint file name, format may be txt or mat")
 	export = traits.List(
 		traits.Enum("stat","tdi","tdi2","tdi_color","tdi_end","tdi2_end",
@@ -302,6 +303,17 @@ class DSIStudioFiberCommand(DSIStudioCommand):
 		else:
 			return super(DSIStudioFiberCommand, self)._format_arg(name, trait_spec, value)
 
+	def _gen_filename(self, name):
+		if name == "output":
+			path, filename, ext = split_filename(
+			os.path.abspath(self.inputs.source))
+			fname = []
+			fname.append(filename)
+			fname.append("_track")
+			fname.append(Info.output_type_to_ext(self.inputs.output_type))
+			return "".join(fname)
+		else:
+			return super(DSIStudioFiberCommand, self)._gen_filename(name)
 
 	def _parse_inputs(self, skip=None):
 		if skip is None:
@@ -319,20 +331,29 @@ class DSIStudioFiberCommand(DSIStudioCommand):
 
 class DSIStudioTrackInputSpec(DSIStudioFiberInputSpec):
 	"""Input specification for DSI Studio fiber tracking"""
-	action = traits.Enum("trk", mandatory=True, desc="DSI Studio action type")
-	output_type = traits.Enum("TRK", desc="DSI Studio trk action output type")
+	action = traits.Enum("trk", 
+						mandatory=True, 
+						usedefault=True,
+						desc="DSI Studio action type")
+	output_type = traits.Enum("TRK", 
+							usedefault=True,
+							desc="DSI Studio trk action output type")
 	method = traits.Enum(0, 1, argstr="--method=%d",
+						usedefault=True,
 						 desc="0:streamline (default), 1:rk4")
 	fiber_count = traits.Int(5000, argstr="--fiber_count=%d",
+							usedefault=True,
 							 desc="number of fiber tracks to find, "
 								  "end criterion")
 	seed_count = traits.Int(1000000, argstr="--seed_count=%d",
+							usedefault=True,
 							desc="max number of seeds, end criterion")
 	fa_threshold = traits.Float(0.1, argstr="--fa_threshold=%.4f",
+								usedefault=True,
 								desc="")
 	threshold_index = traits.Str(argstr="--threshold_index=%s",
 								 requires=["fa_threshold"], 
-								 desc="")
+								 desc="assign threshold to another index")
 	initial_dir = traits.Enum(0,1,2, argstr="--initial_dir=%d",
 							  desc="initial propagation direction, "
 								   "0:primary fiber (default),"
@@ -348,22 +369,27 @@ class DSIStudioTrackInputSpec(DSIStudioFiberInputSpec):
 	random_seed = traits.Enum(0,1, argstr="--random_seed=%d",
 							  desc="whether a timer is used to generate seed "
 								   "points, default is off")
-	step_size = traits.Float(argstr="--step_size=%.2f",
+	step_size = traits.Float(0.5,argstr="--step_size=%.2f",
+							usedefault=True,
 							 desc="moving distance in each tracking interval, "
 								  "default is half the spatial resolution, mm")
 	turning_angle = traits.Int(60, argstr="--turning_angle=%d",
+							usedefault=True,
 							   desc="")
 	#interpo_angle = traits.Int(60, argstr="--interpo_angle=%d", desc="")
-	smoothing = traits.Float(0.00, argstr="--smoothing=%.2f", 
+	smoothing = traits.Float(0.20, argstr="--smoothing=%.2f", 
+							usedefault=True,
 							 desc="fiber track momentum")
 	min_length = traits.Int(15, argstr="--min_length=%d",
+							usedefault=True,
 							desc="tracks below mm length deleted")
-	max_length = traits.Int(500, argstr="--max_length=%d",
+	max_length = traits.Int(400, argstr="--max_length=%d",
+							usedefault=True,
 							desc="tracks above mm length deleted")
 
 		
 
-class DSIStudioTrack(DSIStudioCommand):
+class DSIStudioTrack(DSIStudioFiberCommand):
 	"""DSI Studio fiber tracking action support
 
 	Example
@@ -387,16 +413,6 @@ class DSIStudioTrack(DSIStudioCommand):
 	_action = "trk"
 	input_spec = DSIStudioTrackInputSpec
 	output_spec = DSIStudioFiberOutputSpec
-
-	def _gen_filename(self, tract):
-		path, filename, ext = split_filename(
-			os.path.abspath(self.inputs.source))
-		fname = []
-		fname.append(filename)
-		fname.append("_")
-		fname.append(tract)
-		fname.append(Info.output_type_to_ext(self.inputs.output_type))
-		return "".join(fname)
 	
 	def _list_outputs(self):
 		outputs = self._outputs().get()
@@ -412,12 +428,15 @@ class DSIStudioTrack(DSIStudioCommand):
 
 
 class DSIStudioAnalysisInputSpec(DSIStudioFiberInputSpec):
-	action = traits.Enum("ana", mandatory=True, desc="DSI Studio action type")
+	action = traits.Enum("ana", 
+						mandatory=True, 
+						usedefault=True,
+						desc="DSI Studio action type")
 	output_type = traits.Enum("TXT", desc="DSI Studio ana action output type")
 
 
 
-class DSIStudioAnalysis(DSIStudioCommand):
+class DSIStudioAnalysis(DSIStudioFiberCommand):
 	"""DSI Studio analysis action support
 
 	Example
@@ -436,4 +455,102 @@ class DSIStudioAnalysis(DSIStudioCommand):
 	input_spec = DSIStudioAnalysisInputSpec
 	output_spec = DSIStudioFiberOutputSpec
 
-	
+
+
+class DSIStudioReconstructInputSpec(DSIStudioInputSpec):
+	action = traits.Enum("rec", 
+						mandatory=True, 
+						usedefault=True,
+						desc="DSI Studio action type")
+	output_type = traits.Enum("FIB", 
+							usedefault=True,
+							desc="DSI Studio rec action output type")
+	method = traits.Enum(1,0,2,3,4,6,7, mandatory=True, argstr="--method=%d",
+						usedefault=True,
+						desc="Reconstruction method, 0:DSI, 1:DTI, "
+							"2:Funk-Randon QBI, 3:Spherical Harmonic QBI, "
+							"4:GQI, 6:Convert to HARDI, 7:QSDR")
+	params = traits.List(argstr="--param%s=%s",
+						desc="Reconstruction parameters, different meaning"
+							"and types for different methods")
+	odf_order = traits.Enum(8,4,5,6,10,12,16,20, argstr="--odf_order=%d",
+							desc="tesselation number of the odf, default 8")
+	num_fiber = traits.Int(5, argstr="--num_fiber=%d",
+					desc="max count of resolving fibers per voxel, default 5")
+	deconvolution = traits.Enum(0,1, argstr="--deconvolution=%d",
+								desc="whether to apply deconvolution")
+	decomposition = traits.Enum(0,1, argstr="--decomposition=%d",
+								desc="whether to apply decomposition")
+	r2_weighted = traits.Enum(0,1, argstr="--r2_weighted=%d",
+						desc="whether to apply r2 weighted GQI reconstruction")
+	reg_method = traits.Enum(0,1,2,3,4, argstr="--reg_method=%d",
+						desc="regularization method in QSDR, 0:SPM 7-9-7, "
+							"1:SPM 14-18-14, 2:SPM 21-27-21, 3:CDM, 4:T1W-CDM")
+	t1w = File(exists=True, argstr="--t1w=%s", requires=["reg_method"],
+				desc="assign a t1w file for qsdr regularization method 4")
+	affine = File(exists=True, argstr="--affine=%s",
+				desc="text file containing a transformation matrix. "
+					"e.g. the following shifts in x and y by 10 voxels: \n"
+					"1 0 0 -10 \n 0 1 0 -10 \n 0 0 1 0")
+	flip = traits.Int(argstr="--flip=%d", 
+					desc="flip image volume and b-table. 0:flip x, 1:flip y, "
+						"2:flip z, 3:flip xy, 4:flip yz, 5: flip xz. \n"
+						"e.g. 301 performs flip xy, flip x, flip y")
+	motion_corr = traits.Enum(0,1, argstr="--motion_correction=%d",
+					desc="whether to apply motion and eddy current correction,"
+						" works only on DTI dataset")
+	interpo_method = traits.Enum(0,1,2, argstr="interpo_method=%d",
+			desc="interpolation method used in QSDR, 0:trilinear, "
+				"1:gaussian radial basis, 2:tricubic")
+	check_btable = traits.Enum(1,0, argstr="--check_btable=%d",
+			desc="whether to do b-table flipping, default yes")
+	other_image = traits.Bool(argstr="--other_image=%s,%s",
+					requires=["other_image_type","other_image_file"],
+					desc="assign other image volume to be wrapped with QSDR.")
+	other_image_type = traits.Enum("t1w","t2w",
+					requires=["other_image","other_image_file"],
+					desc="t1w or t2w (maybe others, but not set up for it)")
+	other_image_file = File(exists=True, 
+							requires=["other_image","other_image_type"]),
+							desc="filepath for image to be wrapped with QSDR")
+	output_mapping = Enum(0,1, argstr="--output_mapping=%d",
+						desc="used in QSDR to output mapping for each voxel, "
+							"default 0")
+	output_jac = Enum(0,1, argstr="--output_jac=%d",
+					desc="used in QSDR to output jacobian determinant, "
+						"default 0")
+	output_dif = Enum(1,0, argstr="--output_dif=%d",
+					desc="used in DTI to output diffusivity, default 1")
+	output_tensor = Enum(1,0, argstr="--output_tensor=%d",
+					usedefault=True,
+					desc="used in DTI to output whole tensor, default 1")
+	output_rdi = Enum(1,0, argstr="--output_rdi=%d",
+					desc="used in GQI, QSDR to output restricted diffusion "
+						"imaging, default 1")
+	record_odf = Enum(0,1, argstr="--record_odf=%d",
+					desc="whether to output ODF for connectometry analysis")
+	csf_cal = Enum(1,0, argstr="--csf_calibration=%d",
+				usedefault=True,
+				desc="used in GQI, QSDR to enable CSF calibration, default 1")
+					
+
+
+#INCOMPLETE
+class DSIStudioReconstruct(DSIStudioCommand):
+	"""DSI Studio reconstruct action support
+
+	INCOMPLETE
+	"""
+	_action = "rec"
+	input_spec = DSIStudioReconstructInputSpec
+
+	def _parse_inputs(self, skip=None):
+		if skip is None:
+			toskip = ["other_image_type","other_image_file"]
+		else:
+			toskip = []
+			for e in skip:
+				toskip.append(e)
+				toskip.append("other_image_type")
+				toskip.append("other_image_file")
+		return super(DSIStudioReconstruct, self)._parse_inputs(skip=toskip)

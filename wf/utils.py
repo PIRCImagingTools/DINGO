@@ -1,5 +1,6 @@
 from wf.DSI_Studio_base import *
 
+
 #Return patient/scan id
 def patient_scan(patientcfg, addSequence=None):
 	"""Get patient/scan id
@@ -103,17 +104,83 @@ def testvalues():
 	return syscfg, anacfg, subcfg
 
 def testvals2():
-	source = '/home/pirc/Desktop/DWI/CHD_tractography/CHP/0003_2015_02_25/0003_2015_02_25_DTIFIXED.nii.src.gz.012fy.dti.fib.gz'
-	output = '/home/pirc/Desktop/DWI/CHD_tractography/CHP/0003_2015_02_25/Tracts/testtract.trk.gz'
-	rois = ['/home/pirc/Desktop/DWI/CHD_tractography/CHP/0003_2015_02_25/Regions/CHP_mFAlap_Genu.nii.gz','/home/pirc/Desktop/DWI/CHD_tractography/CHP/0003_2015_02_25/Regions/CHP_mFAlap_Sagittal_L.nii.gz','/home/pirc/Desktop/DWI/CHD_tractography/CHP/0003_2015_02_25/Regions/CHP_mFAlap_Sagittal_R.nii.gz']
-	roas = ['/home/pirc/Desktop/DWI/CHD_tractography/CHP/0003_2015_02_25/Regions/CHP_mFAlap_PosteriorGenu.nii.gz','/home/pirc/Desktop/DWI/CHD_tractography/CHP/0003_2015_02_25/Regions/CHP_mFAlap_InternalCapsule_L.nii.gz','/home/pirc/Desktop/DWI/CHD_tractography/CHP/0003_2015_02_25/Regions/CHP_mFAlap_InternalCapsule_R.nii.gz']
+	source = '/home/pirc/Desktop/DWI/CHD_tractography/CHP/0003/20150225/0003_20150225_DTIFIXED.nii.src.gz.012fy.dti.fib.gz'
+	output = '/home/pirc/Desktop/DWI/CHD_tractography/CHP/0003/20150225/Tracts/testGenu_sub.trk.gz'
+	rois = ['/home/pirc/Desktop/DWI/CHD_tractography/CHP/0003/20150225/Regions/CHP_mFAlap_Genu.nii.gz',
+			'/home/pirc/Desktop/DWI/CHD_tractography/CHP/0003/20150225/Regions/CHP_mFAlap_Sagittal_L.nii.gz',
+			'/home/pirc/Desktop/DWI/CHD_tractography/CHP/0003/20150225/Regions/CHP_mFAlap_Sagittal_R.nii.gz']
+	roas = ['/home/pirc/Desktop/DWI/CHD_tractography/CHP/0003/20150225/Regions/CHP_mFAlap_PosteriorGenu.nii.gz',
+			'/home/pirc/Desktop/DWI/CHD_tractography/CHP/0003/20150225/Regions/CHP_mFAlap_InternalCapsule_L.nii.gz',
+			'/home/pirc/Desktop/DWI/CHD_tractography/CHP/0003/20150225/Regions/CHP_mFAlap_InternalCapsule_R.nii.gz']
+	action = "trk"
 	fat = 0.1
-	fibc = 1000
-	seedc = 100000
+	fibc = 5000
+	seedc = 1000000
 	method = 0
-	threads = 2
+	threads = 4
 	
 	trk = DSIStudioTrack()
+	trk.inputs.action = action
+	trk.inputs.source = source
+	trk.inputs.output = output
+	trk.inputs.roi = rois
+	trk.inputs.roa = roas
+	trk.inputs.fa_threshold = fat
+	trk.inputs.fiber_count = fibc
+	trk.inputs.seed_count = seedc
+	trk.inputs.method = method
+	trk.inputs.thread_count = threads
+	return trk
+
+def testvals3():
+	source = '/home/pirc/Desktop/DWI/CHD_tractography/CHP/0003/20150225/0003_20150225_DTIFIXED.nii.src.gz.012fy.dti.fib.gz'
+	output = '/home/pirc/Desktop/DWI/CHD_tractography/CHP/0003/20150225/Tracts/testGenu_sub.trk.gz'
+	rois = ['/home/pirc/Desktop/DWI/CHD_tractography/CHP/0003/20150225/Regions/CHP_mFAlap_Genu.nii.gz',
+			'/home/pirc/Desktop/DWI/CHD_tractography/CHP/0003/20150225/Regions/CHP_mFAlap_Sagittal_L.nii.gz',
+			'/home/pirc/Desktop/DWI/CHD_tractography/CHP/0003/20150225/Regions/CHP_mFAlap_Sagittal_R.nii.gz']
+	roas = ['/home/pirc/Desktop/DWI/CHD_tractography/CHP/0003/20150225/Regions/CHP_mFAlap_PosteriorGenu.nii.gz',
+			'/home/pirc/Desktop/DWI/CHD_tractography/CHP/0003/20150225/Regions/CHP_mFAlap_InternalCapsule_L.nii.gz',
+			'/home/pirc/Desktop/DWI/CHD_tractography/CHP/0003/20150225/Regions/CHP_mFAlap_InternalCapsule_R.nii.gz']
+	action = "trk"
+	fat = 0.1
+	fibc = 5000
+	seedc = 1000000
+	method = 1
+	threads = 4
+	seed_plan = 1
+	
+	trk = DSIStudioTrack()
+	trk.inputs.action = action
+	trk.inputs.source = source
+	trk.inputs.output = output
+	trk.inputs.roi = rois
+	trk.inputs.roa = roas
+	trk.inputs.fa_threshold = fat
+	trk.inputs.fiber_count = fibc
+	trk.inputs.seed_count = seedc
+	trk.inputs.method = method
+	trk.inputs.thread_count = threads
+	trk.inputs.seed_plan = seed_plan
+	return trk
+
+def testvals4():
+	source = '/home/pirc/Desktop/DWI/CHD_tractography/CHP/0003/20150225/0003_20150225_DTIFIXED.nii.src.gz.fy.dti.fib.gz'
+	output = '/home/pirc/Desktop/DWI/CHD_tractography/CHP/0003/20150225/Tracts/testGenu_subrot.trk.gz'
+	rois = ['/home/pirc/Desktop/DWI/CHD_tractography/CHP/0003/20150225/Regions/Genu.nii.gz',
+			'/home/pirc/Desktop/DWI/CHD_tractography/CHP/0003/20150225/Regions/Sagittal_L.nii.gz',
+			'/home/pirc/Desktop/DWI/CHD_tractography/CHP/0003/20150225/Regions/Sagittal_R.nii.gz']
+	roas = ['/home/pirc/Desktop/DWI/CHD_tractography/CHP/0003/20150225/Regions/PosteriorGenu.nii.gz',
+			'/home/pirc/Desktop/DWI/CHD_tractography/CHP/0003/20150225/Regions/InternalCapsule_L.nii.gz',
+			'/home/pirc/Desktop/DWI/CHD_tractography/CHP/0003/20150225/Regions/InternalCapsule_R.nii.gz']
+	action = "trk"
+	fat = 0.1
+	fibc = 5000
+	seedc = 1000000
+	method = 0
+	threads = 4
+	
+	trk = DSIStudioTrack()
+	trk.inputs.action = action
 	trk.inputs.source = source
 	trk.inputs.output = output
 	trk.inputs.roi = rois

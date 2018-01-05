@@ -119,11 +119,21 @@ tbss2 = create_tbss_2_reg_n("tbss2")
 #TBSS3
 tbss3 = create_tbss_3_postreg("tbss3")
 
+tbssout = pe.Node(IdentityInterface(fields=["best_target",
+											"best_to_mni",
+											"to_best_warp_list",
+											"mni_fa_list"]),
+				  name="tbssout")
+
 tbss = pe.Workflow(name="tbss")
 tbss.connect([
 			(tbssin, tbss1, [("","")],
 			(tbss1, tbss2, [("","")],
-			(tbss2, tbss3, [("","")]
+			(tbss2, tbss3, [("","")],
+			(tbss2, tbssout [("","to_best_warp_list")],
+			(tbss3, tbssout [("","best_target")],
+			(tbss3, tbssout [("","best_to_mni")],
+			(tbss3, tbssout [("","mni_fa_list")]
 			])
 
 
