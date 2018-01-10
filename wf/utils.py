@@ -92,7 +92,7 @@ def read_config(configpath):
 		raise
 	return cfg
 
-def testvalues():
+def testconfigs():
 	syscfgpath = "/home/pirc/Desktop/DWI/DINGO/res/system_config.json"
 	anacfgpath = "/home/pirc/Desktop/DWI/DINGO/res/Neonates_analysis_config.json"
 	subcfgpath = "/home/pirc/Desktop/DWI/DINGO/res/patient_config.json"
@@ -113,9 +113,10 @@ def testvals2():
 			'/home/pirc/Desktop/DWI/CHD_tractography/CHP/0003/20150225/Regions/CHP_mFAlap_InternalCapsule_L.nii.gz',
 			'/home/pirc/Desktop/DWI/CHD_tractography/CHP/0003/20150225/Regions/CHP_mFAlap_InternalCapsule_R.nii.gz']
 	action = "trk"
+	roi_actions = [['dilation','dilation','smoothing'],[],['defragment']]
 	fat = 0.1
 	fibc = 5000
-	seedc = 1000000
+	seedc = 100000000
 	method = 0
 	threads = 4
 	
@@ -124,6 +125,7 @@ def testvals2():
 	trk.inputs.source = source
 	trk.inputs.output = output
 	trk.inputs.roi = rois
+	#trk.inputs.roi_action = roi_actions
 	trk.inputs.roa = roas
 	trk.inputs.fa_threshold = fat
 	trk.inputs.fiber_count = fibc
@@ -144,7 +146,7 @@ def testvals3():
 	action = "foo"
 	fat = 0.1
 	fibc = 10
-	seedc = 500
+	seedc = 5000
 	method = 1
 	threads = 1
 	seed_plan = 1
@@ -172,10 +174,10 @@ def testvals4():
 	roas = ['/home/pirc/Desktop/DWI/CHD_tractography/CHP/0003/20150225/Regions/PosteriorGenu.nii.gz',
 			'/home/pirc/Desktop/DWI/CHD_tractography/CHP/0003/20150225/Regions/InternalCapsule_L.nii.gz',
 			'/home/pirc/Desktop/DWI/CHD_tractography/CHP/0003/20150225/Regions/InternalCapsule_R.nii.gz']
-	
+	roi_actions = [['dilation','dilation','smoothing'],[],['defragment']]
 	fat = 0.07
 	fibc = 5000
-	seedc = 1000000
+	seedc = 100000000
 	method = 0
 	threads = 4
 	
@@ -183,6 +185,7 @@ def testvals4():
 	trk.inputs.source = source
 	trk.inputs.output = output
 	trk.inputs.roi = rois
+	#trk.inputs.roi_action = roi_actions
 	trk.inputs.roa = roas
 	trk.inputs.fa_threshold = fat
 	trk.inputs.fiber_count = fibc

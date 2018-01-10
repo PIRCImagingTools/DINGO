@@ -1,4 +1,5 @@
-from nipype.interfaces.base import (traits, File, InputMultiPath, isdefined, 
+from nipype.interfaces.base import (traits, File, InputMultiPath, 
+									OutputMultiPath,isdefined, 
 									CommandLine, CommandLineInputSpec, 
 									TraitedSpec)
 import os
@@ -161,15 +162,24 @@ class DSIStudioFiberInputSpec(DSIStudioInputSpec):
 				argstr="--seed=%s",
 				desc="specify seeding file, txt, analyze, or nifti, "
 					 "unspecified default is whole brain")
+	seed_action = traits.List(traits.Enum("smoothing","erosion","dilation",
+										"defragment","negate","flipx","flipy",
+										"flipz"),
+							requires = ["seed"],
+							argstr="%s",
+							sep=",",
+							desc="action codes to modify seed region")
 	#DSI Studio has built in accepted values that are not file paths,
 	#but AtlasName:RegionName
 	roi = InputMultiPath(File(exists=True), 
 						argstr="--roi%s=%s",
 						desc="roi files through which tracts must pass, "
 							"txt, analyze, or nifti")
-	roi_action = traits.List(traits.Enum("smoothing","erosion","dilation",
-										"defragment","negate","flipx","flipy",
-										"flipz"),
+	roi_action = traits.List(traits.List(
+					traits.Enum("smoothing","erosion","dilation","defragment",
+								"negate","flipx","flipy","flipz","shiftx",
+								"shiftnx","shifty","shiftny","shiftz",
+								"shiftnz")),
 							requires = ["roi"],
 							argstr="%s",
 							sep=",",
@@ -197,7 +207,7 @@ class DSIStudioFiberInputSpec(DSIStudioInputSpec):
 							requires = ["end"],
 							argstr="%s",
 							sep=",",
-							desc="action codes to modify ends, "
+							desc="action codes to modify ends regions, "
 							"list for each end")
 	ter = File(exists=True,
 			   argstr="--ter=%s",
@@ -231,7 +241,8 @@ class DSIStudioFiberInputSpec(DSIStudioInputSpec):
 				  argstr="--output=%s",
 				  hash_files=False,
 				  desc="output tract file name, "
-					   "format may be txt, trk, or nii")
+					   "format may be txt, trk, or nii",
+				  position=3)
 	end_point = File(argstr="--end_point=%s",
 					 hash_files=False,
 					 desc="endpoint file name, format may be txt or mat")
@@ -334,25 +345,80 @@ class DSIStudioFiberCommand(DSIStudioCommand):
 	"""
 	input_spec = DSIStudioFiberInputSpec
 
-	def _format_region_actions(self, name, trait_spec, value):
-		foo = ""
-		return foo
+	def _add_region_actions(self, name, value):
+		"""helper function for _format_arg, 
+		will add region action inputs to input value
+		
+		Parameters
+		----------
+		name : str (input name, e.g. 'seed', 'roi', 'roa', 'end', 'ter')
+		value : str (region name or path, not the whole list)
+		
+		Returns
+		-------
+		newval : str (region name or path, with appended action options)
+		"""
+				
+		actions = getattr(self.inputs, name+"_action")#matching action values
+		wholevalue = getattr(self.inputs, name)
+		vi = wholevalue.index(value)
+		if isdefined(actions) and \
+			len(actions) != len(wholevalue):
+			raise AttributeError("N Entries in %s action list does not match"
+								 "N Regions" % name)
+		
+		action_ts = self.inputs.trait(name+"_action")#matching action specific
+		modval = []
+		modval.append(value)
+		newval = value #return input if there are no region actions
+		if isdefined(actions):
+			if isdefined(action_ts.sep):
+				for e in actions[vi]:
+					if e:#if not an empty list
+						modval.append(action_ts.sep)
+						modval.append(e)
+					elif not e:#if an empty list
+						continue
+			else:
+				for e in actions[vi]:
+					if e:
+						modval.append(",")
+						modval.append(e)
+					elif not e:
+						continue
+			newval = ''.join(modval)
+		return newval
 
 	def _format_arg(self, name, trait_spec, value):
 		"""alternative helper function for _parse_inputs, 
-		format roi, roa, end, export, atlas argstrs
+		format roi, roa, end, seed, ter, export, atlas argstrs
+		
+		Parameters
+		----------
+		name : str (input name, from DSIStudioFiberInputSpec)
+		trait_spec : trait_spec (input trait_spec from DSIStudioFiberInputSpec)
+		value : variable type (input command value)
+		
+		Returns
+		-------
+		argstr with value replacing %type in input argstr
 		"""
 
 		argstr = trait_spec.argstr
-		print argstr #debug
+		#print argstr #debug
 		sep = trait_spec.sep if trait_spec.sep is not None else ' '
 
-		if name == "roi" or name == "roa" or name == "end":
-		#--roi=1 --roi2=2 --roi3=3
+		if name == "roi" or \
+			name == "roa" or \
+			name == "end" or \
+			name == "seed" or \
+			name =="ter":
+		#--roi=1 --roi2=2 --roi3=3, same pattern for all regions
 			arglist = []
 			for e in value:
+				ewactions = self._add_region_actions(name, e)#return e if no actions
 				if value.index(e) == 0:
-					arglist.append(argstr % ('',e))
+					arglist.append(argstr % ('',ewactions))
 				elif name == "roi" and value.index(e) > 4:
 					print("Cannot have more than 5 rois, first 5 will be used")
 					break
@@ -360,7 +426,7 @@ class DSIStudioFiberCommand(DSIStudioCommand):
 					print("Cannot have more than 2 ends, first 2 will be used")
 					break
 				else:
-					arglist.append(argstr % (value.index(e)+1,e))
+					arglist.append(argstr % (value.index(e)+1,ewactions))
 			return sep.join(arglist)
 		elif name == "export": #report vals should not be parsed normally
 			for e in value:
@@ -380,13 +446,13 @@ class DSIStudioFiberCommand(DSIStudioCommand):
 			value[i] = "".join(str(newe))
 			return argstr % sep.join(str(e) for e in value)
 		else:
-			print('Super: ' + argstr)
+			#print('Super: ' + argstr) #debug
 			return super(DSIStudioFiberCommand, self)._format_arg(name, trait_spec, value)
 
 	def _gen_filename(self, name):
 		if name == "output":
 			path, filename, ext = split_filename(
-			os.path.abspath(self.inputs.source))
+				os.path.abspath(self.inputs.source))
 			fname = []
 			fname.append(filename)
 			fname.append("_track")
@@ -399,6 +465,7 @@ class DSIStudioFiberCommand(DSIStudioCommand):
 		deftoskip = ["report_val",
 					"report_pstyle",
 					"report_bandwidth",
+					"seed_action",
 					"roi_action",
 					"roa_action",
 					"end_action",
@@ -430,7 +497,7 @@ class DSIStudioTrackInputSpec(DSIStudioFiberInputSpec):
 							usedefault=True,
 							desc="number of fiber tracks to find, "
 								  "end criterion")
-	seed_count = traits.Int(1000000, 
+	seed_count = traits.Int(100000000, 
 							argstr="--seed_count=%d",
 							usedefault=True,
 							desc="max number of seeds, end criterion")
@@ -461,7 +528,7 @@ class DSIStudioTrackInputSpec(DSIStudioFiberInputSpec):
 							argstr="--random_seed=%d",
 							desc="whether a timer is used to generate seed "
 								   "points, default is off")
-	step_size = traits.Float(0.5,
+	step_size = traits.Float(1.00,
 							argstr="--step_size=%.2f",
 							usedefault=True,
 							desc="moving distance in each tracking interval, "
@@ -473,15 +540,15 @@ class DSIStudioTrackInputSpec(DSIStudioFiberInputSpec):
 	#listed on website, but didn't seem to be in code, and I don't know
 	#what it's supposed to do - leaving out should get default
 	#interpo_angle = traits.Int(60, argstr="--interpo_angle=%d", desc="")
-	smoothing = traits.Float(0.20, 
+	smoothing = traits.Float(0.00, 
 							argstr="--smoothing=%.2f", 
 							usedefault=True,
 							desc="fiber track momentum")
-	min_length = traits.Int(15, 
+	min_length = traits.Int(30, 
 							argstr="--min_length=%d",
 							usedefault=True,
 							desc="tracks below mm length deleted")
-	max_length = traits.Int(400, 
+	max_length = traits.Int(300, 
 							argstr="--max_length=%d",
 							usedefault=True,
 							desc="tracks above mm length deleted")
@@ -558,6 +625,59 @@ class DSIStudioAnalysis(DSIStudioFiberCommand):
 	_action = "ana"
 	input_spec = DSIStudioAnalysisInputSpec
 	output_spec = DSIStudioFiberOutputSpec
+
+
+
+class DSIStudioSourceInputSpec(DSIStudioInputSpec):
+	
+	output = File(genfile=True,
+				argstr="--output=%s",
+				hash_files=False,
+				desc="assign the output src file path and name",
+				position=3)
+	b_table = File(exists=True,
+				argstr="--b_table=%s",
+				desc="assign the replacement b-table")
+	bval = File(exists=True,
+				argstr="--bval=%s",
+				desc="assign the b value text file")
+	bvec = File(exists=True,
+				argstr="--bvec=%s",
+				desc="assign the b vector text file")
+	recursive = traits.Enum(0,1,
+							argstr="--recursive=%d",
+							desc="whether to search files in subdirectories")
+
+
+
+class DSIStudioSourceOutputSpec(TraitedSpec):
+	
+	output_type = traits.Enum("SRC",
+							usedefault=True,
+							desc="DSI Studio src action output type")
+	src_file = File(exists=True,
+					desc="DSI Studio src file")
+
+
+
+class DSIStudioSource(DSIStudioCommand):
+	"""DSI Studio SRC action support
+	INCOMPLETE
+	"""
+	_action = "src"
+	input_spec = DSIStudioSourceInputSpec
+	output_spec = DSIStudioSourceOutputSpec
+
+	def _gen_filename(self, name):
+		if name == "output":
+			path, filename, ext = split_filename(
+				os.path.abspath(self.inputs.source))
+			fname = []
+			fname.append(filename)
+			fname.append(ext)
+			fname.append(Info.output_type_to_ext(self.inputs.output_type))
+			return "".join(fname)
+		return super(DSIStudioSource, self)._gen_filename(name)
 
 
 
@@ -672,7 +792,7 @@ class DSIStudioReconstructOutputSpec(TraitedSpec):
 	#filename seems to depend on reconstruction method, but unsure of the details
 
 
-#INCOMPLETE
+
 class DSIStudioReconstruct(DSIStudioCommand):
 	"""DSI Studio reconstruct action support
 
@@ -703,3 +823,42 @@ class DSIStudioReconstruct(DSIStudioCommand):
 			for e in deftoskip:
 				toskip.append(e)
 		return super(DSIStudioReconstruct, self)._parse_inputs(skip=toskip)
+
+
+
+class DSIStudioAtlasInputSpec(DSIStudioInputSpec):
+	order = traits.Enum(0,1,2,3,
+						argstr="--order=%d",
+						desc="normalization order, higher gives better acc. "
+							"but requires more time, default 0")
+	thread_count = traits.Int(4,
+							argstr="--thread_count=%d",
+							desc="number of threads to use in image "
+								"normalization, default 4")
+	atlas = traits.List(
+		traits.Enum("aal", "ATAG_basal_ganglia", "brodmann", "Cerebellum-SUIT",
+					"FreeSurferDKT", "Gordan_rsfMRI333", "HarvardOxfordCort",
+					"HarvardOxfordSub","HCP-MMP1","JHU-WhiteMatter-labels-1mm",
+					"MNI", "OASIS_TRT_20", "sri24_tissues","sri24_tzo116plus",
+					"talairach","tractography"),
+		argstr="--atlas=%s", 
+		sep=",")
+	output = traits.Enum("single", "multiple",
+						argstr="--output=%s",
+						desc="whether to create one or multiple nifti files")
+
+
+
+class DSIStudioAtlasOutputSpec(TraitedSpec):
+	output = OutputMultiPath(
+				File(desc="path/name of transformed atlas nifti file(s) "
+							"(if generated)"))
+
+
+
+class DSIStudioAtlas(DSIStudioCommand):
+	"""DSI Studio atlas action support
+	INCOMPLETE
+	"""
+	_action = "atl"
+	input_spec = DSIStudioAtlasInputSpec
