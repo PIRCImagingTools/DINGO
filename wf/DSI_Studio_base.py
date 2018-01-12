@@ -19,7 +19,8 @@ class Info(object):
 	act_out = {'trk': 'TRK',
 		   'rec': 'FIB',
 		   'src': 'SRC',
-		   'ana': 'TXT'}
+		   'ana': 'TXT',
+		   'atl': 'NIFTI'}
 
 	@classmethod
 	def output_type_to_ext(cls, output_type):
@@ -74,6 +75,13 @@ class DSIStudioInputSpec(CommandLineInputSpec):
 				  argstr="--source=%s",
 				  desc="Input file to process",
 				  position=2)
+	debuglog = File(argstr="> %s",
+					desc="Log file path/name")
+
+
+
+class DSIStudioOutputSpec(TraitedSpec):
+	debuglog = File(desc="path/name of log file (if generated)")
 	
 
 
@@ -146,7 +154,7 @@ class DSIStudioCommand(CommandLine):
 				suffix = ext
 		if suffix is None:
 			suffix = ""
-		fname = fname_presuffix(basename, suffix=suffix, use_ext=False,
+		fname = fname_presuffix(basename, suffix=suffix, use_ext=True,
 								newpath=cwd)
 		return fname
 
@@ -237,7 +245,7 @@ class DSIStudioFiberInputSpec(DSIStudioInputSpec):
 								argstr="--delete_repeat=%d",
 								desc="0 or 1, 1 removes repeat tracks with"
 									"distance < 1 mm")
-	output = File(genfile=True,
+	track = File(genfile=True,
 				  argstr="--output=%s",
 				  hash_files=False,
 				  desc="output tract file name, "
@@ -253,16 +261,19 @@ class DSIStudioFiberInputSpec(DSIStudioInputSpec):
 					sep=',',
 					desc="export information related to fiber tracts")
 	report_val = traits.Enum("fa","gfa","qa","nqa","md","ad","rd",
-							 argstr=":%s",
+							 argstr="%s",
+							 sep=":",
 							 desc="type of values for tract report")
 	report_pstyle = traits.Enum(0,1,2,3,4, 
-								argstr=":%d",
+								argstr="%d",
+								sep=":",
 								requires=["export"],
 								desc="profile style for tract report "
 									 "0:x, 1:y, 2:z, 3:along tracts, "
 									 "4:tract mean")
 	report_bandwidth = traits.Float(1.0, 
-									argstr=":%.1f",
+									argstr="%.1f",
+									sep=":",
 									requires=["export"],
 									desc="bandwidth for tract report")
 	connectivity = traits.Str(atlas,
@@ -298,7 +309,7 @@ class DSIStudioFiberInputSpec(DSIStudioInputSpec):
 
 
 
-class DSIStudioFiberOutputSpec(DSIStudioInputSpec):
+class DSIStudioFiberOutputSpec(DSIStudioOutputSpec):
 	"""Output specification for fiber tracking, trk, ana"""
 	track = File(desc="path/name of fiber track file (if generated)")
 	endpt = File(desc="path/name of fiber track end points file "
@@ -451,7 +462,7 @@ class DSIStudioFiberCommand(DSIStudioCommand):
 
 	def _gen_filename(self, name):
 		if name == "output":
-			path, filename, ext = split_filename(
+			_, filename, _ = split_filename(
 				os.path.abspath(self.inputs.source))
 			fname = []
 			fname.append(filename)
@@ -485,7 +496,7 @@ class DSIStudioFiberCommand(DSIStudioCommand):
 class DSIStudioTrackInputSpec(DSIStudioFiberInputSpec):
 	"""Input specification for DSI Studio fiber tracking"""
 
-	output_type = traits.Enum("TRK", 
+	output_type = traits.Enum("TRK", "TXT", "NIFTI",
 							usedefault=True,
 							desc="DSI Studio trk action output type")
 	method = traits.Enum(0, 1, 
@@ -577,6 +588,7 @@ class DSIStudioTrack(DSIStudioFiberCommand):
 	"""
 
 	_action = "trk"
+	_output_type = "TRK"
 	input_spec = DSIStudioTrackInputSpec
 	output_spec = DSIStudioFiberOutputSpec
 	
@@ -595,7 +607,7 @@ class DSIStudioTrack(DSIStudioFiberCommand):
 
 class DSIStudioAnalysisInputSpec(DSIStudioFiberInputSpec):
 
-	output_type = traits.Enum("TXT", 
+	output_type = traits.Enum("TXT", "TRK", "NIFTI",
 							usedefault=True,
 							desc="DSI Studio ana action output type")
 	#if more than 1 roi is given, or track is specified, DSIstudio will
@@ -623,6 +635,7 @@ class DSIStudioAnalysis(DSIStudioFiberCommand):
 	'dsi_studio --action=ana --source=my.fib.gz --tract=myTract.trk.gz --output=myTract.txt --export=stat'
 	"""
 	_action = "ana"
+	_output_type = "TXT"
 	input_spec = DSIStudioAnalysisInputSpec
 	output_spec = DSIStudioFiberOutputSpec
 
@@ -635,6 +648,9 @@ class DSIStudioSourceInputSpec(DSIStudioInputSpec):
 				hash_files=False,
 				desc="assign the output src file path and name",
 				position=3)
+	output_type = traits.Enum("SRC",
+							usedefault=True,
+							desc="DSI Studio src action output type")
 	b_table = File(exists=True,
 				argstr="--b_table=%s",
 				desc="assign the replacement b-table")
@@ -650,12 +666,9 @@ class DSIStudioSourceInputSpec(DSIStudioInputSpec):
 
 
 
-class DSIStudioSourceOutputSpec(TraitedSpec):
+class DSIStudioSourceOutputSpec(DSIStudioOutputSpec):
 	
-	output_type = traits.Enum("SRC",
-							usedefault=True,
-							desc="DSI Studio src action output type")
-	src_file = File(exists=True,
+	output = File(exists=True,
 					desc="DSI Studio src file")
 
 
@@ -665,19 +678,21 @@ class DSIStudioSource(DSIStudioCommand):
 	INCOMPLETE
 	"""
 	_action = "src"
+	_output_type = "SRC"
 	input_spec = DSIStudioSourceInputSpec
 	output_spec = DSIStudioSourceOutputSpec
 
 	def _gen_filename(self, name):
 		if name == "output":
-			path, filename, ext = split_filename(
+			_, filename, ext = split_filename(
 				os.path.abspath(self.inputs.source))
 			fname = []
 			fname.append(filename)
 			fname.append(ext)
 			fname.append(Info.output_type_to_ext(self.inputs.output_type))
 			return "".join(fname)
-		return super(DSIStudioSource, self)._gen_filename(name)
+		else:
+			return super(DSIStudioSource, self)._gen_filename(name)
 
 
 
@@ -746,12 +761,13 @@ class DSIStudioReconstructInputSpec(DSIStudioInputSpec):
 					usedefault=True,
 					desc="whether to do b-table flipping, default yes")
 	other_image = traits.Bool(argstr="--other_image=%s,%s",
+					sep=";",
 					requires=["other_image_type","other_image_file"],
 					desc="assign other image volume to be wrapped with QSDR.")
-	other_image_type = traits.Enum("t1w","t2w",
+	other_image_type = traits.List(traits.Enum("t1w","t2w"),
 					requires=["other_image","other_image_file"],
-					desc="t1w or t2w (maybe others, but not set up for it)")
-	other_image_file = File(exists=True, 
+					desc="t1w or t2w (maybe others, but unsure,unimplemented)")
+	other_image_file = InputMultiPath(File(exists=True), 
 							requires=["other_image","other_image_type"],
 							desc="filepath for image to be wrapped with QSDR")
 	output_mapping = traits.Enum(0,1, 
@@ -786,7 +802,7 @@ class DSIStudioReconstructInputSpec(DSIStudioInputSpec):
 
 
 
-class DSIStudioReconstructOutputSpec(TraitedSpec):
+class DSIStudioReconstructOutputSpec(DSIStudioOutputSpec):
 	"""DSI Studio reconstruct output specification"""
 	fiber_file = File(exists=True, desc="Fiber tracking file")
 	#filename seems to depend on reconstruction method, but unsure of the details
@@ -795,10 +811,10 @@ class DSIStudioReconstructOutputSpec(TraitedSpec):
 
 class DSIStudioReconstruct(DSIStudioCommand):
 	"""DSI Studio reconstruct action support
-
-	INCOMPLETE
+	TESTING
 	"""
 	_action = "rec"
+	_output_type = "FIB"
 	input_spec = DSIStudioReconstructInputSpec
 	output_spec = DSIStudioReconstructOutputSpec
 
@@ -810,7 +826,25 @@ class DSIStudioReconstruct(DSIStudioCommand):
 
 		argstr = trait_spec.argstr
 		print argstr #debug
-		sep = trait_spec.sep if trait_spec.sep is not None else ' '
+		sep = trait_spec.sep if trait_spec.sep is not None else " "
+		arglist = []
+
+		if name == "params":
+			for e in value:
+				arglist.append(argstr % (value.index(e),e))#numbered from 0
+			return sep.join(arglist)
+		elif name == "other_image" and value:
+			oit = self.inputs.other_image_type
+			oif = self.inputs.other_image_file
+			if len(oit) != len(oif):
+				raise AttributeError("N other image types, a N other image "
+									"files does not match")
+			else:
+				for e in oit:
+					arglist.append(argstr % (e, oif[oit.index(e)]))
+					if oit.index(e)+1 == len(oit):#don't add sep after last val
+						break
+					arglist.append(sep)
 
 	def _parse_inputs(self, skip=None):
 		deftoskip = ["other_image_type","other_image_file"]
@@ -846,10 +880,13 @@ class DSIStudioAtlasInputSpec(DSIStudioInputSpec):
 	output = traits.Enum("single", "multiple",
 						argstr="--output=%s",
 						desc="whether to create one or multiple nifti files")
+	output_type = traits.Enum("NIFTI",
+							usedefault=True,
+							desc="DSI Studio atlas action output type")
 
 
 
-class DSIStudioAtlasOutputSpec(TraitedSpec):
+class DSIStudioAtlasOutputSpec(DSIStudioOutputSpec):
 	output = OutputMultiPath(
 				File(desc="path/name of transformed atlas nifti file(s) "
 							"(if generated)"))
@@ -858,7 +895,56 @@ class DSIStudioAtlasOutputSpec(TraitedSpec):
 
 class DSIStudioAtlas(DSIStudioCommand):
 	"""DSI Studio atlas action support
-	INCOMPLETE
+	TESTING
 	"""
 	_action = "atl"
+	_output_type = "NIFTI"
 	input_spec = DSIStudioAtlasInputSpec
+
+	
+
+class DSIStudioExportInputSpec(DSIStudioInputSpec):
+	export = traits.List(
+				traits.Str(),
+				argstr="--export=%s",
+				name_source=["source"],
+				name_template="%s",#overload extension, don't add _generated
+				desc="name of export target, includes fa0,fa1,gfa,dir0,dir1,"
+					"dirs,image0,4dnii, maybe others")
+	output_type = traits.Enum("NIFTI",
+							usedefault=True,
+							desc="DSI Studio Export output type")
+
+
+
+class DSIStudioExportOutputSpec(DSIStudioOutputSpec):
+	export = OutputMultiPath(
+				File(exists=True),
+				desc="matrix information output as nifti files")
+
+
+
+class DSIStudioExport(DSIStudioCommand):
+	"""DSI Studio export action support for exporting matrix information
+	INCOMPLETE
+	"""
+	_action = "exp"
+	_output_type = "NIFTI"
+	input_spec = DSIStudioExportInputSpec
+	output_spec = DSIStudioExportOutputSpec
+
+	def _overload_extension(self, value, name):
+		ns = self.inputs.trait(name).name_source
+		source = getattr(self.inputs, ns[0])
+		retval = []
+		rvunjoined = []
+		for e in value:
+			erv = []
+			erv.append(source)
+			erv.append(value[value.index(e)]) #DSI Studio adds export target to ext
+			erv.append(Info.output_type_to_ext(self.inputs.output_type))
+			rvunjoined.append(erv)
+		for e in rvunjoined:
+			retval.append("".join(e))
+		return retval
+
