@@ -10,7 +10,7 @@ def patient_scan(patientcfg, addSequence=None):
 	patcfg : dict < json (patient config file with pid, scanid in top level)
 	addSequence : bool (Flag to join sequence id with pid, scanid)
 
-	Outputs
+	Returns
 	-------
 	patient_scan_id : str (concatenated)
 	"""
@@ -40,6 +40,36 @@ def patient_scan(patientcfg, addSequence=None):
 	patient_scan_id = "".join(ps_id)
 
 	return patient_scan_id
+
+#Split patient/scan id
+def split_chpid(psid,sep):
+	"""Returns patient/scan/uid from input id
+
+	e.g. XXXX_YYYY_ZZZZ 			-> XXXX, YYYY, ZZZZ
+		 XXXX_YYYY_ZZZZ_ZZZZ		-> XXXX, YYYY, ZZZZ_ZZZZ
+		 CHD_XXXX_YYYY_ZZZZ 		-> CHD_XXXX, YYYY, ZZZZ
+		 CHD_XXXX_YYYY_ZZZZ_ZZZZ 	-> CHD_XXXX, YYYY, ZZZZ_ZZZZ
+"""
+	if not isinstance(psid, str):
+		raise TypeError("%s is not a string" % psid)
+	if not isinstance(sep, str):
+		raise TypeError("%s is not a string" % sep)
+
+	splitid=psid.split(sep)
+	if splitid[0] == "CHD":
+		subind=0
+		scanind=2
+		uniind=3
+	else:
+		subind=0
+		scanind=1
+		uniind=2
+
+	subid = "_".join(splitid[subind:scanind])
+	scanid = "_".join(splitid[scanind:uniind])
+	uniid = "_".join(splitid[uniind:])
+	return subid, scanid, uniid
+
 
 #Convert str to boolean
 def tobool(s):
@@ -123,7 +153,7 @@ def testvals2():
 	trk = DSIStudioTrack()
 	trk.inputs.action = action
 	trk.inputs.source = source
-	trk.inputs.output = output
+	trk.inputs.track = output
 	trk.inputs.roi = rois
 	#trk.inputs.roi_action = roi_actions
 	trk.inputs.roa = roas
@@ -154,7 +184,7 @@ def testvals3():
 	trk = DSIStudioTrack()
 	trk.inputs.action = action
 	trk.inputs.source = source
-	trk.inputs.output = output
+	trk.inputs.track = output
 	trk.inputs.roi = rois
 	trk.inputs.roa = roas
 	trk.inputs.fa_threshold = fat
@@ -183,7 +213,7 @@ def testvals4():
 	
 	trk = DSIStudioTrack()
 	trk.inputs.source = source
-	trk.inputs.output = output
+	trk.inputs.track = output
 	trk.inputs.roi = rois
 	#trk.inputs.roi_action = roi_actions
 	trk.inputs.roa = roas
