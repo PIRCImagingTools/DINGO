@@ -1,4 +1,4 @@
-from nipype.interfaces.base import (traits, File, InputMultiPath, 
+from nipype.interfaces.base import (traits, File, Directory, InputMultiPath, 
 									OutputMultiPath,isdefined, 
 									CommandLine, CommandLineInputSpec, 
 									TraitedSpec)
@@ -70,11 +70,13 @@ class DSIStudioInputSpec(CommandLineInputSpec):
 						 mandatory=True,
 						 desc="Command action type to execute",
 						 position=1)
-	source = File(exists=True,
-				  mandatory=True,
-				  argstr="--source=%s",
-				  desc="Input file to process",
-				  position=2)
+	source = traits.Either(
+							File(exists=True),
+							Directory(exists=True),
+							mandatory=True,
+							argstr="--source=%s",
+							desc="Input file to process",
+							position=2)
 	debuglog = File(argstr="> %s",
 					desc="Log file path/name")
 
@@ -179,10 +181,12 @@ class DSIStudioFiberInputSpec(DSIStudioInputSpec):
 							desc="action codes to modify seed region")
 	#DSI Studio has built in accepted values that are not file paths,
 	#but AtlasName:RegionName
-	roi = InputMultiPath(File(exists=True), 
+	roi = traits.Either(
+			InputMultiPath(File(exists=True)), 
+			traits.List(traits.Str, requires=["atlas"]),
 						argstr="--roi%s=%s",
-						desc="roi files through which tracts must pass, "
-							"txt, analyze, or nifti")
+						desc="roi through which tracts must pass, "
+							"txt, analyze, nifti, or region in atlas")
 	roi_action = traits.List(traits.List(
 					traits.Enum("smoothing","erosion","dilation","defragment",
 								"negate","flipx","flipy","flipz","shiftx",
@@ -193,10 +197,12 @@ class DSIStudioFiberInputSpec(DSIStudioInputSpec):
 							sep=",",
 							desc="action codes to modify rois, "
 							"list for each roi")
-	roa = InputMultiPath(File(exists=True), 
+	roa = traits.Either(
+			InputMultiPath(File(exists=True)), 
+			traits.List(traits.Str, requires=["atlas"]), 
 						argstr="--roa%s=%s",
 						desc="roa files which tracts must avoid, "
-							"txt, analyze, or nifti")
+							"txt, analyze, nifti, or region in atlas")
 	roa_action = traits.List(traits.Enum("smoothing","erosion","dilation",
 										"defragment","negate","flipx","flipy",
 										"flipz"),
@@ -205,10 +211,12 @@ class DSIStudioFiberInputSpec(DSIStudioInputSpec):
 							sep=",",
 							desc="action codes to modify roas, "
 							"list for each roa")
-	end = InputMultiPath(File(exists=True), 
+	end = traits.Either(
+			InputMultiPath(File(exists=True)), 
+			traits.List(traits.Str, requires=["atlas"]),
 						argstr="--end%s=%s",
 			   			desc="filter out tracks that do not end in this "
-							"region, txt, analyze, or nifti")
+							"region, txt, analyze, nifti or region in atlas")
 	end_action = traits.List(traits.Enum("smoothing","erosion","dilation",
 										"defragment","negate","flipx","flipy",
 										"flipz"),
@@ -217,10 +225,12 @@ class DSIStudioFiberInputSpec(DSIStudioInputSpec):
 							sep=",",
 							desc="action codes to modify ends regions, "
 							"list for each end")
-	ter = File(exists=True,
+	ter = traits.Either(
+			File(exists=True), 
+			traits.List(traits.Str, requires=["atlas"]),
 			   argstr="--ter=%s",
 			   desc="terminates any track that enters this region, "
-							"txt, analyze, or nifti")
+							"txt, analyze, nifti, or region in atlas")
 	ter_action = traits.List(traits.Enum("smoothing","erosion","dilation",
 										"defragment","negate","flipx","flipy",
 										"flipz"),
@@ -276,9 +286,13 @@ class DSIStudioFiberInputSpec(DSIStudioInputSpec):
 									sep=":",
 									requires=["export"],
 									desc="bandwidth for tract report")
-	connectivity = traits.Str(atlas,
-							argstr="--connectivity=%s",
-							desc="atlas id(s), or path to MNI space roi file")
+	connectivity = traits.Either(
+			File(exists=True), 
+			traits.List(atlas, 
+				requires=["atlas"],
+				usedefault=True),
+			argstr="--connectivity=%s",
+			desc="atlas id(s), or path to MNI space roi file")
 	connectivity_type = traits.List(traits.Enum("end","pass"),
 								argstr="--connectivity_type=%s",
 								requires=["connectivity"],
@@ -653,12 +667,15 @@ class DSIStudioSourceInputSpec(DSIStudioInputSpec):
 							desc="DSI Studio src action output type")
 	b_table = File(exists=True,
 				argstr="--b_table=%s",
+				xor=("bval","bvec"),
 				desc="assign the replacement b-table")
 	bval = File(exists=True,
 				argstr="--bval=%s",
+				xor=("b_table"),
 				desc="assign the b value text file")
 	bvec = File(exists=True,
 				argstr="--bvec=%s",
+				xor=("b_table"),
 				desc="assign the b vector text file")
 	recursive = traits.Enum(0,1,
 							argstr="--recursive=%d",

@@ -36,7 +36,7 @@ else:
 
 
 ###Pre-Processing###
-prepin = pe.Node(IdentityInterface(fields["subscanuid"]),
+prepin = pe.Node(interface=IdentityInterface(fields["subscanuid"]),
 				 name="prepin")
 prepin.iterables = ("subscanuid",scanlist)
 
@@ -113,14 +113,15 @@ gen_fa.connect([
 
 def create_tbss_reg_n(name="tbss_reg_n")
 	"""TBSS nonlinear registration:
-	Performs tbss_2_reg -n, input every fa file, reference every fa file
+	Performs tbss_2_reg -n, in_file, reference are each every fa file
 	"""
 	from nipype import IdentityInterface
 
 	inputnode = pe.Node(name="inputnode",
 						interface=IdentityInterface(fields=["fa_list",
-															"mask_list"]))
-	inputnode.iterables=("fa_list",inputnode.inputs.fa_list)
+															"mask_list",
+															"reference"]))
+	inputnode.iterables=("reference",inputnode.inputs.fa_list)
 	#inputnode.inputs.fa_list=prepout.outputs.fa_list
 
 	#Registration

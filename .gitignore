@@ -102,3 +102,6 @@ ENV/
 
 # old files
 *~
+
+#crash log
+crash-*
