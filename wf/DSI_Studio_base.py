@@ -10,17 +10,42 @@ from nipype.utils.filemanip import fname_presuffix, split_filename
 class Info(object):
 	#file extensions for output types
 	ftypes = {'SRC': '.src.gz',
-		  'FIB': '.fib.gz',
-		  'NIFTI': '.nii.gz',
-		  'TRK': '.trk.gz',
-		  'TXT': '.txt'}
+				'FIB': '.fib.gz',
+				'NIFTI': '.nii.gz',
+				'TRK': '.trk.gz',
+				'TXT': '.txt'}
 
 	#primary output types for action types
 	act_out = {'trk': 'TRK',
-		   'rec': 'FIB',
-		   'src': 'SRC',
-		   'ana': 'TXT',
-		   'atl': 'NIFTI'}
+				'rec': 'FIB',
+				'src': 'SRC',
+				'ana': 'TXT',
+				'atl': 'NIFTI'}
+
+	#reconstruction method id for method number
+	rec_method_n_id = {0: 'DSI',
+						1: 'DTI',
+						2: 'QBI',
+						3: 'QBI',
+						4: 'GQI',
+						6: 'HARDI',
+						7: 'QSDR'}
+	
+	#reconstruction method number of params for method id	   
+	rec_nparams = {'DSI': 1,
+				'DTI': 0,
+				'QBI': 2,
+				'GQI': 1,
+				'QSDR': 2,
+				'HARDI': 3}
+	
+	#reconstruction method param types for method id
+	rec_param_types = {'DSI': [int],
+				'DTI': [None],
+				'QBI': [float,int],
+				'GQI': [float],
+				'QSDR': [float,int],
+				'HARDI': [float,int,float]}
 
 	@classmethod
 	def output_type_to_ext(cls, output_type):
@@ -46,6 +71,11 @@ class Info(object):
 	@classmethod
 	def action_to_output_type(cls, action_type):
 		"""Get DSI studio output extension per action type
+		
+		Parameter
+		---------
+		action : {'src','rec','trk','ana','atl'}
+			String specifying the action type
 
 		Returns
 		-------
@@ -57,6 +87,63 @@ class Info(object):
 			return cls.act_out[action_type]
 		except KeyError:
 			msg = 'Invalid DSIStudioACTIONTYPE: ', action_type
+			raise KeyError(msg)
+			
+	@classmethod
+	def rec_method_n_to_id(cls, method_n):
+		"""Get DSI Studio tracking method id per method number
+		
+		Parameter
+		---------
+		method_n : {0,1,2,3,4,6,7}
+			Int specifying reconstruction method number
+		
+		Returns
+		-------
+		method_id : str
+		"""
+		try:
+			return cls.rec_method_n_id[method_n]
+		except KeyError:
+			msg = 'Invalid DSIStudio method number: ', method_n
+			raise KeyError(msg)
+			
+	@classmethod
+	def rec_method_to_nparams(cls, method_id):
+		"""Get number of params per tracking method
+		
+		Parameter
+		---------
+		method : {'DSI','DTI','QBI','GQI','HARDI','QSDR'}
+			Str specifying reconstruction method
+		
+		Returns
+		-------
+		nparams : int
+		"""
+		try:
+			return cls.rec_nparams[method_id]
+		except KeyError:
+			msg = 'Invalid DSIStudio Tracking method: ', method_id
+			raise KeyError(msg)
+			
+	@classmethod
+	def rec_method_to_param_types(cls, method_id):
+		"""Get param types per tracking method
+		
+		Parameter
+		---------
+		method : {'DSI','DTI','QBI','GQI','HARDI','QSDR'}
+			Str specifying reconstruction method
+		
+		Returns
+		-------
+		type
+		"""
+		try:
+			return cls.rec_param_types[method_id]
+		except KeyError:
+			msg = 'Invalid DSIStudio Tracking method: ', method_id
 			raise KeyError(msg)
 
 
@@ -382,6 +469,14 @@ class DSIStudioFiberCommand(DSIStudioCommand):
 		Returns
 		-------
 		newval : str (region name or path, with appended action options)
+
+		Example
+		-------
+		trk=Node(interface=DSIStudioTrack())
+		trk.inputs.roi=['ROI1.nii','ROI2.nii']
+		trk.inputs.roi_action=[['dilation'],['dilation','smoothing']]
+		trk.inputs.cmdline
+		'dsi_studio --action=trk --roi=ROI1.nii,dilation --roi2=ROI2.nii,dilation,smoothing'
 		"""
 				
 		actions = getattr(self.inputs, name+"_action")#matching action values
@@ -667,15 +762,15 @@ class DSIStudioSourceInputSpec(DSIStudioInputSpec):
 							desc="DSI Studio src action output type")
 	b_table = File(exists=True,
 				argstr="--b_table=%s",
-				xor=("bval","bvec"),
+				xor=["bval","bvec"],
 				desc="assign the replacement b-table")
 	bval = File(exists=True,
 				argstr="--bval=%s",
-				xor=("b_table"),
+				xor=["b_table"],
 				desc="assign the b value text file")
 	bvec = File(exists=True,
 				argstr="--bvec=%s",
-				xor=("b_table"),
+				xor=["b_table"],
 				desc="assign the b vector text file")
 	recursive = traits.Enum(0,1,
 							argstr="--recursive=%d",
@@ -692,7 +787,6 @@ class DSIStudioSourceOutputSpec(DSIStudioOutputSpec):
 
 class DSIStudioSource(DSIStudioCommand):
 	"""DSI Studio SRC action support
-	INCOMPLETE
 	"""
 	_action = "src"
 	_output_type = "SRC"
@@ -701,11 +795,10 @@ class DSIStudioSource(DSIStudioCommand):
 
 	def _gen_filename(self, name):
 		if name == "output":
-			_, filename, ext = split_filename(
+			_, filename, _ = split_filename(
 				os.path.abspath(self.inputs.source))
 			fname = []
 			fname.append(filename)
-			fname.append(ext)
 			fname.append(Info.output_type_to_ext(self.inputs.output_type))
 			return "".join(fname)
 		else:
@@ -715,25 +808,65 @@ class DSIStudioSource(DSIStudioCommand):
 
 class DSIStudioReconstructInputSpec(DSIStudioInputSpec):
 
-	thread_count = traits.Int(2, 
-							argstr="--thread_count=%d",
-							desc="Number of threads to use for reconstruction")
-	mask = File(exists=True, 
-				argstr="--mask=%s",
-				desc="assign a nifti format mask")
-	output_type = traits.Enum("FIB", 
-							usedefault=True,
-							desc="DSI Studio rec action output type")
+	thread_count = traits.Int(
+		2, 
+		argstr="--thread_count=%d",
+		desc="Number of threads to use for reconstruction")
+	mask = File(
+		exists=True, 
+		argstr="--mask=%s",
+		desc="assign a nifti format mask")
+	output_type = traits.Enum(
+		"FIB", 
+		usedefault=True,
+		desc="DSI Studio rec action output type")
+	method_dsi = traits.Bool(
+		argstr="--method=0",
+		xor=["method_dti","method_frqbi","method_shqbi","method_gqi",
+			"method_hardi","method_qsdr"],
+		desc="assign DSI method for reconstruction")
+	method_dti = traits.Bool(
+		argstr="--method=1",
+		xor=["method_dsi","method_frqbi","method_shqbi","method_gqi",
+			"method_hardi","method_qsdr"],
+		desc="assign DTI method for reconstruction")
+	method_frqbi = traits.Bool(
+		argstr="--method=2",
+		xor=["method_dti","method_dsi","method_shqbi","method_gqi",
+			"method_hardi","method_qsdr"],
+		desc="assign Funk-Radon QBI method for reconstruction")
+	method_shqbi = traits.Bool(
+		argstr="--method=3",
+		xor=["method_dti","method_frqbi","method_dsi","method_gqi",
+			"method_hardi","method_qsdr"],
+		desc="assign Spherical Harmonic QBI method for reconstruction")
+	method_gqi = traits.Bool(
+		argstr="--method=4",
+		xor=["method_dti","method_frqbi","method_shqbi","method_dsi",
+			"method_hardi","method_qsdr"],
+		desc="assign GQI method for reconstruction")
+	method_hardi = traits.Bool(
+		argstr="--method=6",
+		xor=["method_dti","method_frqbi","method_shqbi","method_gqi",
+			"method_dsi","method_qsdr"],
+		desc="Convert to HARDI")
+	method_qsdr = traits.Bool(
+		argstr="--method=7",
+		xor=["method_dti","method_frqbi","method_shqbi","method_gqi",
+			"method_hardi","method_dsi"],
+		desc="assign QSDR method for reconstruction")
+							
 	method = traits.Enum(1,0,2,3,4,6,7, 
 						mandatory=True, 
 						argstr="--method=%d",
-						usedefault=True,
 						desc="Reconstruction method, 0:DSI, 1:DTI, "
 							"2:Funk-Randon QBI, 3:Spherical Harmonic QBI, "
 							"4:GQI, 6:Convert to HARDI, 7:QSDR")
+
+	#params includes some floats, some ints depending on method
 	params = traits.List(argstr="--param%s=%s",
 						desc="Reconstruction parameters, different meaning"
-							"and types for different methods")#some floats, some ints
+							"and types for different methods")
 	odf_order = traits.Enum(8,4,5,6,10,12,16,20, 
 							argstr="--odf_order=%d",
 							desc="tesselation number of the odf, default 8")
@@ -789,24 +922,23 @@ class DSIStudioReconstructInputSpec(DSIStudioInputSpec):
 							desc="filepath for image to be wrapped with QSDR")
 	output_mapping = traits.Enum(0,1, 
 						argstr="--output_mapping=%d",
-						usedefault=True,
 						desc="used in QSDR to output mapping for each voxel, "
 							"default 0")
 	output_jac = traits.Enum(0,1, argstr="--output_jac=%d",
-					usedefault=True,
+					requires=["method_qsdr"],
 					desc="used in QSDR to output jacobian determinant, "
 						"default 0")
 	output_dif = traits.Enum(1,0, 
 					argstr="--output_dif=%d",
-					usedefault=True,
+					requires=["method_dti"],
 					desc="used in DTI to output diffusivity, default 1")
-	output_tensor = traits.Enum(1,0, 
+	output_tensor = traits.Enum(0,1, 
 					argstr="--output_tensor=%d",
-					usedefault=True,
-					desc="used in DTI to output whole tensor, default 1")
+					requires=["method_dti"],
+					desc="used in DTI to output whole tensor, default 0")
 	output_rdi = traits.Enum(1,0, 
 					argstr="--output_rdi=%d",
-					usedefault=True,
+					requires=["method_gqi","method_qsdr"],
 					desc="used in GQI, QSDR to output restricted diffusion "
 						"imaging, default 1")
 	record_odf = traits.Enum(0,1, 
@@ -814,7 +946,6 @@ class DSIStudioReconstructInputSpec(DSIStudioInputSpec):
 					desc="whether to output ODF for connectometry analysis")
 	csf_cal = traits.Enum(1,0, 
 				argstr="--csf_calibration=%d",
-				usedefault=True,
 				desc="used in GQI, QSDR to enable CSF calibration, default 1")
 
 
@@ -822,7 +953,8 @@ class DSIStudioReconstructInputSpec(DSIStudioInputSpec):
 class DSIStudioReconstructOutputSpec(DSIStudioOutputSpec):
 	"""DSI Studio reconstruct output specification"""
 	fiber_file = File(exists=True, desc="Fiber tracking file")
-	#filename seems to depend on reconstruction method, but unsure of the details
+	#filename seems to depend on reconstruction method, and options, but
+	#I'm unclear on the details
 
 
 
@@ -830,6 +962,7 @@ class DSIStudioReconstruct(DSIStudioCommand):
 	"""DSI Studio reconstruct action support
 	TESTING
 	"""
+	nparams=dict()
 	_action = "rec"
 	_output_type = "FIB"
 	input_spec = DSIStudioReconstructInputSpec
@@ -847,9 +980,25 @@ class DSIStudioReconstruct(DSIStudioCommand):
 		arglist = []
 
 		if name == "params":
-			for e in value:
-				arglist.append(argstr % (value.index(e),e))#numbered from 0
-			return sep.join(arglist)
+			recmethodid = Info.rec_method_n_to_id(self.inputs.method)
+			expnparams = Info.rec_method_to_nparams(recmethodid)
+			expparamtypes = Info.rec_method_to_param_types(recmethodid)
+			if len(value) == expnparams:
+				for e in value:
+					if isinstance(e, Info.rec_method_to_param_types(
+						recmethodid)[value.index(e)]):
+						#numbered from 0
+						arglist.append(argstr % (value.index(e),e))
+					else:
+						raise AttributeError("Param type: %s != Expected "
+							"Param type: %s for Param: %s, in Method: %s" %
+							(type(e),expparamtypes[value.index(e)],e,
+							recmethodid))
+				return sep.join(arglist)
+			else:
+				raise AttributeError("N input params: '%d' != "
+									"Expected N params: '%d' for Method: %s" %
+									(len(value),expnparams,recmethodid))
 		elif name == "other_image" and value:
 			oit = self.inputs.other_image_type
 			oif = self.inputs.other_image_file
