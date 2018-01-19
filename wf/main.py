@@ -97,7 +97,7 @@ prepout = pe.JoinNode(name="prepout",
 gen_fa = pe.Workflow(name="gen_fa")
 gen_fa.base_dir = sbc["paths"]["base_dir"]
 gen_fa.connect([
-			(prepin, splitids, [("subscanuid","psid"
+			(prepin, splitids, [("subscanuid","psid")]),
 			(sf, reorient, [("dwi","in_file")]),
 			(sf, dti, [("bvals", "bvals")]),
 			(sf, dti, [("bvecs", "bvecs")]),
@@ -106,12 +106,12 @@ gen_fa.connect([
 			(eddyc, dti, [("out_file","dwi")]),
 			(rbet, dti, [("mask_file","mask")]),
 			(dti, prepout, [("FA", "fa_list")]),
-			(rbet, prepout, [("mask_file","mask_list"])
+			(rbet, prepout, [("mask_file","mask_list")])
 			 ])
 
 
 
-def create_tbss_reg_n(name="tbss_reg_n")
+def create_tbss_reg_n(name="tbss_reg_n"):
 	"""TBSS nonlinear registration:
 	Performs tbss_2_reg -n, in_file, reference are each every fa file
 	"""
@@ -182,15 +182,15 @@ def create_tbss_reg_n(name="tbss_reg_n")
 	#Define workflow
 	tbssn = pe.Workflow(name=name)
 	tbssn.connect([
-				([inputnode, flirt, [("fa_list","in_file")]),
-				([inputnode, flirt, [("fa_list","reference")]),
-				([inputnode, flirt, [("mask_list","in_weight")]),
-				([inputnode, fnirt, [("fa_list","in_file")]),
-				([inputnode, fnirt, [("fa_list","reference")]),
-				([flirt, fnirt, [("out_matrix_file", "affine_file")]),
-				([flirt, outputnode, [("out_matrix_file", "mat_list")]),
-				([fnirt, outputnode, [("fieldcoeff_file", "fieldcof_list")]),
-				([meanmedian, outputnode, [("out_file", "mean_median_list"])
+				(inputnode, flirt, [("fa_list","in_file")]),
+				(inputnode, flirt, [("fa_list","reference")]),
+				(inputnode, flirt, [("mask_list","in_weight")]),
+				(inputnode, fnirt, [("fa_list","in_file")]),
+				(inputnode, fnirt, [("fa_list","reference")]),
+				(flirt, fnirt, [("out_matrix_file", "affine_file")]),
+				(flirt, outputnode, [("out_matrix_file", "mat_list")]),
+				(fnirt, outputnode, [("fieldcoeff_file", "fieldcof_list")]),
+				(meanmedian, outputnode, [("out_file", "mean_median_list")])
 	])
 
 
@@ -229,5 +229,5 @@ tbss.connect([
 
 wf = pe.Workflow(name="tbss_reg")
 wf.connect([
-			(prepflow, tbssflow, (["outputnode.FA","inputnode.fa_list"])
+			(prepflow, tbssflow, (["outputnode.FA","inputnode.fa_list"]))
 			])

@@ -1,5 +1,27 @@
-from wf.DSI_Studio_base import *
+def flatten(l, ltypes=(list, tuple)):
+	"""flatten lists and tuples to a single list"""
+	ltype = type(l)
+	l = list(l)
+	i = 0
+	while i < len(l):
+		while isinstance(l[i], ltypes):
+			if not l[i]:
+				l.pop(i)
+				i -= 1
+				break
+			else:
+				l[i:i+1] = l[i]
+		i += 1
+	return ltype(l)
 
+def list_to_str(sep=None, args=None):
+	"""flattened args turned to str with separator
+	default separator: ''"""
+	if sep is None:
+		sep=''
+	if args is None:
+		raise TypeError("Not enough arguments for str creation")
+	return sep.join(str(e) for e in flatten(args))
 
 #Return patient/scan id
 def patient_scan(patientcfg, addSequence=None):
@@ -134,6 +156,7 @@ def testconfigs():
 	return syscfg, anacfg, subcfg
 
 def testvals2():
+	from wf.DSI_Studio_base import DSIStudioTrack
 	source = '/home/pirc/Desktop/DWI/CHD_tractography/CHP/0003/20150225/0003_20150225_DTIFIXED.nii.src.gz.012fy.dti.fib.gz'
 	output = '/home/pirc/Desktop/DWI/CHD_tractography/CHP/0003/20150225/Tracts/testGenu_sub.trk.gz'
 	rois = ['/home/pirc/Desktop/DWI/CHD_tractography/CHP/0003/20150225/Regions/CHP_mFAlap_Genu.nii.gz',
@@ -165,6 +188,7 @@ def testvals2():
 	return trk
 
 def testvals3():
+	from wf.DSI_Studio_base import DSIStudioTrack
 	source = '/home/pirc/Desktop/DWI/CHD_tractography/CHP/0003/20150225/0003_20150225_DTIFIXED.nii.src.gz.012fy.dti.fib.gz'
 	output = '/home/pirc/Desktop/DWI/CHD_tractography/CHP/0003/20150225/Tracts/testGenu_sub_smallc.trk.gz'
 	rois = ['/home/pirc/Desktop/DWI/CHD_tractography/CHP/0003/20150225/Regions/CHP_mFAlap_Genu.nii.gz',
@@ -196,6 +220,7 @@ def testvals3():
 	return trk
 
 def testvals4():
+	from wf.DSI_Studio_base import DSIStudioTrack
 	source = '/home/pirc/Desktop/DWI/CHD_tractography/CHP/0003/20150225/0003_20150225_DTIFIXED.nii.src.gz.fy.dti.fib.gz'
 	output = '/home/pirc/Desktop/DWI/CHD_tractography/CHP/0003/20150225/Tracts/testGenu_subrot.trk.gz'
 	rois = ['/home/pirc/Desktop/DWI/CHD_tractography/CHP/0003/20150225/Regions/Genu.nii.gz',

@@ -107,7 +107,6 @@ def create_dsi_rec(name="dsi_rec", data_dir=None, scan_list=None,
 	if data_dir is not None:
 		inputnode.inputs.data_dir = data_dir
 	if scan_list is not None:
-		#inputnode.inputs.scanid_list = scan_list
 		inputnode.iterables=("scanid_list", scan_list)
 
 	splitidnode = pe.Node(name="splitidnode",
@@ -173,7 +172,6 @@ def create_dsi_trk(name="dsi_trk", data_dir=None, scan_list=None,
 		inputnode.inputs.data_dir = data_dir
 	inputiters = []
 	if scan_list is not None:
-		#inputnode.inputs.scanid_list = scan_list
 		inputiters.append(("scanid_list", scan_list))
 	if seed_list is not None:
 		inputiters.append(("seed_list", seed_list))
