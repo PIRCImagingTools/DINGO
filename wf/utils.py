@@ -155,7 +155,7 @@ def testconfigs():
 
 	return syscfg, anacfg, subcfg
 
-def testvals2():
+def testtrk():
 	from wf.DSI_Studio_base import DSIStudioTrack
 	source = '/home/pirc/Desktop/DWI/CHD_tractography/CHP/0003/20150225/0003_20150225_DTIFIXED.nii.src.gz.012fy.dti.fib.gz'
 	output = '/home/pirc/Desktop/DWI/CHD_tractography/CHP/0003/20150225/Tracts/testGenu_sub.trk.gz'
@@ -187,7 +187,7 @@ def testvals2():
 	trk.inputs.thread_count = threads
 	return trk
 
-def testvals3():
+def testtrk2():
 	from wf.DSI_Studio_base import DSIStudioTrack
 	source = '/home/pirc/Desktop/DWI/CHD_tractography/CHP/0003/20150225/0003_20150225_DTIFIXED.nii.src.gz.012fy.dti.fib.gz'
 	output = '/home/pirc/Desktop/DWI/CHD_tractography/CHP/0003/20150225/Tracts/testGenu_sub_smallc.trk.gz'
@@ -219,7 +219,7 @@ def testvals3():
 	trk.inputs.seed_plan = seed_plan
 	return trk
 
-def testvals4():
+def testtrk3():
 	from wf.DSI_Studio_base import DSIStudioTrack
 	source = '/home/pirc/Desktop/DWI/CHD_tractography/CHP/0003/20150225/0003_20150225_DTIFIXED.nii.src.gz.fy.dti.fib.gz'
 	output = '/home/pirc/Desktop/DWI/CHD_tractography/CHP/0003/20150225/Tracts/testGenu_subrot.trk.gz'
@@ -249,3 +249,12 @@ def testvals4():
 	trk.inputs.thread_count = threads
 	return trk
 
+def testrec():
+	from wf.DSI_Studio_base import DSIStudioReconstruct
+	source='/home/pirc/Desktop/DWI/CHD_tractography/CHP/0003/20150225/0003_20150225_DTIFIXED.src.gz'
+	method=1
+	
+	rec = DSIStudioReconstruct()
+	rec.inputs.source = source
+	rec.inputs.method = method
+	return rec
