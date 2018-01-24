@@ -157,29 +157,45 @@ def testconfigs():
 
 def testtrk():
 	from wf.DSI_Studio_base import DSIStudioTrack
+	action = "trk"
 	source = '/home/pirc/Desktop/DWI/CHD_tractography/CHP/0003/20150225/0003_20150225_DTIFIXED.nii.src.gz.012fy.dti.fib.gz'
 	output = '/home/pirc/Desktop/DWI/CHD_tractography/CHP/0003/20150225/Tracts/testGenu_sub.trk.gz'
+	export = ['stat']
+	
 	rois = ['/home/pirc/Desktop/DWI/CHD_tractography/CHP/0003/20150225/Regions/CHP_mFAlap_Genu.nii.gz',
 			'/home/pirc/Desktop/DWI/CHD_tractography/CHP/0003/20150225/Regions/CHP_mFAlap_Sagittal_L.nii.gz',
 			'/home/pirc/Desktop/DWI/CHD_tractography/CHP/0003/20150225/Regions/CHP_mFAlap_Sagittal_R.nii.gz']
+	roi_atlas = ['JHU-WhiteMatter-labels-1mm','JHU-WhiteMatter-labels-1mm']
+	roi_ar = ['Genu_of_corpus_callosum','Splenium_of_corpus_callosum']
 	roas = ['/home/pirc/Desktop/DWI/CHD_tractography/CHP/0003/20150225/Regions/CHP_mFAlap_PosteriorGenu.nii.gz',
 			'/home/pirc/Desktop/DWI/CHD_tractography/CHP/0003/20150225/Regions/CHP_mFAlap_InternalCapsule_L.nii.gz',
 			'/home/pirc/Desktop/DWI/CHD_tractography/CHP/0003/20150225/Regions/CHP_mFAlap_InternalCapsule_R.nii.gz']
-	action = "trk"
-	roi_actions = [['dilation','dilation','smoothing'],[],['defragment']]
-	fat = 0.1
+	end_ar = ['Precentral_L','Genu_of_corpus_callosum']
+	end_atlas = ['aal','JHU-WhiteMatter-labels-1mm']
+	end_actions = [['dilation'],[]]
+	roi_actions = [['dilation','dilation','smoothing'],[],['defragment'],[],['negate']]
+	
+	
+	fat = 0.07
 	fibc = 5000
-	seedc = 100000000
+	seedc = 10000000
 	method = 0
 	threads = 4
 	
 	trk = DSIStudioTrack()
-	trk.inputs.action = action
+#	trk.inputs.action = action
 	trk.inputs.source = source
 	trk.inputs.track = output
+	trk.inputs.export = export
 	trk.inputs.roi = rois
-	#trk.inputs.roi_action = roi_actions
+	trk.inputs.roi_actions = roi_actions
+	trk.inputs.roi_ar = roi_ar
+	trk.inputs.roi_atlas = roi_atlas
 	trk.inputs.roa = roas
+	trk.inputs.end_ar = end_ar
+	trk.inputs.end_atlas = end_atlas
+	trk.inputs.end_actions = end_actions
+	
 	trk.inputs.fa_threshold = fat
 	trk.inputs.fiber_count = fibc
 	trk.inputs.seed_count = seedc
@@ -240,7 +256,7 @@ def testtrk3():
 	trk.inputs.source = source
 	trk.inputs.track = output
 	trk.inputs.roi = rois
-	#trk.inputs.roi_action = roi_actions
+	#trk.inputs.roi_actions = roi_actions
 	trk.inputs.roa = roas
 	trk.inputs.fa_threshold = fat
 	trk.inputs.fiber_count = fibc

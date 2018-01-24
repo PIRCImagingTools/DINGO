@@ -5,6 +5,7 @@ from nipype.interfaces.base import (traits, File, Directory, InputMultiPath,
 import os
 from nipype.utils.filemanip import fname_presuffix, split_filename
 from traits.trait_base import _Undefined
+from wf.utils import list_to_str
 
 
 
@@ -288,88 +289,112 @@ class DSIStudioFiberInputSpec(DSIStudioInputSpec):
 		argstr="--seed=%s",
 		desc="specify seeding file, txt, analyze, or nifti, unspecified default"
 			" is whole brain")
-	seed_atlas_region = traits.List(traits.Str(),
-		requires=["atlas"],
-		desc='specify seed region in atlas file')
+	seed_ar = traits.Str(
+		requires=["seed_atlas"],
+		desc='seed region in atlas')
 	seed_actions = traits.List(traits.List(traits.Enum(
 				"smoothing","erosion","dilation","defragment","negate",
 				"flipx","flipy","flipz",
 				"shiftx","shiftnx","shifty","shiftny","shiftz","shiftnz")),
-		requires = ["seed"],
-		argstr="%s",
 		sep=",",
 		desc="action codes to modify seed region")
 	roi = InputMultiPath(File(exists=True), 
 		argstr="--roi%s=%s",
-		desc="roi through which tracts must pass, txt, analyze, nifti, "
-				"or region in atlas")
-	roi_atlas_regions = traits.List(traits.Str(),
-		requires=["atlas"],
+		desc="roi through which tracts must pass, txt, analyze, nifti")
+	roi_ar = traits.List(traits.Str(),
+		requires=["roi_atlas"],
 		desc="region in atlas through which tracts must pass")
 	roi_actions = traits.List(traits.List(traits.Enum(
 				"smoothing","erosion","dilation","defragment","negate",
 				"flipx","flipy","flipz",
 				"shiftx","shiftnx","shifty","shiftny","shiftz","shiftnz")),
-		requires = ["roi"],
-		argstr="%s",
 		sep=",",
 		desc="action codes to modify rois, list for each roi")
 	roa = InputMultiPath(File(exists=True),  
 		argstr="--roa%s=%s",
-		desc="roa files which tracts must avoid, txt, analyze, nifti, "
-			"or region in atlas")
-	roa_atlas_regions = traits.List(traits.Str(), 
-		requires=["atlas"],
+		desc="roa files which tracts must avoid, txt, analyze, nifti")
+	roa_ar = traits.List(traits.Str(), 
+		requires=["roa_atlas"],
 		desc="region in atlas which tracts must avoid")
 	roa_actions = traits.List(traits.List(traits.Enum(
 				"smoothing","erosion","dilation","defragment","negate",
 				"flipx","flipy","flipz",
 				"shiftx","shiftnx","shifty","shiftny","shiftz","shiftnz")),
-		requires = ["roa"],
-		argstr="%s",
 		sep=",",
 		desc="action codes to modify roas, list for each roa")
 	end = InputMultiPath(File(exists=True), 
 		argstr="--end%s=%s",
 		desc="filter out tracks that do not end in this region, txt, analyze, "
-			"nifti or region in atlas")
-	end_atlas_regions = traits.List(traits.Str(), 
-		requires=["atlas"],
+			"or nifti")
+	end_ar = traits.List(traits.Str(), 
+		requires=["end_atlas"],
 		desc="region in atlas that will filter out tracks that do not end here")
 	end_actions = traits.List(traits.List(traits.Enum(
 				"smoothing","erosion","dilation","defragment","negate",
 				"flipx","flipy","flipz",
 				"shiftx","shiftnx","shifty","shiftny","shiftz","shiftnz")),
-		requires = ["end"],
-		argstr="%s",
 		sep=",",
 		desc="action codes to modify ends regions, list for each end")
 	ter = File(exists=True, 
 		argstr="--ter=%s",
 		desc="terminates any track that enters this region, txt, analyze, "
-			"nifti, or region in atlas")
-	ter_atlas_region = traits.List(traits.Str, 
-		requires=["atlas"],
+			"or nifti")
+	ter_ar = traits.Str( 
+		requires=["ter_atlas"],
 		desc="region in atlas, terminates any track that enters")
 	ter_actions = traits.List(
 		traits.List(traits.Enum(
 				"smoothing","erosion","dilation","defragment","negate",
 				"flipx","flipy","flipz",
 				"shiftx","shiftnx","shifty","shiftny","shiftz","shiftnz")),
-		requires = ["ter"],
-		argstr="%s",
 		sep=",",
 		desc="action codes to modify terminative region")
 	t1t2 = File(exists=True,
 				argstr="--t1t2=%s",
 				desc="specify t1w or t2w images as roi reference image")
-	atlas = traits.List(traits.Enum(
-			"aal", "ATAG_basal_ganglia", "brodmann", "Cerebellum-SUIT",
-			"FreeSurferDKT", "Gordan_rsfMRI333", "HarvardOxfordCort",
-			"HarvardOxfordSub","HCP-MMP1","JHU-WhiteMatter-labels-1mm",
-			"MNI", "OASIS_TRT_20", "sri24_tissues","sri24_tzo116plus",
-			"talairach","tractography"),
-		argstr="--atlas=%s", 
+	seed_atlas = traits.Enum(
+		"aal", "ATAG_basal_ganglia", "brodmann", "Cerebellum-SUIT",
+		"FreeSurferDKT", "Gordan_rsfMRI333", "HarvardOxfordCort",
+		"HarvardOxfordSub","HCP-MMP1","JHU-WhiteMatter-labels-1mm",
+		"MNI", "OASIS_TRT_20", "sri24_tissues","sri24_tzo116plus",
+		"talairach","tractography",
+		requires=['seed_ar'],
+		sep=",",
+		desc="atlas name(s) found in dsistudio/build/atlas")
+	roi_atlas = traits.List(traits.Enum(
+		"aal", "ATAG_basal_ganglia", "brodmann", "Cerebellum-SUIT",
+		"FreeSurferDKT", "Gordan_rsfMRI333", "HarvardOxfordCort",
+		"HarvardOxfordSub","HCP-MMP1","JHU-WhiteMatter-labels-1mm",
+		"MNI", "OASIS_TRT_20", "sri24_tissues","sri24_tzo116plus",
+		"talairach","tractography"),
+		requires=['roi_ar'],
+		sep=",",
+		desc="atlas name(s) found in dsistudio/build/atlas")
+	roa_atlas = traits.List(traits.Enum(
+		"aal", "ATAG_basal_ganglia", "brodmann", "Cerebellum-SUIT",
+		"FreeSurferDKT", "Gordan_rsfMRI333", "HarvardOxfordCort",
+		"HarvardOxfordSub","HCP-MMP1","JHU-WhiteMatter-labels-1mm",
+		"MNI", "OASIS_TRT_20", "sri24_tissues","sri24_tzo116plus",
+		"talairach","tractography"),
+		requires=['roa_ar'],
+		sep=",",
+		desc="atlas name(s) found in dsistudio/build/atlas")
+	end_atlas = traits.List(traits.Enum(
+		"aal", "ATAG_basal_ganglia", "brodmann", "Cerebellum-SUIT",
+		"FreeSurferDKT", "Gordan_rsfMRI333", "HarvardOxfordCort",
+		"HarvardOxfordSub","HCP-MMP1","JHU-WhiteMatter-labels-1mm",
+		"MNI", "OASIS_TRT_20", "sri24_tissues","sri24_tzo116plus",
+		"talairach","tractography"),
+		requires=['end_ar'],
+		sep=",",
+		desc="atlas name(s) found in dsistudio/build/atlas")
+	ter_atlas = traits.Enum(
+		"aal", "ATAG_basal_ganglia", "brodmann", "Cerebellum-SUIT",
+		"FreeSurferDKT", "Gordan_rsfMRI333", "HarvardOxfordCort",
+		"HarvardOxfordSub","HCP-MMP1","JHU-WhiteMatter-labels-1mm",
+		"MNI", "OASIS_TRT_20", "sri24_tissues","sri24_tzo116plus",
+		"talairach","tractography",
+		requires=['ter_ar'],
 		sep=",",
 		desc="atlas name(s) found in dsistudio/build/atlas")
 	
@@ -386,6 +411,7 @@ class DSIStudioFiberInputSpec(DSIStudioInputSpec):
 		argstr="--end_point=%s",
 		hash_files=False,
 		desc="endpoint file name, format may be txt or mat")
+		
 	export = traits.List(traits.Enum(
 			"stat","tdi","tdi2","tdi_color","tdi_end",
 			"tdi2_end","fa","gfa","qa","nqa","md","ad","rd","report"),
@@ -407,21 +433,25 @@ class DSIStudioFiberInputSpec(DSIStudioInputSpec):
 		sep=":",
 		requires=["export"],
 		desc="bandwidth for tract report")
-	connectivity = traits.Either(
-		InputMultiPath(File(exists=True)), 
-		traits.List(atlas, requires=["atlas"]),
+		
+	connectivity = InputMultiPath(File(exists=True), 
 		argstr="--connectivity=%s",
 		sep=",",
 		desc="atlas id(s), or path to MNI space roi file")
+	connectivity_atlas = traits.List(traits.Enum(
+			"aal", "ATAG_basal_ganglia", "brodmann", "Cerebellum-SUIT",
+			"FreeSurferDKT", "Gordan_rsfMRI333", "HarvardOxfordCort",
+			"HarvardOxfordSub","HCP-MMP1","JHU-WhiteMatter-labels-1mm",
+			"MNI", "OASIS_TRT_20", "sri24_tissues","sri24_tzo116plus",
+			"talairach","tractography"),
+		desc="atlas region id(s)")
 	connectivity_type = traits.List(traits.Enum("end","pass"),
 		argstr="--connectivity_type=%s",
 		sep=",",
-		requires=["connectivity"],
 		desc="method to count the tracts, default end")
 	connectivity_value = traits.List(traits.Str(),
 		argstr="--connectivity_value=%s",
 		sep=",",
-		requires=["connectivity"],
 		desc="method to calculate connectivity matrix, default count - n tracks"
 			" pass/end in region, ncount - n tracks norm by median length, "
 			"mean_length - outputs mean length of tracks, trk - outputs trk "
@@ -429,7 +459,6 @@ class DSIStudioFiberInputSpec(DSIStudioInputSpec):
 			"e.g. 'fa','qa','adc', etc.")
 	connectivity_threshold = traits.Float(0.001,
 		argstr="--connectivity_threshold=%.3f",
-		requires=["connectivity"],
 		desc="threshold for calculating binarized graph measures and "
 			"connectivity values, def 0.001, i.e. if the max connectivity count"
 			" is 1000 tracks in the connectivity matrix, then at least "
@@ -487,20 +516,137 @@ class DSIStudioFiberCommand(DSIStudioCommand):
 	"""Not used directly, provides region and post-processing commands for
 	DSI Studio trk and ana actions.
 	"""
-	input_spec = DSIStudioFiberInputSpec
+	input_spec = DSIStudioFiberInputSpec	
+		
+	def _check_mandatory_inputs(self):
+		"""correct values, then call super"""
+		for name, spec in sorted(self.inputs.traits(transient=None).items()):#alphabetical
+			value = getattr(self.inputs, name)
+			argstr = spec.argstr
+			sep = spec.sep
+			
+			if name == "roi" or \
+			name == "roa" or \
+			name == "end" or \
+			name == "seed" or \
+			name =="ter":
+				#--roi=1 --roi2=2 --roi3=3, same pattern for all regions
+				arglist = []
+				if not isdefined(value):
+					value = []
+					
+				#change seed and ter values to 1-Lists for loop, others are
+				#automatically changed by MultiPath due to InputSpec
+				if not isinstance(value, list):
+					value = [value]
+				lenvalue = len(value)
 
-	def _add_region_actions(self, name, subvalue, wholevalue):
+				#Get values for name_ar
+				varnamearlist = []#atlas regions
+				varnamearlist.extend((name,'_ar'))
+				varnamear = ''.join(varnamearlist)
+				nameatlasregions = getattr(self.inputs, varnamear)
+				if not isdefined(nameatlasregions):
+					nameatlasregions = []
+				lennar = len(nameatlasregions)
+				
+				#Get values for name_atlas
+				varnameatlaslist = []
+				varnameatlaslist.extend((name,'_atlas'))
+				varnameatlas = ''.join(varnameatlaslist)
+				nameatlas = getattr(self.inputs, varnameatlas)
+				if not isdefined(nameatlas):
+					nameatlas = []
+				lenna = len(nameatlas)
+
+				#Update
+				#File exists check is in InputSpec, so atlas must be in
+				#dsistudio_directory/atlas
+				if lenna != 0:
+					if lennar == lenna:
+						for i in range(0,lenna):
+							atlas = nameatlas[i]
+							update = list_to_str(sep='',
+								args=(os.environ['DSIDIR'],'/atlas/',atlas,
+									'.nii.gz'))
+							#check we havn't already updated
+							#True if updated, or more file regions included
+							if lenvalue >= lenna:
+								#True if not updated
+								if value[lenvalue-lenna+i] != update:
+									value.append(update)
+									setattr(self.inputs, name, value)
+									print("Appended atlas: %s to %s" % 
+										(atlas,name))
+							else:
+								value.append(update)
+								setattr(self.inputs, name, value)
+								print("Appended atlas: %s to %s" % (atlas,name))
+					else:
+						raise AttributeError("N entries in %s must equal "
+							"N entries in %s" %
+							(varnamear, varnameatlas))
+					
+		super(DSIStudioFiberCommand, self)._check_mandatory_inputs()
+			
+			
+	def _add_atlas_regions(self, name, value):
+		"""helper function for _format_arg,
+		will add atlas regions to atlas file paths
+		
+		Parameters
+		----------
+		name		: str (input name, e.g. 'seed', 'roi', 'roa', 'end', 'ter')
+		value		: list(str) (paths or atlas regions, all together for name)
+		
+		Returns
+		-------
+		newval : list(str) (atlas with appended :regionname, or path to other)
+		"""
+				
+		lenv = len(value)
+
+		varnamearlist = []
+		varnamearlist.extend((name,"_ar"))
+		varnamear = ''.join(varnamearlist)
+		namear = getattr(self.inputs, varnamear)#matching atlas regions
+		
+		varnameatlaslist = []
+		varnameatlaslist.extend((name,"_atlas"))
+		varnameatlas = ''.join(varnameatlaslist)
+		nameatlas = getattr(self.inputs, varnameatlas)#matching atlas
+
+		if not isdefined(namear):
+			return value #return input if no atlas regions
+		else:
+			newvalue = []
+			newvalue.extend(value) #avoid File type checking, which will fail
+			lennar = len(namear)
+			lenna = len(nameatlas)
+			if lennar != lenna:
+				raise AttributeError("len( %s ) must equal len( %s )" %
+					(varnamear, varnameatlas))
+			for i in range(0,lennar):
+				atlas = newvalue[lenv-lennar+i]
+				ar = namear[i]
+				newvallist = []
+				newvallist.extend((atlas,":",ar))
+				newvalue[lenv-lennar+i] = ''.join(newvallist)
+			return newvalue
+		
+		
+	def _add_region_actions(self, name, value):
 		"""helper function for _format_arg, 
 		will add region action inputs to input value
 		
 		Parameters
 		----------
-		name : str (input name, e.g. 'seed', 'roi', 'roa', 'end', 'ter')
-		value : str (region name or path, not the whole list)
+		name		: str (input name, e.g. 'seed', 'roi', 'roa', 'end', 'ter')
+		value		: list(str) (paths or atlas regions, all together for name)
 		
 		Returns
 		-------
-		newval : str (region name or path, with appended action options)
+		newval : list(str) (region name or paths, with appended action options)
 
 		Example
 		-------
@@ -510,35 +656,48 @@ class DSIStudioFiberCommand(DSIStudioCommand):
 		trk.inputs.cmdline
 		'dsi_studio --action=trk --roi=ROI1.nii,dilation --roi2=ROI2.nii,dilation,smoothing'
 		"""
-				
-		actions = getattr(self.inputs, name+"_action")#matching action values
-		vi = wholevalue.index(subvalue)
-		if isdefined(actions) and \
-			len(actions) != len(wholevalue):
-			raise AttributeError("N Entries in %s action list does not match"
-								 "N Regions" % name)
 		
-		action_ts = self.inputs.trait(name+"_actions")#matching action specific
-		modval = []
-		modval.append(subvalue)
-		if not isdefined(actions):
-			newval = subvalue #return input if there are no region actions
-		else:#if there are region actions
-			if isdefined(action_ts.sep):
-				sep = action_ts.sep
-			else:
-				sep = ','
-				for e in actions[vi]:
-					if e:#if not an empty list
-						modval.extend((sep,e))
-					else:#if an empty list
-						continue#go to next item in actions
-			newval = ''.join(modval)
-		return newval
+		varnameactionslist = []
+		varnameactionslist.extend((name,"_actions"))
+		varnameactions = ''.join(varnameactionslist)
+		actions = getattr(self.inputs, varnameactions)#matching action values
+		actions_ts = self.inputs.trait(varnameactions)#action values traitspec
 
+		lenval = len(value)
+		lenact = len(actions)
+		
+		if isdefined(actions) and \
+		lenact != lenval:
+			print('name=%s, value=%s, actions=%s' % (name,value,actions))
+			raise AttributeError("N Entries in %s action list does not match "
+								 "N Regions (Files + Atlas Regions)" % name)
+		
+		if not isdefined(actions):#if there are no region actions
+			return value#return input
+		else:#if there are region actions
+			newvalue = []
+			for i in range(0,lenact):
+				oldval = value[i]
+				acts = actions[i]
+				if isdefined(actions_ts.sep):
+					sep = actions_ts.sep
+				else:
+					sep = ','
+					
+				modval = []
+				modval.append(oldval)
+				
+				if acts:#if not an empty list
+					modval.append(''.join((
+						sep, list_to_str(sep=sep,args=[elt for elt in acts]))))
+				newvalue.append(''.join(modval))
+			return newvalue
+					
+		
 	def _format_arg(self, name, trait_spec, value):
 		"""alternative helper function for _parse_inputs, 
 		format roi, roa, end, seed, ter, export, atlas argstrs
+		will not change input, only how it's interpreted
 		
 		Parameters
 		----------
@@ -552,7 +711,6 @@ class DSIStudioFiberCommand(DSIStudioCommand):
 		"""
 
 		argstr = trait_spec.argstr
-		#print argstr #debug
 		sep = trait_spec.sep if trait_spec.sep is not None else ' '
 
 		if name == "roi" or \
@@ -562,34 +720,64 @@ class DSIStudioFiberCommand(DSIStudioCommand):
 			name =="ter":
 		#--roi=1 --roi2=2 --roi3=3, same pattern for all regions
 			arglist = []
+			if not isdefined(value):
+				value = []
+				
+			#change seed and ter values to 1-Lists for loop, others are
+			#automatically changed by MultiPath due to InputSpec
+			if not isinstance(value, list):
+				value = [value]
+			lenvalue = len(value)
+
+			#Get values for name_ar
+			varnamearlist = []#atlas regions
+			varnamearlist.extend((name,'_ar'))
+			varnamear = ''.join(varnamearlist)
+			nameatlasregions = getattr(self.inputs, varnamear)
+			if not isdefined(nameatlasregions):
+				nameatlasregions = []
+			lennar = len(nameatlasregions)
 			
-			if isdefined(value):
-				atlas = getattr(self.inputs, 'atlas')
-				if not isdefined(atlas):
-					#--roiX=region,actions (--roi%s=%s)
-					atlas = ''
+			#Get values for name_atlas
+			varnameatlaslist = []
+			varnameatlaslist.extend((name,'_atlas'))
+			varnameatlas = ''.join(varnameatlaslist)
+			nameatlas = getattr(self.inputs, varnameatlas)
+			#if not isdefined(nameatlas):
+				#--roiX=region,actions (--roi%s=%s)
+				#nameatlas = []
+			#else:
+				#--roiX=atlas:region,actions (--roi%s=%s:%s)
+				#argstrfixed = argstr.replace('=', '=%s:')
+			lenna = len(nameatlas)
+			
+			#add atlas regions if available, can't add before bcz it
+			#wouldn't validate as a file
+			#value now includes atlas if it is an input
+			valuewar = self._add_atlas_regions(name, value)
+			valuewactions = self._add_region_actions(name, valuewar)
+					
+			for i in range(0,lenvalue):
+				if i == 0:
+					roin = ''
+				elif (name == "roi" or name == "roa") and i > 4:
+					print("Cannot have more than 5 %s, first 5 used.\n"
+						"%s not included" % 
+						(name, ', '.join(value[x] for x in range(i,lenvalue))))
+					break
+				elif name == "end" and i > 1:
+					print("Cannot have more than 2 ends, first 2 used.\n"
+						"%s not included" % 
+						(name, ', '.join(value[x] for x in range(i,lenvalue))))
+					break
 				else:
-					#--roiX=atlas:region,actions (--roi%s=%s:%s)
-					argstrfixed = argstr.replace('=', '=%s:')
-					#atlas already set correctly
-				for e in value:
-					#_add_region_actions() returns e if no actions, else e with actions
-					ewactions = self._add_region_actions(name, e, value)
-					i = value.index(e)
-					if i == 0:
-						roin = ''
-					elif name == "roi" and i > 4:
-						print("Cannot have more than 5 rois, first 5 will be used")
-						break
-					elif name == "end" and i > 1:
-						print("Cannot have more than 2 ends, first 2 will be used")
-						break
-					else:
-						roin = i + 1
-					arglist.append(argstrfixed % (roin, atlas, ewactions))
-				return sep.join(arglist)
+					roin = i + 1
+					
+				arglist.append(argstr % (roin, valuewactions[i]))
+				
+			return sep.join(arglist)
 			
-		elif name == "export": #report vals should not be parsed normally
+		elif name == "export": 
 			for e in value:
 				if e == "report" and \
 				self.inputs.report_val is not None and \
@@ -601,12 +789,20 @@ class DSIStudioFiberCommand(DSIStudioCommand):
 						str(self.inputs.report_pstyle),":",
 						str(self.inputs.report_bandwidth)))
 					i = value.index(e)
-			value[i] = "".join(str(newe))
+					value[i] = "".join(str(newe))
 			return argstr % sep.join(str(e) for e in value)
 			
 		elif name == "connectivity":
-			if len(value)==len(self.inputs.connectivity_type) and \
-			len(value)==len(self.inputs.connectivity_value):
+			if not isdefined(value):
+				value = []
+				
+			conntype = getattr(self.inputs, "connectivity_type")
+			connvalue = getattr(self.inputs, "connectivity_value")
+			connatlas = getattr(self.inputs, "connectivity_atlas")
+			if isdefined(connatlas):
+				value.extend(connatlas)
+			lenvalue = len(value)
+			if lenvalue==len(conntype) and lenvalue==len(connvalue):
 				return super(DSIStudioFiberCommand, 
 				self._format_arg(name, trait_spec, value))
 			else:
@@ -758,6 +954,7 @@ class DSIStudioTrack(DSIStudioFiberCommand):
 
 
 
+
 class DSIStudioAnalysisInputSpec(DSIStudioFiberInputSpec):
 
 	output_type = traits.Enum("TXT", "TRK", "NIFTI",
@@ -768,6 +965,15 @@ class DSIStudioAnalysisInputSpec(DSIStudioFiberInputSpec):
 	track = File(exists=True, 
 		argstr="--tract=%s",
 		desc="assign tract file for analysis")
+	atlas = traits.List(traits.Enum(
+		"aal", "ATAG_basal_ganglia", "brodmann", "Cerebellum-SUIT",
+		"FreeSurferDKT", "Gordan_rsfMRI333", "HarvardOxfordCort",
+		"HarvardOxfordSub","HCP-MMP1","JHU-WhiteMatter-labels-1mm",
+		"MNI", "OASIS_TRT_20", "sri24_tissues","sri24_tzo116plus",
+		"talairach","tractography"),
+		argstr="--atlas=%s",
+		sep=",",
+		desc="atlas name(s) found in dsistudio/build/atlas")
 	
 
 
@@ -1082,8 +1288,7 @@ class DSIStudioReconstruct(DSIStudioCommand):
 	def _check_mandatory_inputs(self):
 		"""using this to insert necessary values, then call super
 		"""
-		metadata = dict(transient=lambda t: t is None)
-		for name, spec in sorted(self.inputs.traits(**metadata).items()):#alphabetical
+		for name, spec in sorted(self.inputs.traits(transient=None).items()):#alphabetical
 			value = getattr(self.inputs, name)
 
             #insert values
@@ -1111,25 +1316,26 @@ class DSIStudioReconstruct(DSIStudioCommand):
 				else:
 					if isdefined(self.inputs.method_dsi) and \
 					self.inputs.method_dsi == True:
-						self.inputs.method = 0
+						newval = 0
 					if isdefined(self.inputs.method_dti) and \
 					self.inputs.method_dti == True:
-						self.inputs.method = 1
+						newval = 1
 					if isdefined(self.inputs.method_frqbi) and \
 					self.inputs.method_frqbi == True:
-						self.inputs.method = 2
+						newval = 2
 					if isdefined(self.inputs.method_shqbi) and \
 					self.inputs.method_shqbi == True:
-						self.inputs.method = 3
+						newval = 3
 					if isdefined(self.inputs.method_gqi) and \
 					self.inputs.method_gqi == True:
-						self.inputs.method = 4
+						newval = 4
 					if isdefined(self.inputs.method_hardi) and \
 					self.inputs.method_hardi == True:
-						self.inputs.method = 6
+						newval = 6
 					if isdefined(self.inputs.method_qsdr) and \
 					self.inputs.method_qsdr == True:
-						self.inputs.method = 7
+						newval = 7
+					setattr(self.inputs, 'method', newval)
 			#TODO grab param values from inputspec traits
 			if name == "param":
 				if isdefined(self.inputs.method):
