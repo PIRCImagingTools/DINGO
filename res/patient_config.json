@@ -4,16 +4,18 @@
  "sequenceid": "DTIFIXED",
  "paths":
   {
-	"base_dir": "/home/pirc/Desktop/DWI/CHD_tractography/CHP/patient",
-	"dti_dir": "dti_dir/",
-	"dti": "dti.nii.gz",
-	"t1_dir": "t1_dir/",
+	"parent_dir": "/home/pirc/Desktop/DWI/CHD_tractography/CHP",
+	"dti_dir": "scanid",
+	"dti": "pid_scanid_sequenceid_suffix.nii.gz",
+	"bval": "pid_scanid_sequenceid_suffix.bval",
+	"bvec": "pid_scanid_sequenceid_suffix.bvec",
+	"t1_dir": "scanid/t1_dir",
 	"t1": "t1.nii.gz",
-	"t2_dir": "t2_dir/",
+	"t2_dir": "scanid/t2_dir",
 	"t2": "t2.nii.gz",
-	"regions": "Regions/",
-	"tracts": "Tracts/",
-	"src": "patient_scan_sequence.src.gz",
-	"fib": "patient_scan_sequence.fib.gz"
+	"regions": "scanid/Regions",
+	"tracts": "scanid/Tracts",
+	"src": "pid_scanid_sequenceid.src.gz",
+	"fib": "pid_scanid_sequenceid.fib.gz"
   }   
 }

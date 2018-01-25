@@ -5,6 +5,7 @@ from nipype.interfaces.base import (traits, File, Directory, InputMultiPath,
 import os
 from nipype.utils.filemanip import fname_presuffix, split_filename
 from traits.trait_base import _Undefined
+from traits.api import Trait
 from wf.utils import list_to_str
 
 
@@ -27,51 +28,51 @@ class Info(object):
 		'atl': 'NIFTI'}
 
 	#reconstruction method id for method number
-	rec_method_n_id = {
-		0: 'DSI',
-		1: 'DTI',
-		2: 'FRQBI',
-		3: 'SHQBI',
-		4: 'GQI',
-		6: 'HARDI',
-		7: 'QSDR'}
+	rec_method_id_n = {
+		'dsi':		0,
+		'dti':		1,
+		'frqbi':	2,
+		'shqbi':	3,
+		'gqi':		4,
+		'qsdr':		7,
+		'hardi':	6}
 	
 	#reconstruction method number of params for method id	   
 	rec_nparams = {
-		'DSI':		1,
-		'DTI':		0,
-		'FRQBI':	2,
-		'SHQBI':	2,
-		'GQI':		1,
-		'QSDR':		2,
-		'HARDI':	3}
+		'dsi':		1,
+		'dti':		0,
+		'frqbi':	2,
+		'shqbi':	2,
+		'gqi':		1,
+		'qsdr':		2,
+		'hardi':	3}
 	
 	#reconstruction method param types for method id
 	rec_param_types = {
-		'DSI':		(int,),
-		'DTI':		tuple(),
-		'FRQBI':	(int,int),
-		'SHQBI':	(float,int),
-		'GQI':		(float,),
-		'QSDR':		(float,int),
-		'HARDI':	(float,int,float)}
+		'dsi':		(int,),
+		'dti':		tuple(),
+		'frqbi':	(int,int),
+		'shqbi':	(float,int),
+		'gqi':		(float,),
+		'qsdr':		(float,int),
+		'hardi':	(float,int,float)}
 				
 	#reconstruction method param ids for method id
 	#NOT LINKED TO rec_nparams, rec_param_types
 	rec_method_id_params = {
-		'DSI':		('check_btable','hanning_filter_width'),
-		'DTI':		('check_btable','output_dif','output_tensor'),
-		'FRQBI':	('check_btable','interp_kernel_width','smooth_kernel_width',
+		'dsi':		('check_btable','hanning_filter_width'),
+		'dti':		('check_btable','output_dif','output_tensor'),
+		'frqbi':	('check_btable','interp_kernel_width','smooth_kernel_width',
 					'odf_order','record_odf','num_fiber'),
-		'SHQBI':	('check_btable','harmonic_order','regularization',
+		'shqbi':	('check_btable','harmonic_order','regularization',
 					'odf_order','record_odf','num_fiber'),
-		'GQI':		('check_btable','mddr','r2_weighted','output_rdi',
+		'gqi':		('check_btable','mddr','r2_weighted','output_rdi',
 					'odf_order','record_odf','num_fiber'),
-		'QSDR':		('check_btable','mddr','regularization','r2_weighted',
+		'qsdr':		('check_btable','mddr','regularization','r2_weighted',
 					'output_resolution','output_mapping','output_jac',
 					'output_rdi','odf_order','record_odf','other_image',
 					'csf_cal','interpolation','regist_method','num_fiber'),
-		'HARDI':	('check_btable','mddr','regularization','b_value',
+		'hardi':	('check_btable','mddr','regularization','b_value',
 					'num_fiber')}
 
 	@classmethod
@@ -117,22 +118,22 @@ class Info(object):
 			raise KeyError(msg)
 			
 	@classmethod
-	def rec_method_n_to_id(cls, method_n):
-		"""Get DSI Studio tracking method id per method number
+	def rec_method_id_to_n(cls, method_id):
+		"""Get DSI Studio tracking method number from id
 		
 		Parameter
 		---------
-		method_n : {0,1,2,3,4,6,7}
-			Int specifying reconstruction method number
+		method_id : Str
+			specifying reconstruction method number
 		
 		Returns
 		-------
-		method_id : str
+		method_n : Int
 		"""
 		try:
-			return cls.rec_method_n_id[method_n]
+			return cls.rec_method_id_n[method_id]
 		except KeyError:
-			msg = 'Invalid DSIStudio method number: ', method_n
+			msg = 'Invalid DSIStudio method id: ', method_id
 			raise KeyError(msg)
 			
 	@classmethod
@@ -141,7 +142,7 @@ class Info(object):
 		
 		Parameter
 		---------
-		method : {'DSI','DTI','QBI','GQI','HARDI','QSDR'}
+		method : {'DSI','DTI','FRQBI','SHQBI','GQI','HARDI','QSDR'}
 			Str specifying reconstruction method
 		
 		Returns
@@ -160,7 +161,7 @@ class Info(object):
 		
 		Parameter
 		---------
-		method : {'DSI','DTI','QBI','GQI','HARDI','QSDR'}
+		method : {'DSI','DTI','FRQBI','SHQBI','GQI','HARDI','QSDR'}
 			Str specifying reconstruction method
 		
 		Returns
@@ -178,21 +179,23 @@ class Info(object):
 class DSIStudioInputSpec(CommandLineInputSpec):
 	"""Base input specification for DSI Studio commands."""
 
-	action = traits.Enum("trk","ana",
-						 "src","rec","atl","exp","cnt","vis","ren",
-						 argstr="--action=%s",
-						 mandatory=True,
-						 desc="Command action type to execute",
-						 position=1)
+	action = traits.Enum("trk","ana","src","rec","atl","exp","cnt","vis","ren",
+		argstr="--action=%s",
+		mandatory=True,
+		desc="Command action type to execute",
+		position=1)
 	source = traits.Either(
-							File(exists=True),
-							Directory(exists=True),
-							mandatory=True,
-							argstr="--source=%s",
-							desc="Input file to process",
-							position=2)
-	debuglog = File(argstr="> %s",
-					desc="Log file path/name")
+		File(exists=True),
+		Directory(exists=True),
+		mandatory=True,
+		argstr="--source=%s",
+		desc="Input file to process",
+		position=2)
+	debuglog = File(
+		argstr="> %s",
+		desc="Log file path/name")
+	indict = traits.Dict(
+		desc="Dict of keys for inputspec, with their values")
 
 
 
@@ -273,6 +276,17 @@ class DSIStudioCommand(CommandLine):
 		fname = fname_presuffix(basename, suffix=suffix, use_ext=True,
 								newpath=cwd)
 		return fname
+		
+	def _check_mandatory_inputs(self):
+		"""check indict for values to add to inputs, then call super"""
+		if isdefined(self.inputs.indict):
+			for key, value in self.inputs.indict.iteritems():
+				if key in self.inputs.__dict__:
+					setattr(self.inputs, key, value)
+					print('Input: %s set to Value: %s' % (key, value))
+					#Type checking is handled by traits InputSpec
+		
+		super(DSIStudioCommand, self)._check_mandatory_inputs()
 
 				  
 
@@ -298,38 +312,38 @@ class DSIStudioFiberInputSpec(DSIStudioInputSpec):
 				"shiftx","shiftnx","shifty","shiftny","shiftz","shiftnz")),
 		sep=",",
 		desc="action codes to modify seed region")
-	roi = InputMultiPath(File(exists=True), 
+	rois = InputMultiPath(File(exists=True), 
 		argstr="--roi%s=%s",
 		desc="roi through which tracts must pass, txt, analyze, nifti")
-	roi_ar = traits.List(traits.Str(),
+	rois_ar = traits.List(traits.Str(),
 		requires=["roi_atlas"],
 		desc="region in atlas through which tracts must pass")
-	roi_actions = traits.List(traits.List(traits.Enum(
+	rois_actions = traits.List(traits.List(traits.Enum(
 				"smoothing","erosion","dilation","defragment","negate",
 				"flipx","flipy","flipz",
 				"shiftx","shiftnx","shifty","shiftny","shiftz","shiftnz")),
 		sep=",",
 		desc="action codes to modify rois, list for each roi")
-	roa = InputMultiPath(File(exists=True),  
+	roas = InputMultiPath(File(exists=True),  
 		argstr="--roa%s=%s",
 		desc="roa files which tracts must avoid, txt, analyze, nifti")
-	roa_ar = traits.List(traits.Str(), 
+	roas_ar = traits.List(traits.Str(), 
 		requires=["roa_atlas"],
 		desc="region in atlas which tracts must avoid")
-	roa_actions = traits.List(traits.List(traits.Enum(
+	roas_actions = traits.List(traits.List(traits.Enum(
 				"smoothing","erosion","dilation","defragment","negate",
 				"flipx","flipy","flipz",
 				"shiftx","shiftnx","shifty","shiftny","shiftz","shiftnz")),
 		sep=",",
 		desc="action codes to modify roas, list for each roa")
-	end = InputMultiPath(File(exists=True), 
+	ends = InputMultiPath(File(exists=True), 
 		argstr="--end%s=%s",
 		desc="filter out tracks that do not end in this region, txt, analyze, "
 			"or nifti")
-	end_ar = traits.List(traits.Str(), 
+	ends_ar = traits.List(traits.Str(), 
 		requires=["end_atlas"],
 		desc="region in atlas that will filter out tracks that do not end here")
-	end_actions = traits.List(traits.List(traits.Enum(
+	ends_actions = traits.List(traits.List(traits.Enum(
 				"smoothing","erosion","dilation","defragment","negate",
 				"flipx","flipy","flipz",
 				"shiftx","shiftnx","shifty","shiftny","shiftz","shiftnz")),
@@ -525,9 +539,9 @@ class DSIStudioFiberCommand(DSIStudioCommand):
 			argstr = spec.argstr
 			sep = spec.sep
 			
-			if name == "roi" or \
-			name == "roa" or \
-			name == "end" or \
+			if name == "rois" or \
+			name == "roas" or \
+			name == "ends" or \
 			name == "seed" or \
 			name =="ter":
 				#--roi=1 --roi2=2 --roi3=3, same pattern for all regions
@@ -596,7 +610,7 @@ class DSIStudioFiberCommand(DSIStudioCommand):
 		
 		Parameters
 		----------
-		name		: str (input name, e.g. 'seed', 'roi', 'roa', 'end', 'ter')
+		name		: str (input name, e.g. 'seed','rois','roas','ends','ter')
 		value		: list(str) (paths or atlas regions, all together for name)
 		
 		Returns
@@ -641,7 +655,7 @@ class DSIStudioFiberCommand(DSIStudioCommand):
 		
 		Parameters
 		----------
-		name		: str (input name, e.g. 'seed', 'roi', 'roa', 'end', 'ter')
+		name		: str (input name, e.g. 'seed','rois','roas','ends','ter')
 		value		: list(str) (paths or atlas regions, all together for name)
 		
 		Returns
@@ -696,7 +710,7 @@ class DSIStudioFiberCommand(DSIStudioCommand):
 		
 	def _format_arg(self, name, trait_spec, value):
 		"""alternative helper function for _parse_inputs, 
-		format roi, roa, end, seed, ter, export, atlas argstrs
+		format rois, roas, ends, seed, ter, export, atlas argstrs
 		will not change input, only how it's interpreted
 		
 		Parameters
@@ -713,9 +727,9 @@ class DSIStudioFiberCommand(DSIStudioCommand):
 		argstr = trait_spec.argstr
 		sep = trait_spec.sep if trait_spec.sep is not None else ' '
 
-		if name == "roi" or \
-			name == "roa" or \
-			name == "end" or \
+		if name == "rois" or \
+			name == "roas" or \
+			name == "ends" or \
 			name == "seed" or \
 			name =="ter":
 		#--roi=1 --roi2=2 --roi3=3, same pattern for all regions
@@ -760,12 +774,12 @@ class DSIStudioFiberCommand(DSIStudioCommand):
 			for i in range(0,lenvalue):
 				if i == 0:
 					roin = ''
-				elif (name == "roi" or name == "roa") and i > 4:
+				elif (name == "rois" or name == "roas") and i > 4:
 					print("Cannot have more than 5 %s, first 5 used.\n"
 						"%s not included" % 
 						(name, ', '.join(value[x] for x in range(i,lenvalue))))
 					break
-				elif name == "end" and i > 1:
+				elif name == "ends" and i > 1:
 					print("Cannot have more than 2 ends, first 2 used.\n"
 						"%s not included" % 
 						(name, ', '.join(value[x] for x in range(i,lenvalue))))
@@ -1109,7 +1123,7 @@ class DSIStudioReconstructInputSpec(DSIStudioInputSpec):
 				'interpolation','regist_method','num_fiber'],
 		desc="assign QSDR method for reconstruction")
 							
-	method = traits.Enum(1,0,2,3,4,6,7, 
+	method = traits.Enum('dti','dsi','frqbi','shqbi','gqi','hardi','qsdr',
 		mandatory=True, 
 		argstr="--method=%d",
 		desc="Reconstruction method, 0:DSI, 1:DTI, 2:Funk-Randon QBI, "
@@ -1294,53 +1308,43 @@ class DSIStudioReconstruct(DSIStudioCommand):
             #insert values
 			if name == "method":
 				if isdefined(self.inputs.method):
-					if value == 0:
-						fix = self.inputs.trait('method_dsi')
-					elif value == 1:
-						fix = self.inputs.trait('method_dti')
-					elif value == 2:
-						fix = self.inputs.trait('method_frqbi')
-					if value == 3:
-						fix = self.inputs.trait('method_shqbi')
-					elif value == 4:
-						fix = self.inputs.trait('method_gqi')
-					elif value == 6:
-						fix = self.inputs.trait('method_hardi')
-					elif value == 7:
-						fix = self.inputs.trait('method_qsdr')
 					idname = []
-					idname.extend(('method_', Info.rec_method_n_to_id(value).lower()))
+					idname.extend(('method_',value))
+					varidname = ''.join(idname)
+					fix = self.inputs.trait(varidname)
 					for x in fix.xor:
 						setattr(self.inputs, x, _Undefined())
-					setattr(self.inputs, ''.join(idname), True)
+					setattr(self.inputs, varidname, True)
 				else:
 					if isdefined(self.inputs.method_dsi) and \
 					self.inputs.method_dsi == True:
-						newval = 0
+						newval = 'dsi'
 					if isdefined(self.inputs.method_dti) and \
 					self.inputs.method_dti == True:
-						newval = 1
+						newval = 'dti'
 					if isdefined(self.inputs.method_frqbi) and \
 					self.inputs.method_frqbi == True:
-						newval = 2
+						newval = 'frqbi'
 					if isdefined(self.inputs.method_shqbi) and \
 					self.inputs.method_shqbi == True:
-						newval = 3
+						newval = 'shqbi'
 					if isdefined(self.inputs.method_gqi) and \
 					self.inputs.method_gqi == True:
-						newval = 4
+						newval = 'gqi'
 					if isdefined(self.inputs.method_hardi) and \
 					self.inputs.method_hardi == True:
-						newval = 6
+						newval = 'hardi'
 					if isdefined(self.inputs.method_qsdr) and \
 					self.inputs.method_qsdr == True:
-						newval = 7
+						newval = 'qsdr'
 					setattr(self.inputs, 'method', newval)
+					
 			#TODO grab param values from inputspec traits
 			if name == "param":
+				spec.requires
+				#update param mandatory flags based on method
 				if isdefined(self.inputs.method):
-					nparams = Info.rec_method_to_nparams(
-						Info.rec_method_n_to_id(self.inputs.method))
+					nparams = Info.rec_method_to_nparams(self.inputs.method)
 					if nparams > 0:
 						self.inputs.trait('param').mandatory = True
 						for i in range(0,nparams):
@@ -1349,10 +1353,12 @@ class DSIStudioReconstruct(DSIStudioCommand):
 							self.inputs.trait(''.join(param)).mandatory = True
 					else:
 						self.inputs.trait('param').mandatory = False
-						for i in range(0,4):
-							param = []
-							param.extend(('param',str(i)))
-							self.inputs.trait(''.join(param)).mandatory = False
+					for i in range(nparams,4):
+						param = []
+						param.extend(('param',str(i)))
+						self.inputs.trait(''.join(param)).mandatory = False
+							
+				
 		#run original _check_mandatory_inputs
 		super(DSIStudioReconstruct, self)._check_mandatory_inputs()
 
@@ -1372,31 +1378,36 @@ class DSIStudioReconstruct(DSIStudioCommand):
 		print argstr #debug
 		sep = trait_spec.sep if trait_spec.sep is not None else " "
 		arglist = []
+		
+		if name == "method":
+			#method id to n
+			return argstr % Info.rec_method_id_to_n(value)
 			
 		if name == "param":
 			#method should be defined, parsed in alphabetical order
-			recmethodid = Info.rec_method_n_to_id(self.inputs.method)
-			expnparams = Info.rec_method_to_nparams(recmethodid)
-			expparamtypes = Info.rec_method_to_param_types(recmethodid)
-			if recmethodid == "DTI":
+			recmid = getattr(self.inputs, 'method')
+			expnparams = Info.rec_method_to_nparams(recmid)
+			expparamtypes = Info.rec_method_to_param_types(recmid)
+			if recmid == "DTI":
 				pass #no params
 			
 			if len(value) == expnparams:
 				for e in value:
 					if isinstance(e, Info.rec_method_to_param_types(
-						recmethodid)[value.index(e)]):
+						recmid)[value.index(e)]):
 						#numbered from 0
 						arglist.append(argstr % (value.index(e),e))
 					else:
 						raise AttributeError("Param type: %s != Expected "
 							"Param type: %s for Param: %s, in Method: %s" %
 							(type(e),expparamtypes[value.index(e)],e,
-							recmethodid))
+							recmid))
 				return sep.join(arglist)
 			else:
 				raise AttributeError("N input params: '%d' != "
 									"Expected N params: '%d' for Method: %s" %
-									(len(value),expnparams,recmethodid))
+									(len(value),expnparams,recmid))
+									
 		#qsdr t1w,t2w image wrapping, check number of inputs match and put 
 		#values in other_image argstr
 		elif name == "other_image" and value:
@@ -1414,16 +1425,23 @@ class DSIStudioReconstruct(DSIStudioCommand):
 			else:
 				raise AttributeError("N other image types != N other image "
 									"files")
+		else:
+			return super(DSIStudioReconstruct, self)._format_arg(
+			name, trait_spec, value)
 
 	def _parse_inputs(self, skip=None):
+		#TODO fix error
 		#super._parse_inputs any var with an argstr will be parsed if not in skip
 		#up
+		recmid = getattr(self.inputs, 'method')
+		incp = set().union(*Info.rec_method_id_params[recmid])
+		allp = set().union(*Info.rec_method_id_params.itervalues())
+		excp = allp.difference(incp)
+		
 		deftoskip =[]
-		methodskips = ("method_dsi","method_dti","method_frqbi","method_shqbi",
-		"method_gqi","method_hardi","method_qsdr")
-		oiskips = ("other_image_type","other_image_file")
-		deftoskip.extend(methodskips)
-		deftoskip.extend(oiskips)
+		for elt in excp:
+			deftoskip.append(elt)
+		
 		if skip is None:
 			toskip = deftoskip
 		else:

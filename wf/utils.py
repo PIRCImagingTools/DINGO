@@ -1,5 +1,20 @@
 def flatten(l, ltypes=(list, tuple)):
-	"""flatten lists and tuples to a single list"""
+	"""flatten lists and tuples to a single list, ignore empty
+	
+	Parameters
+	----------
+	l		:	Sequence
+	ltypes	:	Tuple (acceptable sequence types, default (list,tuple)
+	
+	Return
+	------
+	l		:	Flat sequence
+	
+	Example
+	-------
+	flatten(('Hello',[' ',2],[' '],(),['the',[([' '])],('World')]))
+	('Hello', ' ', 2, ' ', 'the', ' ', 'World')
+	"""
 	ltype = type(l)
 	l = list(l)
 	i = 0
@@ -16,21 +31,72 @@ def flatten(l, ltypes=(list, tuple)):
 
 def list_to_str(sep=None, args=None):
 	"""flattened args turned to str with separator
-	default separator: ''"""
+	default separator: ''
+	
+	Parameters
+	----------
+	sep		:	Str (separator for join)
+	args	:	List or Tuple (almost any depth, may have empties)
+	
+	Return
+	------
+	Str (sep.join(args)
+	
+	Example
+	-------
+	list_to_str(
+		sep='',args=('Hello',[' ',2],[' '],(),['the',[([' '])],('World')])
+		)
+	'Hello 2 the World'
+	"""
 	if sep is None:
 		sep=''
 	if args is None:
 		raise TypeError("Not enough arguments for str creation")
 	return sep.join(str(e) for e in flatten(args))
+	
+def update_dict(indict=None, **kwargs):
+	"""update key/value pairs dictionary
+	
+	Parameters
+	----------
+	indict		:	Dict
+	kwargs		:	Dict / key/value pairs, key=value
+	
+	Returns
+	-------
+	outdict		:	Dict (new dictionary, indict unchanged)
+	
+	out=update_dict(indict=d, key=value)
+	"""
+	if indict is None:
+		outdict = dict()
+	elif not isinstance(indict, dict):
+		raise TypeError('indict: %s is not a dictionary' % (indict))
+	else:
+		outdict = indict.copy()
+	for k,v in kwargs.iteritems():
+		if k in outdict:
+			tv = type(v)
+			td = type(outdict[k])
+			if tv == td:
+				outdict.update([(k,v)])
+			else:
+				raise TypeError('Type(%s): %s, != Type(%s): %s' %
+				(k, tv, k, td))
+		else:
+			outdict.update([(k,v)])
+	return outdict
 
 #Return patient/scan id
-def patient_scan(patientcfg, addSequence=None):
+def patient_scan(patientcfg, addSequence=None, sep=None):
 	"""Get patient/scan id
 
 	Parameters
 	----------
-	patcfg : dict < json (patient config file with pid, scanid in top level)
-	addSequence : bool (Flag to join sequence id with pid, scanid)
+	patientcfg	:	Dict < json (patient config file with pid, scanid in top level)
+	addSequence	:	Bool (Flag to join sequence id with pid, scanid)
+	sep			:	Str (separator, default '_')
 
 	Returns
 	-------
@@ -47,16 +113,15 @@ def patient_scan(patientcfg, addSequence=None):
 		raise KeyError("patient_config:scanid")
 	if addSequence == None:
 		addSequence = False
+	if sep is None:
+		sep = '_'
 	ps_id = []
-	ps_id.append(patient_id)
-	ps_id.append("_")
-	ps_id.append(scan_id)
+	ps_id.extend((patient_id,sep,scan_id))
 
 	if addSequence: #if True, default False
 		if "sequenceid" in patientcfg:
-			ps_id.append("_")
 			seq_id = patientcfg["sequenceid"]
-			ps_id.append(seq_id)
+			ps_id.extend((sep,seq_id))
 		else:
 			raise KeyError("patient_config:sequenceid")
 	patient_scan_id = "".join(ps_id)
@@ -66,11 +131,22 @@ def patient_scan(patientcfg, addSequence=None):
 #Split patient/scan id
 def split_chpid(psid,sep):
 	"""Returns patient/scan/uid from input id
+	
+	Parameters
+	----------
+	psid		:	Str (patient id, scan id, uid)
+	sep			:	Str (separator of the ids)
+	
+	Returns
+	-------
+	patientid	:	Str (first or first two fields, depending on CHD presence)
+	scanid		:	Str (second or third field)
+	uid			:	Str (the rest)
 
 	e.g. XXXX_YYYY_ZZZZ 			-> XXXX, YYYY, ZZZZ
 		 XXXX_YYYY_ZZZZ_ZZZZ		-> XXXX, YYYY, ZZZZ_ZZZZ
-		 CHD_XXXX_YYYY_ZZZZ 		-> CHD_XXXX, YYYY, ZZZZ
-		 CHD_XXXX_YYYY_ZZZZ_ZZZZ 	-> CHD_XXXX, YYYY, ZZZZ_ZZZZ
+		 CHD_XXX_YYYY_ZZZZ 			-> CHD_XXX, YYYY, ZZZZ
+		 CHD_XXX_YYYY_ZZZZ_ZZZZ 	-> CHD_XXX, YYYY, ZZZZ_ZZZZ
 """
 	if not isinstance(psid, str):
 		raise TypeError("%s is not a string" % psid)
@@ -95,7 +171,23 @@ def split_chpid(psid,sep):
 
 #Convert str to boolean
 def tobool(s):
-	"""Convert string/int true/false values to bool"""
+	"""Convert string/int true/false values to bool
+	
+	Parameter
+	---------
+	s		:	Boolean representation 
+	
+	Return
+	------
+	Bool	
+	
+	Examples
+	--------
+	tobool(True)	->	True
+	tobool('t')		->	True
+	tobool('YeS')	->	True
+	tobool(1)		->	True
+	"""
 	if isinstance(s, bool):
 		return s
 	if isinstance(y, str):
@@ -268,7 +360,7 @@ def testtrk3():
 def testrec():
 	from wf.DSI_Studio_base import DSIStudioReconstruct
 	source='/home/pirc/Desktop/DWI/CHD_tractography/CHP/0003/20150225/0003_20150225_DTIFIXED.src.gz'
-	method=1
+	method='dti'
 	
 	rec = DSIStudioReconstruct()
 	rec.inputs.source = source

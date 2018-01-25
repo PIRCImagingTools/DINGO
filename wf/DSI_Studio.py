@@ -6,7 +6,7 @@ import os
 import glob
 import re
 import logging
-from wf.utils import *
+from wf.utils import update_dict, read_config, split_chpid
 from wf.DSI_Studio_base import (DSIStudioSource, DSIStudioReconstruct, 
 								DSIStudioTrack, DSIStudioAnalysis)
 
@@ -86,17 +86,19 @@ def create_split_ids(name="split_ids", sep=None,
 
 #Create DSI Source Workflow - SRC file creation
 def create_dsi_src(name="dsi_src", 
-					parent_dir=None, sub_id=None, scan_id=None, uid=None):
+					parent_dir=None, sub_id=None, scan_id=None, uid=None,
+					inputs_dict=None, **kwargs):
 	"""Nipype node to create a src file in DSIStudio with dwi, bval, bvec
 	
 	Parameters
 	----------
 	name		: 	Str (workflow name, default 'dsi_src')
-	grabFiles	: 	Bool (default True)
 	parent_dir	: 	Directory (default os.getcwd())
 	sub_id		: 	Str
 	scan_id		:	Str
 	uid			:	Str
+	inputs_dict	:	Dict (InputName=ParameterValue)
+	**kwargs	:	InputName=ParameterValue
 	
 	e.g. dsi_src = create_dsi_src(name='dsi_src',
 					grabFiles=True,
@@ -126,14 +128,17 @@ def create_dsi_src(name="dsi_src",
 
 	if parent_dir is not None:
 		inputnode.inputs.parent_dir = parent_dir
-	else:
-		inputnode.inputs.parent_dir = os.getcwd()
 	if sub_id is not None:
 		inputnode.inputs.sub_id = sub_id
 	if scan_id is not None:
 		inputnode.inputs.scan_id = scan_id
 	if uid is not None:
 		inputnode.inputs.uid = uid
+		
+	moddict=update_dict(indict=inputs_dict, **kwargs)
+	
+	if len(moddict) != 0:
+		inputnode.inputs.inputs_dict = moddict
 
 	#Select Files - Does not seem as configurable after init
 #	templates = {"dwi": "{subid}/{scanid}/{subid}_{scanid}_{uid}.nii.gz",
@@ -171,7 +176,7 @@ def create_dsi_src(name="dsi_src",
 	#DSI Studio SRC node
 	srcnode = pe.Node(
 		name="srcnode",
-		interface=DSIStudioSource())
+		interface=DSIStudioSource(indict=moddict))
 
 	#Write output done by DSI Studio
 
@@ -202,20 +207,22 @@ def create_dsi_src(name="dsi_src",
 
 #Create DSI rec workflow - FIB file creation
 def create_dsi_rec(name="dsi_rec", 
-	inputMask=None,
-	parent_dir=None, sub_id=None, scan_id=None, uid=None):
+	parent_dir=None, sub_id=None, scan_id=None, uid=None,
+	inputMasksfx=None, inputs_dict=None, **kwargs):
 	"""Nipype node to create a fib file in DSIStudio with src file
 	
 	Parameters
 	----------
 	name		: 	Str (workflow name, default 'dsi_rec')
 	grabFiles	: 	Bool (default True)
-	inputMask	:	Str (File suffix, default None)
-		if None DSIStudio will mask automatically
-	parent_dir	: 	Directory (default os.getcwd())
+	parent_dir	: 	Directory 
 	sub_id		: 	Str (default None)
 	scan_id		:	Str (default None)
 	uid			:	Str (default None)
+	inputMasksfx:	Str (File suffix, default None)
+		if None DSIStudio will mask automatically
+	inputs_dict	:	Dict (InputName=ParameterValue)
+	**kwargs	:	InputName=ParameterValue
 	
 	e.g. dsi_rec = create_dsi_rec(name='dsi_rec',
 					grabFiles=True,
@@ -245,14 +252,17 @@ def create_dsi_rec(name="dsi_rec",
 
 	if parent_dir is not None:
 		inputnode.inputs.parent_dir = parent_dir
-	else:
-		inputnode.inputs.parent_dir = os.getcwd()
 	if sub_id is not None:
 		inputnode.inputs.sub_id = sub_id
 	if scan_id is not None:
 		inputnode.inputs.scan_id = scan_id
 	if uid is not None:
 		inputnode.inputs.uid = uid
+		
+	moddict=update_dict(indict=inputs_dict, **kwargs)
+	
+	if len(moddict) != 0:
+		inputnode.inputs.inputs_dict = moddict
 		
 	#Data Grabber - Get src
 	datainnode = pe.Node(
@@ -268,9 +278,9 @@ def create_dsi_rec(name="dsi_rec",
 	datainnode.inputs.template_args = dict(
 		src_file=[['sub_id','scan_id','sub_id','scan_id','uid']])
 	#grab mask if suffix is provided
-	if inputMask is not None:
+	if inputMasksfx is not None:
 		masktemplate=[]
-		masktemplate.extend(("%s/%s/%s_%s_%s",inputMask,".nii.gz"))
+		masktemplate.extend(("%s/%s/%s_%s_%s",inputMasksfx,".nii.gz"))
 		datainnode.inputs.template.update(mask_file=''.join(masktemplate))
 		datainnode.inputs.template_args.update(mask_file=[['sub_id',
 			'scan_id','sub_id','scan_id','uid']])
@@ -280,7 +290,7 @@ def create_dsi_rec(name="dsi_rec",
 	#DSI Studio rec node
 	recnode = pe.Node(
 		name="recnode",
-		interface=DSIStudioReconstruct())
+		interface=DSIStudioReconstruct(indict=moddict))
 	
 	#Write output done by DSI Studio
 	
@@ -311,26 +321,21 @@ def create_dsi_rec(name="dsi_rec",
 	
 def create_dsi_trk(name="dsi_trk",
 	parent_dir=None, sub_id=None, scan_id=None, uid=None,
-	seed=None, roi_list=None, roa_list=None, end_list=None, ter=None):
-	"""Nipype node to create a trk files in DSIStudio with fib, and region files
+	inputs_dict=None, **kwargs):
+	"""Nipype wf to create a trk with fiber file and input parameters
 	
 	Parameters
 	----------
 	name		: 	Str (workflow name, default 'dsi_trk')
-	grabFiles	: 	Bool (default True)
 	parent_dir	: 	Directory (default os.getcwd())
 	sub_id		: 	Str (default None)
 	scan_id		:	Str (default None)
 	uid			:	Str (default None)
-	seed		:	List[File]
-	roi_list	:	List[File]
-	roa_list	:	List[File]
-	end_list	:	List[File]
-	ter_list	:	List[File]
+	inputs_dict	:	Dict (InputName=ParameterValue)
+	**kwargs	:	InputName=ParameterValue
+		any unspecified tracting parameters will be defaults of DSIStudiotract
 	
-	e.g. dsi_rec = create_dsi_rec(name='dsi_rec',
-					grabFiles=True,
-					inputMask='_be_mask_edited'
+	e.g. dsi_trk = create_dsi_trk(name='dsi_trk',
 					parent_dir='/home/pirc/Desktop/DWI/CHD_tractography/CHP',
 					sub_id='0004',
 					scan_id='MR1',
@@ -338,8 +343,8 @@ def create_dsi_trk(name="dsi_trk",
 					
 	Returns
 	-------
-	recwf		:	Nipype workflow
-		recwf.outputnode.outputs=['fib_file']
+	trkwf		:	Nipype workflow
+		trkwf.outputnode.outputs=['tract_list']
 		e.g. '/home/pirc/Desktop/DWI/CHD_tractography/CHP/0004/MR1/
 			  0004_MR1_DTIFIXED_ec.*.fib.gz'
 	"""
@@ -350,27 +355,23 @@ def create_dsi_trk(name="dsi_trk",
 			fields=[
 				"parent_dir",
 				"sub_id","scan_id","uid",
-				"seed","roi_list","roa_list","end_list","ter"]))
+				"inputs_dict"],
+			mandatory_inputs = True))
 	if parent_dir is not None:
 		inputnode.inputs.parent_dir = parent_dir
-	if seed is not None:
-		inputnode.inputs.seed = seed
-	if ter is not None:
-		inputnode.inputs.ter = ter
-		
-	inputiters = []
-	if scan_list is not None:
-		inputiters.append(("scanid_list", scan_list))
-	if roi_list is not None:
-		inputiters.append(("roi_list", roi_list))
-	if roa_list is not None:
-		inputiters.append(("roa_list", roa_list))
-	if end_list is not None:
-		inputiters.append(("end_list", end_list))
-	if inputiters:
-		inputnode.iterables = inputiters
+	if sub_id is not None:
+		inputnode.inputs.sub_id = sub_id
+	if scan_id is not None:
+		inputnode.inputs.scan_id = scan_id
+	if uid is not None:
+		inputnode.inputs.uid = uid
 	
-	#Data Grabber - get fib, regions
+	moddict=update_dict(indict=inputs_dict, **kwargs)
+	
+	if len(moddict) != 0:
+		inputnode.inputs.inputs_dict = moddict
+	
+	#Data Grabber - get fib, regions by DSIStudiotract
 	datainnode = pe.Node(
 		name="datainnode",
 		interface=nio.DataGrabber(
@@ -388,7 +389,8 @@ def create_dsi_trk(name="dsi_trk",
 	#DSI TRK
 	trknode = pe.Node(
 		name="trknode",
-		interface=DSIStudioTrack())
+		interface=DSIStudioTrack(indict=moddict))
+	
 	
 	#Write Data
 	dataoutnode = pe.Node(
@@ -398,15 +400,15 @@ def create_dsi_trk(name="dsi_trk",
 				"base_directory",
 				"container",
 				"container.scan",
-				"container.scan.tracts")
+				"container.scan.tracts"]))
 	
-	#Join tracks into list per subject
+	#Join tracts into list per subject
 	outputnode = pe.JoinNode(
 		name="outputnode",
 		interface=IdentityInterface(
-			fields=["track_list"]),
+			fields=["tract_list"]),
 		joinsource="trknode",
-		joinfield="track_list")
+		joinfield="tract_list")
 		
 	
 	trkwf=pe.Workflow(name=name)
@@ -415,6 +417,7 @@ def create_dsi_trk(name="dsi_trk",
 								("scan_id","scan_id"),
 								("uid","uid")]),
 		(datainnode, trknode, [("fib_file","source")]),
+		(trknode, outputnode, [("tract","tract_list")])
 				])
 	return trkwf
 
@@ -422,10 +425,8 @@ def create_dsi_trk(name="dsi_trk",
 def dsi_main():
 
 	dsi_dir = os.environ["DSIDIR"]
-	anacfgpath = os.environ["PATH"]["ana_config"]
-	
-
-	syscfg = read_config(syscfgpath)
+	#anacfgpath = os.environ["ana_config"]
+	anacfgpath = '/home/pirc/Desktop/DWI/CHD_test_analysis_config.json'
 	anacfg = read_config(anacfgpath)
 
 	#Check for included sub/scan list
@@ -434,6 +435,8 @@ def dsi_main():
 		t_scanlist = frozenset(scanlist)
 	else:
 		raise KeyError("included_psids not identified in analysis config")
+	
+	config_list = []
 
 	for root,dirs,files in os.walk(anacfg["data_dir"]):
 		for f in files:
@@ -444,10 +447,11 @@ def dsi_main():
 					t_pot_id = frozenset([pot_id])
 					if bool(t_scanlist.intersection(t_pot_id)):
 						print "%s: INCLUDED" % (pot_id)
-						subcfg = potential
+						config_list.append(potential)
 					else:
 						print("%s: SKIPPED - does not match inclusion list" %
 							(pot_id))
 				except KeyError:#not a subject config file
 					pass
+	return config_list
 
