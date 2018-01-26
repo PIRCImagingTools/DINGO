@@ -371,7 +371,7 @@ def create_tbss_2_reg_n(name="tbss_2_reg_n", parent_dir=None):
 	Performs flirt and fnirt from every file in fa_list to reference
 	"""
 	from nipype import IdentityInterface
-
+	#TODO Finish conversion from mapnode
 	inputnode = pe.Node(
 		name="inputnode",
 		interface=IdentityInterface(
