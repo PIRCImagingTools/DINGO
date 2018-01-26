@@ -6,82 +6,9 @@ import os
 import glob
 import re
 import logging
-from wf.utils import update_dict, read_config, split_chpid
+from wf.utils import update_dict, read_config
 from wf.DSI_Studio_base import (DSIStudioSource, DSIStudioReconstruct, 
 								DSIStudioTrack, DSIStudioAnalysis)
-
-
-def create_split_ids(name="split_ids", sep=None,
-					parent_dir=None, scan_list=None):
-	"""Nipype node to iterate a list of CHP ids into separate subject, scan, and
-		task ids.
-		
-		Parameters
-		----------
-		name		:	Str (workflow name, default 'split_ids')
-		sep			:	Str (separator for fields in id, default '_')
-		parent_dir	:	Directory (contains subject folders)
-		scan_list	:	List[Str] 
-			
-		e.g. split_ids = create_split_ids(name='split_ids', 
-					parent_dir=os.getcwd(),
-					scan_list=[0004_MR1_DTIFIXED,CHD_003_02a_DTIFIXED],
-					sep='_')
-			
-		Returns
-		-------
-		splitids	:	Nipype workflow
-		(splitids.outputnode.outputs=['parent_dir','sub_id','scan_id','uid'])
-		e.g. {0: {parent_dir='/home/pirc/Desktop/DWI/CHD_tractography/CHP',
-					sub_id='0004', scan_id='MR1', uid='DTIFIXED'},
-			  1: {parent_dir='/home/pirc/Desktop/DWI/CHD_tractography/CHP',
-					sub_id='CHD_003', scan_id='02a', uid='DTIFIXED'}}
-	"""
-	inputnode = pe.Node(
-		name="inputnode",
-		interface=IdentityInterface(
-			fields=["parent_dir",
-					"scan_list"],
-			mandatory_inputs=True))
-	if parent_dir is not None:
-		inputnode.inputs.parent_dir = parent_dir
-	else:
-		inputnode.inputs.parent_dir = os.getcwd()
-	if scan_list is not None:
-		inputnode.iterables = ("scan_list", scan_list)
-	else:
-		print("inputnode.inputs.scan_list must be set before running")
-			
-	splitidsnode = pe.Node(
-		name="splitidsnode",
-		interface=Function(
-			input_names=["psid","sep"],
-			output_names=["sub_id","scan_id","uid"],
-			function=split_chpid))
-	if sep is not None:
-		splitidsnode.inputs.sep = sep
-	else:
-		splitidsnode.inputs.sep = "_"
-		
-	outputnode = pe.Node(
-		name="outputnode",
-		interface=IdentityInterface(
-			fields=["parent_dir",
-					"sub_id",
-					"scan_id",
-					"uid"],
-			mandatory_inputs=True))
-			
-	#Create Workflow
-	splitids = pe.Workflow(name=name)
-	splitids.connect([
-		(inputnode, splitidsnode, [("scan_list", "psid")]),
-		(inputnode, outputnode, [("parent_dir", "parent_dir")]),
-		(splitidsnode, outputnode, [("sub_id", "sub_id"),
-									("scan_id", "scan_id"),
-									("uid", "uid")])
-					])
-	return splitids
 
 
 #Create DSI Source Workflow - SRC file creation
@@ -284,7 +211,6 @@ def create_dsi_rec(name="dsi_rec",
 		datainnode.inputs.template.update(mask_file=''.join(masktemplate))
 		datainnode.inputs.template_args.update(mask_file=[['sub_id',
 			'scan_id','sub_id','scan_id','uid']])
-		recwf.connect([(datainnode, recnode, [("mask_file","mask")])])
 	datainnode.inputs.sort_filelist=True
 	
 	#DSI Studio rec node
@@ -311,7 +237,7 @@ def create_dsi_rec(name="dsi_rec",
 				])
 							
 	
-	if inputMask is not None:
+	if inputMasksfx is not None:
 		recwf.connect([
 			(datainnode, recnode, [("mask_file","mask")])
 					])
@@ -392,15 +318,15 @@ def create_dsi_trk(name="dsi_trk",
 		interface=DSIStudioTrack(indict=moddict))
 	
 	
-	#Write Data
-	dataoutnode = pe.Node(
-		name="dataoutnode",
-		interface=nio.DataSink(
-			infields=[
-				"base_directory",
-				"container",
-				"container.scan",
-				"container.scan.tracts"]))
+	#Write Data done by DSI Studio
+	#dataoutnode = pe.Node(
+		#name="dataoutnode",
+		#interface=nio.DataSink(
+			#infields=[
+				#"base_directory",
+				#"container",
+				#"container.scan",
+				#"container.scan.tracts"]))
 	
 	#Join tracts into list per subject
 	outputnode = pe.JoinNode(

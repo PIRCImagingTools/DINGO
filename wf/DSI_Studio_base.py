@@ -37,7 +37,7 @@ class Info(object):
 		'qsdr':		7,
 		'hardi':	6}
 	
-	#reconstruction method number of params for method id	   
+	#reconstruction method number of params for method id
 	rec_nparams = {
 		'dsi':		1,
 		'dti':		0,
@@ -56,19 +56,35 @@ class Info(object):
 		'gqi':		(float,),
 		'qsdr':		(float,int),
 		'hardi':	(float,int,float)}
-				
+		
 	#reconstruction method param ids for method id
+	#order matters method id: (param0, param1, param2)
+	rec_param_ids = {
+		'dsi':		('hanning_filter_width',),
+		'dti':		tuple(),
+		'frqbi':	('interp_kernel_width','smooth_kernel_width'),
+		'shqbi':	('regularization','harmonic_order'),
+		'gqi':		('mddr',),
+		'qsdr':		('mddr','output_resolution'),
+		'hardi':	('mddr','b_value','regularization')}
+				
+	#reconstruction method input ids for method id
 	#NOT LINKED TO rec_nparams, rec_param_types
-	rec_method_id_params = {
-		'dsi':		('check_btable','hanning_filter_width'),
+	#should include rec_param_ids, but also others, order doesn't matter
+	rec_method_id_inputs = {
+		'dsi':		('check_btable','hanning_filter_width','deconvolution',
+					'decomposition'),
 		'dti':		('check_btable','output_dif','output_tensor'),
 		'frqbi':	('check_btable','interp_kernel_width','smooth_kernel_width',
-					'odf_order','record_odf','num_fiber'),
+					'odf_order','record_odf','num_fiber','deconvolution',
+					'decomposition'),
 		'shqbi':	('check_btable','harmonic_order','regularization',
-					'odf_order','record_odf','num_fiber'),
+					'odf_order','record_odf','num_fiber','deconvolution',
+					'decomposition'),
 		'gqi':		('check_btable','mddr','r2_weighted','output_rdi',
-					'odf_order','record_odf','num_fiber'),
-		'qsdr':		('check_btable','mddr','regularization','r2_weighted',
+					'odf_order','record_odf','num_fiber','deconvolution',
+					'decomposition'),
+		'qsdr':		('check_btable','mddr','r2_weighted',
 					'output_resolution','output_mapping','output_jac',
 					'output_rdi','odf_order','record_odf','other_image',
 					'csf_cal','interpolation','regist_method','num_fiber'),
@@ -76,7 +92,7 @@ class Info(object):
 					'num_fiber')}
 
 	@classmethod
-	def output_type_to_ext(cls, output_type):
+	def ot_to_ext(cls, output_type):
 		"""Get file extension for given output type
 
 		Parameters
@@ -97,7 +113,7 @@ class Info(object):
 			raise KeyError(msg)
 
 	@classmethod
-	def action_to_output_type(cls, action_type):
+	def a_to_ot(cls, action_type):
 		"""Get DSI studio output extension per action type
 		
 		Parameter
@@ -118,8 +134,8 @@ class Info(object):
 			raise KeyError(msg)
 			
 	@classmethod
-	def rec_method_id_to_n(cls, method_id):
-		"""Get DSI Studio tracking method number from id
+	def rec_mid_to_mn(cls, method_id):
+		"""Get DSI Studio reconstruction method number from id
 		
 		Parameter
 		---------
@@ -133,12 +149,12 @@ class Info(object):
 		try:
 			return cls.rec_method_id_n[method_id]
 		except KeyError:
-			msg = 'Invalid DSIStudio method id: ', method_id
+			msg = 'Invalid DSIStudio Reconstruction method: ', method_id
 			raise KeyError(msg)
 			
 	@classmethod
-	def rec_method_to_nparams(cls, method_id):
-		"""Get number of params per tracking method
+	def rec_mid_to_np(cls, method_id):
+		"""Get number of params per reconstruction method
 		
 		Parameter
 		---------
@@ -147,16 +163,16 @@ class Info(object):
 		
 		Returns
 		-------
-		nparams : int
+		Int
 		"""
 		try:
-			return cls.rec_nparams[method_id]
+			return len(cls.rec_param_ids[method_id])
 		except KeyError:
-			msg = 'Invalid DSIStudio Tracking method: ', method_id
+			msg = 'Invalid DSIStudio Reconstruction method: ', method_id
 			raise KeyError(msg)
 			
 	@classmethod
-	def rec_method_to_param_types(cls, method_id):
+	def rec_mid_to_ptype(cls, method_id):
 		"""Get param types per tracking method
 		
 		Parameter
@@ -171,9 +187,35 @@ class Info(object):
 		try:
 			return cls.rec_param_types[method_id]
 		except KeyError:
-			msg = 'Invalid DSIStudio Tracking method: ', method_id
+			msg = 'Invalid DSIStudio Reconstruction method: ', method_id
 			raise KeyError(msg)
-
+			
+	@classmethod
+	def rec_mid_to_pids(cls, method_id):
+		"""Get param input ids per reconstruction method
+		
+		Parameter
+		----------
+		method_id	:	Str
+		
+		Return
+		------
+		Tuple(Str)
+		"""
+		try:
+			return cls.rec_param_ids[method_id]
+		except KeyError:
+			msg = 'Invalid DSIStudio Reconstruction method: ', method_id
+			raise KeyError(msg)
+			
+	@classmethod
+	def rec_mid_to_req(cls, method_id):
+		"""Get required inputs per reconstruction method"""
+		try:
+			return cls.rec_method_id_inputs[method_id]
+		except KeyError:
+			msg = 'Invalid DSIStudio Reconstruction method: ', method_id
+			raise KeyError(msg)
 
 
 class DSIStudioInputSpec(CommandLineInputSpec):
@@ -222,7 +264,7 @@ class DSIStudioCommand(CommandLine):
 			raise Exception("Missing action command")
 
 		if self._output_type is None:
-			self._output_type = Info.action_to_output_type(self._action)
+			self._output_type = Info.a_to_ot(self._action)
 
 		if not isdefined(self.inputs.output_type):
 			self.inputs.output_type = self._output_type
@@ -265,7 +307,7 @@ class DSIStudioCommand(CommandLine):
 		if cwd is None:
 			cwd = os.getcwd()
 		if ext is None:
-			ext = Info.output_type_to_ext(self.inputs.output_type)
+			ext = Info.ot_to_ext(self.inputs.output_type)
 		if change_ext:
 			if suffix:
 				suffix = "".join((suffix, ext))
@@ -530,76 +572,77 @@ class DSIStudioFiberCommand(DSIStudioCommand):
 	"""Not used directly, provides region and post-processing commands for
 	DSI Studio trk and ana actions.
 	"""
-	input_spec = DSIStudioFiberInputSpec	
-		
-	def _check_mandatory_inputs(self):
-		"""correct values, then call super"""
-		for name, spec in sorted(self.inputs.traits(transient=None).items()):#alphabetical
+	input_spec = DSIStudioFiberInputSpec
+	
+	def _update_regions(self):
+		regions = ('rois','roas','ends','seed','ter')
+		for name in regions:
 			value = getattr(self.inputs, name)
+			spec = self.inputs.trait(name)
 			argstr = spec.argstr
 			sep = spec.sep
 			
-			if name == "rois" or \
-			name == "roas" or \
-			name == "ends" or \
-			name == "seed" or \
-			name =="ter":
-				#--roi=1 --roi2=2 --roi3=3, same pattern for all regions
-				arglist = []
-				if not isdefined(value):
-					value = []
-					
-				#change seed and ter values to 1-Lists for loop, others are
-				#automatically changed by MultiPath due to InputSpec
-				if not isinstance(value, list):
-					value = [value]
-				lenvalue = len(value)
-
-				#Get values for name_ar
-				varnamearlist = []#atlas regions
-				varnamearlist.extend((name,'_ar'))
-				varnamear = ''.join(varnamearlist)
-				nameatlasregions = getattr(self.inputs, varnamear)
-				if not isdefined(nameatlasregions):
-					nameatlasregions = []
-				lennar = len(nameatlasregions)
+			#--roi=1 --roi2=2 --roi3=3, same pattern for all regions
+			arglist = []
+			if not isdefined(value):
+				value = []
 				
-				#Get values for name_atlas
-				varnameatlaslist = []
-				varnameatlaslist.extend((name,'_atlas'))
-				varnameatlas = ''.join(varnameatlaslist)
-				nameatlas = getattr(self.inputs, varnameatlas)
-				if not isdefined(nameatlas):
-					nameatlas = []
-				lenna = len(nameatlas)
+			#change seed and ter values to 1-Lists for loop, others are
+			#automatically changed by MultiPath due to InputSpec
+			if not isinstance(value, list):
+				value = [value]
+			lenvalue = len(value)
 
-				#Update
-				#File exists check is in InputSpec, so atlas must be in
-				#dsistudio_directory/atlas
-				if lenna != 0:
-					if lennar == lenna:
-						for i in range(0,lenna):
-							atlas = nameatlas[i]
-							update = list_to_str(sep='',
-								args=(os.environ['DSIDIR'],'/atlas/',atlas,
-									'.nii.gz'))
-							#check we havn't already updated
-							#True if updated, or more file regions included
-							if lenvalue >= lenna:
-								#True if not updated
-								if value[lenvalue-lenna+i] != update:
-									value.append(update)
-									setattr(self.inputs, name, value)
-									print("Appended atlas: %s to %s" % 
-										(atlas,name))
-							else:
+			#Get values for name_ar
+			varnamearlist = []#atlas regions
+			varnamearlist.extend((name,'_ar'))
+			varnamear = ''.join(varnamearlist)
+			nameatlasregions = getattr(self.inputs, varnamear)
+			if not isdefined(nameatlasregions):
+				nameatlasregions = []
+			lennar = len(nameatlasregions)
+			
+			#Get values for name_atlas
+			varnameatlaslist = []
+			varnameatlaslist.extend((name,'_atlas'))
+			varnameatlas = ''.join(varnameatlaslist)
+			nameatlas = getattr(self.inputs, varnameatlas)
+			if not isdefined(nameatlas):
+				nameatlas = []
+			lenna = len(nameatlas)
+
+			#Update
+			#File exists check is in InputSpec, so atlas must be in
+			#dsistudio_directory/atlas
+			if lenna != 0:
+				if lennar == lenna:
+					for i in range(0,lenna):
+						atlas = nameatlas[i]
+						update = list_to_str(sep='',
+							args=(os.environ['DSIDIR'],'/atlas/',atlas,
+								'.nii.gz'))
+						#check we havn't already updated
+						#True if updated, or more file regions included
+						if lenvalue >= lenna:
+							#True if not updated
+							if value[lenvalue-lenna+i] != update:
 								value.append(update)
 								setattr(self.inputs, name, value)
-								print("Appended atlas: %s to %s" % (atlas,name))
-					else:
-						raise AttributeError("N entries in %s must equal "
-							"N entries in %s" %
-							(varnamear, varnameatlas))
+								print("Appended atlas: %s to %s" % 
+									(atlas,name))
+						else:
+							value.append(update)
+							setattr(self.inputs, name, value)
+							print("Appended atlas: %s to %s" % (atlas,name))
+				else:
+					raise AttributeError("N entries in %s must equal "
+						"N entries in %s" %
+						(varnamear, varnameatlas))
+						
+						
+	def _check_mandatory_inputs(self):
+		"""correct values, then call super"""
+		self._update_regions()
 					
 		super(DSIStudioFiberCommand, self)._check_mandatory_inputs()
 			
@@ -634,7 +677,8 @@ class DSIStudioFiberCommand(DSIStudioCommand):
 			return value #return input if no atlas regions
 		else:
 			newvalue = []
-			newvalue.extend(value) #avoid File type checking, which will fail
+			newvalue.extend(value) 
+			#newvalue = value would lead to checking for file exists, it won't
 			lennar = len(namear)
 			lenna = len(nameatlas)
 			if lennar != lenna:
@@ -835,7 +879,7 @@ class DSIStudioFiberCommand(DSIStudioCommand):
 			fname = []
 			fname.extend((filename,
 				"_track",
-				Info.output_type_to_ext(self.inputs.output_type)))
+				Info.ot_to_ext(self.inputs.output_type)))
 			return "".join(fname)
 		else:
 			return super(DSIStudioFiberCommand, self)._gen_filename(name)
@@ -1063,7 +1107,7 @@ class DSIStudioSource(DSIStudioCommand):
 				os.path.abspath(self.inputs.source))
 			fname = []
 			fname.extend((filename,
-				Info.output_type_to_ext(self.inputs.output_type)))
+				Info.ot_to_ext(self.inputs.output_type)))
 			return "".join(fname)
 		else:
 			return super(DSIStudioSource, self)._gen_filename(name)
@@ -1084,43 +1128,37 @@ class DSIStudioReconstructInputSpec(DSIStudioInputSpec):
 	method_dsi = traits.Bool(
 		xor=["method_dti","method_frqbi","method_shqbi","method_gqi",
 			"method_hardi","method_qsdr"],
-		requires=['check_btable','hanning_filter_width'],
+		requires=list(Info.rec_mid_to_req('dsi')),
 		desc="assign DSI method for reconstruction")
 	method_dti = traits.Bool(
 		xor=["method_dsi","method_frqbi","method_shqbi","method_gqi",
 			"method_hardi","method_qsdr"],
-		requires=['check_btable','output_dif','output_tensor'],
+		requires=list(Info.rec_mid_to_req('dti')),
 		desc="assign DTI method for reconstruction")
 	method_frqbi = traits.Bool(
 		xor=["method_dti","method_dsi","method_shqbi","method_gqi",
 			"method_hardi","method_qsdr"],
-		requires=['check_btable','interp_kernel_width','smooth_kernel_width',
-				'odf_order','record_odf','num_fiber'],
+		requires=list(Info.rec_mid_to_req('frqbi')),
 		desc="assign Funk-Radon QBI method for reconstruction")
 	method_shqbi = traits.Bool(
 		xor=["method_dti","method_frqbi","method_dsi","method_gqi",
 			"method_hardi","method_qsdr"],
-		requires=['check_btable','harmonic_order','regularization',
-				'odf_order','record_odf','num_fiber'],
+		requires=list(Info.rec_mid_to_req('shqbi')),
 		desc="assign Spherical Harmonic QBI method for reconstruction")
 	method_gqi = traits.Bool(
 		xor=["method_dti","method_frqbi","method_shqbi","method_dsi",
 			"method_hardi","method_qsdr"],
-		requires=['check_btable','mddr','r2_weighted','output_rdi',
-				'odf_order','record_odf','num_fiber'],
+		requires=list(Info.rec_mid_to_req('gqi')),
 		desc="assign GQI method for reconstruction")
 	method_hardi = traits.Bool(
 		xor=["method_dti","method_frqbi","method_shqbi","method_gqi",
 			"method_dsi","method_qsdr"],
-		requires=['check_btable','mddr','regularization','b_value','num_fiber'],
+		requires=list(Info.rec_mid_to_req('hardi')),
 		desc="Convert to HARDI")
 	method_qsdr = traits.Bool(
 		xor=["method_dti","method_frqbi","method_shqbi","method_gqi",
 			"method_hardi","method_dsi"],
-		requires=['check_btable','mddr','regularization','r2_weighted',
-				'output_resolution','output_mapping','output_jac','output_rdi',
-				'odf_order','record_odf','other_image','csf_cal',
-				'interpolation','regist_method','num_fiber'],
+		requires=list(Info.rec_mid_to_req('qsdr')),
 		desc="assign QSDR method for reconstruction")
 							
 	method = traits.Enum('dti','dsi','frqbi','shqbi','gqi','hardi','qsdr',
@@ -1209,7 +1247,8 @@ class DSIStudioReconstructInputSpec(DSIStudioInputSpec):
 		desc="HARDI - b-value")
 	output_resolution = traits.Float(2,
 		usedefault=True,
-		desc="QSDR - output resolution in mm")#--other_image=t1w,/directory/my_t1w.nii.gz;t2w,/directory/my_t1w.nii.gz
+		desc="QSDR - output resolution in mm")
+	#--other_image=t1w,/directory/my_t1w.nii.gz;t2w,/directory/my_t1w.nii.gz
 	other_image = traits.Bool(
 		argstr="--other_image=%s,%s",
 		sep=";",
@@ -1241,16 +1280,19 @@ class DSIStudioReconstructInputSpec(DSIStudioInputSpec):
 			"default 5")
 	#TODO adjust params for deconv, decomp
 	deconvolution = traits.Enum(0,1, 
+		usedefault=True,
 		argstr="--deconvolution=%d",
-		desc="whether to apply deconvolution")
+		desc="whether to apply deconvolution, requires regularization")
 	decomposition = traits.Enum(0,1, 
+		usedefault=True,
 		argstr="--decomposition=%d",
-		requires=['decomp_frac','m_value'],
-		desc="whether to apply decomposition")
+		desc="whether to apply decomposition, requires decomp_frac, m_value")
 	decomp_frac = traits.Float(0.05,
+		usedefault=True,
 		requires=["decomposition"],
 		desc="decomposition fraction")
 	m_value = traits.Int(10,
+		usedefault=True,
 		requires=["decomposition"],
 		desc="decomposition m value")
 	regist_method = traits.Enum(0,1,2,3,4, 
@@ -1299,66 +1341,94 @@ class DSIStudioReconstruct(DSIStudioCommand):
 	input_spec = DSIStudioReconstructInputSpec
 	output_spec = DSIStudioReconstructOutputSpec
 	
-	def _check_mandatory_inputs(self):
-		"""using this to insert necessary values, then call super
-		"""
-		for name, spec in sorted(self.inputs.traits(transient=None).items()):#alphabetical
-			value = getattr(self.inputs, name)
-
-            #insert values
-			if name == "method":
-				if isdefined(self.inputs.method):
-					idname = []
-					idname.extend(('method_',value))
-					varidname = ''.join(idname)
-					fix = self.inputs.trait(varidname)
-					for x in fix.xor:
-						setattr(self.inputs, x, _Undefined())
-					setattr(self.inputs, varidname, True)
-				else:
-					if isdefined(self.inputs.method_dsi) and \
-					self.inputs.method_dsi == True:
-						newval = 'dsi'
-					if isdefined(self.inputs.method_dti) and \
-					self.inputs.method_dti == True:
-						newval = 'dti'
-					if isdefined(self.inputs.method_frqbi) and \
-					self.inputs.method_frqbi == True:
-						newval = 'frqbi'
-					if isdefined(self.inputs.method_shqbi) and \
-					self.inputs.method_shqbi == True:
-						newval = 'shqbi'
-					if isdefined(self.inputs.method_gqi) and \
-					self.inputs.method_gqi == True:
-						newval = 'gqi'
-					if isdefined(self.inputs.method_hardi) and \
-					self.inputs.method_hardi == True:
-						newval = 'hardi'
-					if isdefined(self.inputs.method_qsdr) and \
-					self.inputs.method_qsdr == True:
-						newval = 'qsdr'
-					setattr(self.inputs, 'method', newval)
-					
-			#TODO grab param values from inputspec traits
-			if name == "param":
-				spec.requires
-				#update param mandatory flags based on method
-				if isdefined(self.inputs.method):
-					nparams = Info.rec_method_to_nparams(self.inputs.method)
-					if nparams > 0:
-						self.inputs.trait('param').mandatory = True
-						for i in range(0,nparams):
-							param = []
-							param.extend(('param',str(i)))
-							self.inputs.trait(''.join(param)).mandatory = True
-					else:
-						self.inputs.trait('param').mandatory = False
-					for i in range(nparams,4):
-						param = []
-						param.extend(('param',str(i)))
-						self.inputs.trait(''.join(param)).mandatory = False
-							
+	def _update_method(self):
+		name = 'method'
+		spec = self.inputs.trait(name)
+		value = getattr(self.inputs, name)
+		
+		#check if self.inputs.method is defined
+		if isdefined(value):
+			idname = []
+			idname.extend(('method_',value))
+			varidname = ''.join(idname)
+			fix = self.inputs.trait(varidname)
+			for x in fix.xor:
+				setattr(self.inputs, x, _Undefined())
+			setattr(self.inputs, varidname, True)
+		else:
+			#sfx is 'dsi', 'dti' etc.
+			for sfx in Info.rec_method_id_n.iterkeys():
+				idname =[]
+				idname.extend(('method_',sfx))
+				varidname = ''.join(idname)
+				sfxvalue = getattr(self.inputs, varidname)
+				if isdefined(sfxvalue) and sfxvalue == True:
+					newval = sfx
+				setattr(self.inputs, 'method', newval)
 				
+	def _update_param(self):
+		name = 'param'
+		spec = self.inputs.trait(name)
+		value = getattr(self.inputs, name)
+		
+		dcnv = 'deconvolution'
+		dcnvval = getattr(self.inputs, dcnv)
+		dcnvspec = self.inputs.trait(dcnv)
+		if isdefined(dcnvval):
+			if dcnvval == 0:
+				dcnvspec.requires = None#requires to default
+			elif dcnvval == 1:
+				dcnvspec.requires=['regularization']
+				if spec.requires is None:
+					spec.requires = []
+				spec.requires.extend(('regularization',))
+		
+		dcmp = 'decomposition'
+		dcmpval = getattr(self.inputs, dcmp)
+		dcmpspec = self.inputs.trait(dcmp)
+		if isdefined(dcmpval):
+			if dcmpval == 0:
+				dcmpspec.requires = None#requires to default
+			elif dcmpval == 1:
+				dcmpspec.requires=['decomp_frac','m_value']
+				if spec.requires is None:
+					spec.requires = []
+				spec.requires.extend(('decomp_frac','m_value'))
+					
+		
+		mval = getattr(self.inputs, 'method')
+		if isdefined(mval):
+			#update param values, requires, and mandatory flag based on method
+			nparams = Info.rec_mid_to_np(mval)
+			paramsources = Info.rec_mid_to_pids(mval)
+			if nparams > 0:
+				self.inputs.trait(name).mandatory = True#update param.mandatory
+				spec.requires = []#clear param.requires
+				spec.requires.extend(paramsources)#update param.requires
+				paramlist = []
+				if not isdefined(value):#param is undefined
+					value = []
+				for e in paramsources:
+					paramval =  getattr(self.inputs, e)
+					if isdefined(paramval):
+						paramlist.append(paramval)
+					else:
+						raise TypeError('Input: %s is <undefined>, required '
+							'parameter for Method: %s' %
+							(e, mval))
+				setattr(self.inputs, name, value)#update param.value
+			else:
+				self.inputs.trait(name).mandatory = None#param.mandatory to def
+				spec.requires = None#param.requires to default
+				setattr(self.inputs, name, _Undefined())#param value to default
+			
+	def _check_mandatory_inputs(self):
+		"""using this to insert/update necessary values, then call super
+		_check_mandatory_inputs called before any cmd is run
+		"""
+		self._update_method()
+		self._update_param()
+
 		#run original _check_mandatory_inputs
 		super(DSIStudioReconstruct, self)._check_mandatory_inputs()
 
@@ -1381,19 +1451,19 @@ class DSIStudioReconstruct(DSIStudioCommand):
 		
 		if name == "method":
 			#method id to n
-			return argstr % Info.rec_method_id_to_n(value)
+			return argstr % Info.rec_mid_to_mn(value)
 			
 		if name == "param":
 			#method should be defined, parsed in alphabetical order
 			recmid = getattr(self.inputs, 'method')
-			expnparams = Info.rec_method_to_nparams(recmid)
-			expparamtypes = Info.rec_method_to_param_types(recmid)
+			expnparams = Info.rec_mid_to_np(recmid)
+			expparamtypes = Info.rec_mid_to_ptype(recmid)
 			if recmid == "DTI":
 				pass #no params
 			
 			if len(value) == expnparams:
 				for e in value:
-					if isinstance(e, Info.rec_method_to_param_types(
+					if isinstance(e, Info.rec_mid_to_ptype(
 						recmid)[value.index(e)]):
 						#numbered from 0
 						arglist.append(argstr % (value.index(e),e))
@@ -1430,14 +1500,15 @@ class DSIStudioReconstruct(DSIStudioCommand):
 			name, trait_spec, value)
 
 	def _parse_inputs(self, skip=None):
-		#TODO fix error
 		#super._parse_inputs any var with an argstr will be parsed if not in skip
 		#up
 		recmid = getattr(self.inputs, 'method')
-		incp = set().union(*Info.rec_method_id_params[recmid])
-		allp = set().union(*Info.rec_method_id_params.itervalues())
+		incp=set(Info.rec_method_id_inputs[recmid])
+		allp = set().union(*Info.rec_method_id_inputs.itervalues())
 		excp = allp.difference(incp)
-		
+		print(incp)
+		print(allp)
+		print(excp)
 		deftoskip =[]
 		for elt in excp:
 			deftoskip.append(elt)
@@ -1533,7 +1604,7 @@ class DSIStudioExport(DSIStudioCommand):
 		for e in value:
 			rvunjoined.extend((source, 
 				value[value.index(e)],#DSI Studio adds export target to ext
-				Info.output_type_to_ext(self.inputs.output_type)))
+				Info.ot_to_ext(self.inputs.output_type)))
 		for e in rvunjoined:
 			retval.append("".join(e))
 		return retval

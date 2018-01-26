@@ -209,7 +209,10 @@ def tobool(s):
 	else:
 		raise ValueError("%s cannot be converted to bool" % (s))
 
+def find_best(id_list, mean_median_list):
+	#TODO implement
 
+	return best_id, mean, median
 #Read config.json
 def read_config(configpath):
 	"""Read in json config file
@@ -235,6 +238,7 @@ def read_config(configpath):
 		logger.exception("Config file could not be read: " + configpath)
 		raise
 	return cfg
+
 
 def testconfigs():
 	syscfgpath = "/home/pirc/Desktop/DWI/DINGO/res/system_config.json"
