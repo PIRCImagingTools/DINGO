@@ -209,10 +209,37 @@ def tobool(s):
 	else:
 		raise ValueError("%s cannot be converted to bool" % (s))
 
-def find_best(id_list, mean_median_list):
+def find_best(id_list, list_numlists):
+	"""take synced id_list and list of lists with means, medians, return id and
+	mean_median that are smallest"""
 	#TODO implement
+	#check lengths
+	nids = len(id_list)
+	nnumlists = len(list_numlists)
+	if nids != nnumlists:
+		msg = ('N_ids: %d != N_lists: %d. Verify data and workflow' % 
+			(nids, nnumlists))
+		raise IndexError(msg)
+	else:
+		idmeans = []
+		idmedians = []
+		for i in range(0, nids):
+			nnums = len(list_numlists[i])
+			if nids != nnums:
+				msg = ('Warning: N_nums: %d for ID: %s is not N_ids: %d' %
+					(nnums, id_list[i], nids))
+				print(msg)
+			idmean = sum(list_numlists[i][0]) / len(list_num_lists[i][0])
+			idmeans.append(idmean)
+			idmedian = sum(list_numlists[i][1]) / len(list_num_lists[i][0])
+			idmedians.append(idmedian)
+			
+		best_index = idmeans.index(min(idmeans))
+		best_id = id_list[best_index]
+		best_mean = idmeans[best_index]
+		best_median = idmeans[best_index]
 
-	return best_id, mean, median
+	return best_index, best_id, best_mean, best_median
 #Read config.json
 def read_config(configpath):
 	"""Read in json config file

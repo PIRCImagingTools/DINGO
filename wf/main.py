@@ -4,7 +4,7 @@ from nipype import IdentityInterface, SelectFiles, Function
 import nipype.pipeline.engine as pe
 import nipype.interfaces.io as nio
 from nipype.interfaces import fsl
-from nipype.interfaces.utility import Rename, Select
+from nipype.interfaces.utility import Rename, Select, Split
 from nipype.workflows.dmri.fsl import tbss
 
 
@@ -72,9 +72,10 @@ def create_split_ids(name="split_ids",sep=None,parent_dir=None,scan_list=None):
 	else:
 		inputnode.inputs.parent_dir = os.getcwd()
 	if scan_list is not None:
-		inputnode.iterables = ("scan_list", scan_list)
+		inputnode.inputs.scan_list = scan_list
+		inputnode.iterables = ("scan_list", inputnode.inputs.scan_list)
 	else:
-		print("inputnode.inputs.scan_list must be set before running")
+		print("%s.inputnode.scan_list must be set before running" % name)
 			
 	splitidsnode = pe.Node(
 		name="splitidsnode",
@@ -160,7 +161,8 @@ def create_iterate_ids(name="iterate_ids",parent_dir=None, sub_id_list=None,
 		])
 	return iteratewf
 
-def create_genFA(name="genFA",parent_dir=None,sub_id=None,scan_id=None,uid=None):
+def create_genFA(name="genFA",parent_dir=None,sub_id=None,scan_id=None,uid=None,
+	grabFiles=False, writeFiles=False):
 	
 	###Pre-Processing###
 	inputnode = pe.Node(
@@ -173,38 +175,19 @@ def create_genFA(name="genFA",parent_dir=None,sub_id=None,scan_id=None,uid=None)
 				"uid"],
 			mandatory_inputs=True))
 	if parent_dir is not None:
-		prepin.inputs.parent_dir = parent_dir
+		inputnode.inputs.parent_dir = parent_dir
+	else:
+		inputnode.inputs.parent_dir = os.getcwd()
 	if sub_id is not None:
-		prepin.inputs.sub_id = sub_id
+		inputnode.inputs.sub_id = sub_id
 	if scan_id is not None:
-		prepin.inputs.scan_id = scan_id
+		inputnode.inputs.scan_id = scan_id
 	if uid is not None:
-		prepin.inputs.uid = uid
-	
-	#DataGrabber - get dwi,bval,bvec
-	datain = pe.Node(
-		name="datain",
-		interface=nio.DataGrabber(
-			infields=[
-				'sub_id',
-				'scan_id',
-				'uid'],
-			outfields=[
-				'dwi',
-				'bval',
-				'bvec']))
-	#datain.inputs.base_directory = inputnode.inputs.parent_dir
-	#template = subid/scanid/subid_scanid_uid.nii.gz
-	datain.inputs.template = "%s/%s/%s_%s_%s.nii.gz"
-	datain.inputs.field_template = dict(
-		dwi="%s/%s/%s_%s_%s_ec.nii.gz",
-		bval="%s/%s/%s_%s_%s.bval",
-		bvec="%s/%s/%s_%s_%s.bvec")
-	datain.inputs.template_args = dict(
-		dwi=[['sub_id','scan_id','sub_id','scan_id','uid']],
-		bval=[['sub_id','scan_id','sub_id','scan_id','uid']],
-		bvec=[['sub_id','scan_id','sub_id','scan_id','uid']])
-	datain.inputs.sort_filelist=True
+		inputnode.inputs.uid = uid
+		
+	genFA = pe.Workflow(name=name,
+		base_dir='%s/%s/%s/%s' % 
+			(parent_dir,name,inputnode.inputs.sub_id,inputnode.inputs.scan_id))
 	
 	#Create Reorient2Std node
 	reorient = pe.Node(
@@ -216,7 +199,8 @@ def create_genFA(name="genFA",parent_dir=None,sub_id=None,scan_id=None,uid=None)
 	eddyc = pe.Node(
 		name="eddyc",
 		interface=fsl.EddyCorrect())
-	eddyc.inputs.ref_num = 0
+	eddyc.inputs.ref_num = 0 #b0 volume is first volume
+	eddyc.inputs.ignore_exception = True #.nii.gz may be 4 bytes short
 	#eddyc.inputs.in_file = reorient.outputs.out_file
 	
 	#Create Robust BET node
@@ -236,7 +220,73 @@ def create_genFA(name="genFA",parent_dir=None,sub_id=None,scan_id=None,uid=None)
 	#dti.inputs.bvecs = datain.outputs.bvecs
 	#dti.inputs.dwi = eddyc.outputs.out_file
 	#dti.inputs.mask = rbet.outputs.mask_file
-
+	
+	if grabFiles:
+		#DataGrabber - get dwi,bval,bvec
+		datain = pe.Node(
+			name="datain",
+			interface=nio.DataGrabber(
+				infields=[
+					'sub_id',
+					'scan_id',
+					'uid'],
+				outfields=[
+					'dwi',
+					'bval',
+					'bvec']))
+		#datain.inputs.base_directory = inputnode.inputs.parent_dir
+		#template = subid/scanid/subid_scanid_uid.nii.gz
+		datain.inputs.template = "%s/%s/%s_%s_%s.nii.gz"
+		datain.inputs.field_template = dict(
+			dwi="%s/%s/%s_%s_%s.nii.gz",
+			bval="%s/%s/%s_%s_%s.bval",
+			bvec="%s/%s/%s_%s_%s.bvec")
+		datain.inputs.template_args = dict(
+			dwi=[['sub_id','scan_id','sub_id','scan_id','uid']],
+			bval=[['sub_id','scan_id','sub_id','scan_id','uid']],
+			bvec=[['sub_id','scan_id','sub_id','scan_id','uid']])
+		datain.inputs.sort_filelist=True
+		
+		#Connect datain node
+		genFA.connect([
+			(inputnode, datain, [('parent_dir','base_directory'),
+								('sub_id','sub_id'),
+								('scan_id','scan_id'),
+								('uid','uid')]),
+			(datain, reorient, [("dwi","in_file")]),
+			(datain, dti, [("bval", "bvals")]),
+			(datain, dti, [("bvec", "bvecs")])
+			])
+	else:
+		print('%s.reorient.inputs.in_file, %s.dti.inputs.in_file, '
+			'%s.dti.inputs.bvals, %s.dti.inputs.bvecs must all be connected' % 
+			(name, name, name, name))
+			
+	#if writeFiles:
+		#dataout = pe.Node(
+			#name='dataout',
+			#interface=nio.DataSink())
+		#fileprefix = []
+		#fileprefix.extend((
+			#inputnode.inputs.sub_id,
+			#inputnode.inputs.scan_id,
+			#inputnode.inputs.uid))
+		#fileprefix = '_'.join(fileprefix)
+		#dataout.inputs.substitutions = [
+			#('reoriented','reor'),
+			#('dtifit_',fileprefix)]
+		#dataout.inputs.container = os.path.join(
+			#inputnode.inputs.sub_id, inputnode.inputs.scan_id)
+		#genFA.connect([
+			#(inputnode, dataout, [('parent_dir','base_directory')]),
+			#(eddyc, dataout, [('eddy_corrected','@eddyc')]),
+			#(rbet, dataout, [('mask_file','@mask')]),
+			#(dti, dataout, [('FA','@FA'),
+							#('V1','@V1')])
+			#])
+	#else:
+		#print('%s output can only be found in nipype cache for workflow' % name)
+			
 	joinmasks = pe.JoinNode(
 		name='joinmasks',
 		interface=IdentityInterface(
@@ -245,49 +295,43 @@ def create_genFA(name="genFA",parent_dir=None,sub_id=None,scan_id=None,uid=None)
 		joinsource='rbet',
 		joinfield=['mask_list'])
 		
-	joinfas = pe.JoinNode(
+	joindti = pe.JoinNode(
 		name='joinfas',
 		interface=IdentityInterface(
-			fields=['fa_list'],
+			fields=['FA_list','V1_list'],
 			mandatory_inputs=True),
 		joinsource='dti',
-		joinfield=['fa_list'])
+		joinfield=['FA_list','V1_list'])
 	
 	outputnode = pe.Node(
 		name="outputnode",
 		interface=IdentityInterface(
 			fields=[
-				"fa_list",
+				"eddyc_list",
+				"FA_list",
+				"V1_list",
 				"mask_list"],
 			mandatory_inputs=True))
 	#outputnode.inputs.fa_list = reduce(dti.inputs.FA)
 	#outputnode.inputs.mask_list = reduce(rbet.outputs.mask_file)
 	
-	
-	
 	#Preprocess workflow
-	gen_fa = pe.Workflow(name=name)
-	gen_fa.connect([
-		(inputnode, datain, [('sub_id','sub_id'),
-							('scan_id','scan_id'),
-							('uid','uid')]),
-		(datain, reorient, [("dwi","in_file")]),
-		(datain, dti, [("bvals", "bvals")]),
-		(datain, dti, [("bvecs", "bvecs")]),
+	genFA.connect([
 		(reorient, eddyc, [("out_file","in_file")]),
 		(eddyc, rbet, [("eddy_corrected","in_file")]),
 		(eddyc, dti, [("eddy_corrected","dwi")]),
 		(rbet, dti, [("mask_file","mask")]),
 		(rbet, joinmasks, [('mask_file','mask_list')]),
-		(dti, joinfas, [("FA", "fa_list")]),
-		(joinfas, outputnode, [('fa_list','fa_list')]),
+		(dti, joindti, [("FA", "FA_list"),
+						('V1','V1_list')]),
+		(joindti, outputnode, [('FA_list','FA_list'),
+								('V1_list','V1_list')]),
 		(joinmasks, outputnode, [("mask_list","mask_list")])
 		])
-	return gen_fa
+	return genFA
 
 
-def create_invwarp_all2best(name="invwarp_all2best",
-	fadir=None, outdir=None):
+def create_invwarp_all2best(name="invwarp_all2best",fadir=None, outdir=None):
 	"""Calculate inverse warps of files"""
 	inputnode = pe.Node(
 		name='inputnode',
@@ -366,43 +410,48 @@ def create_invwarp_all2best(name="invwarp_all2best",
 		
 	return invwarpwf
 
-def create_tbss_2_reg_n(name="tbss_2_reg_n", parent_dir=None):
+def create_tbss_2_reg_n(name="tbss_2_reg_n", parent_dir=None, 
+	grabFiles=False, writeFiles=False):
 	"""TBSS nonlinear registration:
-	Performs flirt and fnirt from every file in fa_list to reference
+	Performs flirt and fnirt from every file in fa_list to a target
+	sub_id, scan_id, uid define target, will result in target warp to itself 
+	just like tbss scripts
 	"""
-	from nipype import IdentityInterface
+	tbss2n = pe.Workflow(name=name)
+	
 	#TODO Finish conversion from mapnode
 	inputnode = pe.Node(
 		name="inputnode",
 		interface=IdentityInterface(
 			fields=[
+				"parent_dir",
 				"sub_id",
 				"scan_id",
 				"uid",
 				"fa_list",
 				"mask_list",
-				"reference"],
-			mandatory_inputs=True))
-	inputnode.iterables=("reference",inputnode.inputs.fa_list)
+				"target"]))
+	#inputnode.iterables([
+		#('fa_list', inputnode.fa_list),
+		#('mask_list', inputnode.mask_list)])
+	#inputnode.synchronize = True
 	
-	refnode = pe.Node(
-		name='refnode',
-		interface=IdentityInterface(
-			fields=['ref']))
-	ref.iterables = ('ref', inputnode.inputs.fa_list)
+	if parent_dir is not None:
+		inputnode.inputs.parent_dir = parent_dir
+	else:
+		inputnode.inputs.parent_dir = os.getcwd()
+			
 
 	#Registration
-	flirt = pe.Node(
+	flirt = pe.MapNode(
 		name="flirt",
 		interface=fsl.FLIRT(dof=12),
-		iterfield=[
-			"in_file",
-			"in_weight",
-			"reference"])
+		iterfield=['in_file','in_weight'])
 
-	fnirt = pe.Node(
+	fnirt = pe.MapNode(
 		name="fnirt",
 		interface=fsl.FNIRT(fieldcoeff_file=True),
+		iterfield=['in_file', 'inmask_file', 'affine_file'])
 		#values from FA_2_FMRIB58_1mm config copied below, skips flipped
 		#ref_file="FMRIB58_FA_1mm"
 			#skip_implicit_ref_masking=False,
@@ -420,11 +469,6 @@ def create_tbss_2_reg_n(name="tbss_2_reg_n", parent_dir=None):
 			#regularization_model="bending_energy",
 			#intensity_mapping_model="global_linear",
 			#derive_from_ref=False),
-		iterfield=[
-			"in_file",
-			"ref_file",
-			"affine_file",
-			"fieldcoeff_file"])
 			
 	if fsl.no_fsl():
 		warn('NO FSL found')
@@ -434,48 +478,60 @@ def create_tbss_2_reg_n(name="tbss_2_reg_n", parent_dir=None):
 		fnirt.inputs.config_file=config_file
 
 	#Estimate mean & median deformation
-	sqrTmean = pe.Node(
+	sqrTmean = pe.MapNode(
 		name="sqrTmean",
 		interface=fsl.ImageMaths(op_string="-sqr -Tmean"),
-		iterfield=["in_file","out_file"])
+		iterfield=['in_file'])
 	
-	meanmedian = pe.Node(
+	meanmedian = pe.MapNode(
 		name="meanmedian",
 		interface=fsl.ImageStats(op_string="-M -P 50"),
-		iterfield=["in_files","output_root"])
+		iterfield=['in_file'])
 	
-	#Write files to directories	
-	dataoutnode = pe.Node(
-		name='dataoutnode',
-		interface=nio.DataSink(
-			infields=[
-				'mat_file',
-				'fieldcoeff_file',
-				'mean_median_file']))
-	if parent_dir is not None:
-		dataoutnode.inputs.base_directory = parent_dir
+	#if writeFiles:
+		##Write files to directories	
+		#dataout = pe.Node(
+			#name='dataoutnode',
+			#interface=nio.DataSink(
+				#infields=[
+					#'mat_file',
+					#'fieldcoeff_file',
+					#'mean_median_file']))
+		#dataout.inputs.container = os.path.join(
+			#inputnode.inputs.sub_id, inputnode.inputs.scan_id)
+			
+		#tbss2n.connect([
+			#(inputnode, dataout,
+				#[('parent_dir','base_directory')]),
+			#(flirt, dataout, 
+				#[("out_matrix_file", "@mat_file")]),
+			#(fnirt, dataout, 
+				#[("fieldcoeff_file", "@fieldcoeff_file")])
+		#])
+	#else:
+		#print('%s output can only be found in nipype cache for workflow' % name)
 		
 	#Group files to lists of files
-	joinmats = pe.JoinNode(
-		name='joinmats',
-		interface=IdentityInterface(
-			fields=['mat_list'])
-		joinsource='flirt',
-		joinfield=['mat_list'])
+	#joinmats = pe.JoinNode(
+		#name='joinmats',
+		#interface=IdentityInterface(
+			#fields=['mat_list']),
+		#joinsource='flirt',
+		#joinfield=['mat_list'])
 		
-	joinfields = pe.JoinNode(
-		name='joinfields',
-		interface=IdentityInterface(
-			fields=['fieldcoeff_list'])
-		joinsource='fnirt',
-		joinfield=['field_list'])
+	#joinfields = pe.JoinNode(
+		#name='joinfields',
+		#interface=IdentityInterface(
+			#fields=['fieldcoeff_list']),
+		#joinsource='fnirt',
+		#joinfield=['field_list'])
 		
-	joinstats = pe.JoinNode(
-		name='joinstats',
-		interface=IdentityInterface(
-			fields=['mean_median_list'])
-		joinsource='meanmedian',
-		joinfield=['mean_median_list'])
+	#joinstats = pe.JoinNode(
+		#name='joinstats',
+		#interface=IdentityInterface(
+			#fields=['mean_median_list']),
+		#joinsource='meanmedian',
+		#joinfield=['mean_median_list'])
 
 	outputnode = pe.Node(
 		name="outputnode",
@@ -486,7 +542,6 @@ def create_tbss_2_reg_n(name="tbss_2_reg_n", parent_dir=None):
 				"mean_median_list"]))
 
 	#Define workflow
-	tbss2n = pe.Workflow(name=name)
 	tbss2n.connect([
 		(inputnode, flirt, 
 			[("fa_list","in_file"),
@@ -495,18 +550,15 @@ def create_tbss_2_reg_n(name="tbss_2_reg_n", parent_dir=None):
 		(inputnode, fnirt, 
 			[("fa_list","in_file"),
 			("fa_list","ref_file")]),
-		(inputnode, dataoutnode, [("sub_id","container"),
-			("scan_id","container.scan")]),
 		(flirt, fnirt, [("out_matrix_file", "affine_file")]),
-		(flirt, dataoutnode, [("out_matrix_file", "mat_file")]),
-		(fnirt, dataoutnode, [("fieldcoeff_file", "fieldcoeff_file")]),
-		(meanmedian, dataoutnode, [("out_stat", "mean_median_file")]),
-		(flirt, joinmats, [("out_matrix_file", "mat_list")]),
-		(fnirt, joinfields, [("fieldcoeff_file", "fieldcoeff_list")]),
-		(meanmedian, joinstats, [("out_file", "mean_median_list")]),
-		(joinmats, outputnode, [('mat_list','mat_list')]),
-		(joinfields, outputnode, [('fieldcoeff_list','fieldcoeff_list')]),
-		(joinstats, outputnode, [('mean_median_list','mean_median_list')])
+		(fnirt, sqrTmean, [('fieldcoeff_file','in_file')]),
+		(sqrTmean, meanmedian, [('out_file','in_files')]),
+		(flirt, outputnode, [("out_matrix_file", "mat_list")]),
+		(fnirt, outputnode, [("fieldcoeff_file", "fieldcoeff_list")]),
+		(meanmedian, outputnode, [("out_stat", "mean_median_list")])
+		#(joinmats, outputnode, [('mat_list','mat_list')]),
+		#(joinfields, outputnode, [('fieldcoeff_list','fieldcoeff_list')]),
+		#(joinstats, outputnode, [('mean_median_list','mean_median_list')])
 	])
 	
 	return tbss2n
@@ -527,11 +579,11 @@ def create_find_best(name="find_best"):
 	findbestnode = pe.Node(
 		name='findbestnode',
 		interface=Function(
-			input_names=['id_list','mean_median_list'],
-			output_names=['best_id','mean','median'],
+			input_names=['id_list','list_numlists'],
+			output_names=['best_index','best_id','best_mean','best_median'],
 			function=find_best))
 			
-	index = inputnode.inputs.ids_list.index(findbestnode.outputs.best_id)
+	index = findbestnode.outputs.best_index
 			
 	selectfanode = pe.Node(
 		name='selectfanode',
@@ -553,7 +605,7 @@ def create_find_best(name="find_best"):
 	fb.connect([
 		(inputnode, findbestnode, 
 			[('id_list','id_list'),
-			('means_medians_lists','mean_median_list')]),
+			('means_medians_lists','list_numlists')]),
 		(inputnode, selectfanode, [('fa_list','in_list')]),
 		(inputnode, selectfieldnode, [('field_list','in_list')]),
 		(selectfanode, outputnode, [('out','best_fa')])
@@ -562,7 +614,8 @@ def create_find_best(name="find_best"):
 	return fb
 	
 def create_tbss_3_postreg_find_best(name='tbss_3_postreg_find_best',
-	estimate_skeleton=True, target='FMRIB58_FA_1mm.nii.gz'):
+	estimate_skeleton=True, target='best', 
+	parent_dir=None, writeFiles=False):
 	"""find best target from fa_list, then apply warps"""
 	
 	tbss3 = pe.Workflow(name=name)
@@ -571,10 +624,15 @@ def create_tbss_3_postreg_find_best(name='tbss_3_postreg_find_best',
 		name='inputnode',
 		interface=IdentityInterface(
 			fields=[
+				'parent_dir',
 				'fa_list',
 				'field_list',
 				'id_list',
 				'means_medians_lists']))
+	if parent_dir is not None:
+		inputnode.inputs.parent_dir = parent_dir
+	else:
+		inputnode.inputs.parent_dir = os.getcwd()
 	
 	#Apply warp to best
 	applywarp = pe.MapNode(
@@ -582,20 +640,7 @@ def create_tbss_3_postreg_find_best(name='tbss_3_postreg_find_best',
 		interface=fsl.ApplyWarp(),
 		iterfield=['in_file', 'field_file'])
 		
-	if target == 'FMRIB58_FA_1mm.nii.gz':
-		tbss3.connect([
-			(inputnode, applywarp, 
-				[("fa_list", "in_file"),
-				("field_list", "field_file")])
-			])
-			
-		if fsl.no_fsl():
-			warn('NO FSL found')
-		else:
-			applywarp.inputs.ref_file = fsl.Info.standard_image(
-				"FMRIB58_FA_1mm.nii.gz")
-
-	else:
+	if target == 'best':
 		#Find best target that limits mean deformation
 		fb = create_find_best(name='fb')
 		tbss3.connect([
@@ -608,6 +653,19 @@ def create_tbss_3_postreg_find_best(name='tbss_3_postreg_find_best',
 				[('outputnode.best_fa','ref_file'),
 				('outputnode.best_field_list','field_file')])
 		])
+	elif target == 'FMRIB58_FA_1mm.nii.gz':
+		tbss3.connect([
+			(inputnode, applywarp, 
+				[("fa_list", "in_file"),
+				("field_list", "field_file")])
+			])
+			
+		if fsl.no_fsl():
+			warn('NO FSL found')
+		else:
+			applywarp.inputs.ref_file = fsl.Info.standard_image(
+				"FMRIB58_FA_1mm.nii.gz")
+
         
 	# Merge the FA files into a 4D file
 	mergefa = pe.Node(
@@ -701,60 +759,42 @@ def create_tbss_3_postreg_find_best(name='tbss_3_postreg_find_best',
 			(maskstd, outputnode, [('out_file', 'meanfa_file')]),
 			(maskgroup2, outputnode, [('out_file', 'mergefa_file')])
 			])
-
-def tbss_reg(name='tbss_reg',
-	parent_dir=None, fa_list=None):
-		
-	tbssin = pe.Node(
-		name="tbssin",
-		interface=IdentityInterface(
-			fields=[
-				"parent_dir",
-				"fa_list"]))
-	
-	#Copy FA files to new directory
-	
-	#TBSS1
-	tbss1 = create_tbss_1_preproc("tbss1")
-	#inputnode.fa_list
-	#outputnode.fa_list, outputnode.mask_list, outputnode.slices
-	
-	#TBSS2
-	tbss2 = create_tbss_reg_n("tbss2")
-	#inputnode.fa_list, inputnode.mask_list, inputnode.reference
-	#outputnode.mat_list, outputnode.fieldcof_list, outputnode.mean_median_list
-	
-	#TBSS3
-	tbss3 = create_tbss_3_postreg("tbss3")
-	#inputnode.field_list, inputnode.fa_list
-	#outputnode.groupmask, outputnode.skeleton_file,outputnode.meanfa_file
-    #outputnode.mergefa_file
-	
-	tbssout = pe.Node(
-		name="tbssout",
-		interface=IdentityInterface(
-			fields=[
-				"best_target",
-				"best_to_mni",
-				"to_best_warp_list",
-				"mni_fa_list"]))
-	
-	tbss = pe.Workflow(name=name)
-	tbss.connect([
-		(tbssin, tbss1, [("fa_list","inputnode.fa_list")]),
-		(tbss1, tbss2, [("","")]),
-		(tbss2, tbss3, [("","")]),
-		(tbss2, tbssout [("","to_best_warp_list")]),
-		(tbss3, tbssout [("","best_target")]),
-		(tbss3, tbssout [("","best_to_mni")]),
-		(tbss3, tbssout [("","mni_fa_list")])
-		])
+			
+	if writeFiles:
+		dataout = pe.MapNode(
+			name='dataout',
+			interface=nio.DataSink(infields=[
+				'reg.@fa',
+				'reg.@meanfa',
+				'reg.@mergefa',
+				'reg.@skeleton',
+				'reg.@groupmask']))
+		if estimate_skeleton:
+			tbss3.connect([
+				(inputnode, dataout, [('parent_dir','base_directory')]),
+				(applywarp, dataout, [('out_file','reg.@fa')]),
+				(meanfa, dataout, [('out_file', 'reg.@meanfa')]),
+				(maskgroup, dataout, [('out_file', 'reg.@mergefa')]),
+				(groupmask, dataout, [('out_file', 'groupmask')]),
+				(makeskeleton, dataout, [('skeleton_file', 'reg.@skeleton')])
+			])
+		else:
+			setattr(dataout.inputs, 'reg.@skeleton', 
+				fsl.Info.standard_image('FMRIB58_FA-skeleton_1mm.nii.gz'))
+			tbss3.connect([
+				(inputnode, dataout, [('parent_dir','base_directory')]),
+				(applywarp, dataout, [('out_file','reg.@fa')]),
+				(maskstd, dataout, [('out_file', 'reg.@meanfa')]),
+				(maskgroup2, dataout, [('out_file', 'reg.@mergefa')]),
+				(binmaskstd, dataout, [('out_file', 'groupmask')]),
+				(makeskeleton, dataout, [('skeleton_file', 'reg.@skeleton')])
+			])
+	return tbss3
 
 
-	return tbss
-
-def tbss_reg(name='tbss_reg', parent_dir=None, scan_list=None):
+def create_tbss_reg(name='tbss_reg', parent_dir=None, scan_list=None):
 	
+	nscans=len(scan_list)
 	reg = pe.Workflow(name=name)
 	try:
 		wd = os.path.abspath(os.path.join(parent_dir,name))
@@ -765,43 +805,89 @@ def tbss_reg(name='tbss_reg', parent_dir=None, scan_list=None):
 		pass
 	reg.base_dir = wd
 	
-	inputnode = pe.Node(
-		name='inputnode',
+	innode = pe.Node(
+		name='innode',
 		interface=IdentityInterface(
 			fields=[
 				'parent_dir',
 				'scan_list'],
 			mandatory_inputs=True))
 	if parent_dir is not None:
-		inputnode.inputs.parent_dir = parent_dir
+		innode.inputs.parent_dir = parent_dir
 	if scan_list is not None:
-		inputnode.inputs.scan_list = scan_list
+		innode.inputs.scan_list = scan_list
+		innode.iterables = ('scan_list', innode.inputs.scan_list)
 		
 	split = create_split_ids(name='split', sep='_')
 	
 	reg.connect([
-		(inputnode, split, [('parent_dir','inputnode.parent_dir'),
+		(innode, split, [('parent_dir','inputnode.parent_dir'),
 							('scan_list','inputnode.scan_list')]) ])
 							
-	fa = create_genFA(name='fa')
+	fa = create_genFA(name='fa',grabFiles=True)
+	faout = pe.MapNode(
+		name='faout',
+		interface=nio.DataSink(infields=['@eddyc','@fa','@v1','@mask']),
+		iterfield=['@eddyc','@fa','@v1','@mask'])
+	faout.inputs.substitutions=[('reoriented','reor')]
+								#('dtifit_',fileprefix)]
+	faout.inputs.base_directory = innode.inputs.parent_dir
 	
 	reg.connect([
-		(inputnode, fa, [('parent_dir','inputnode.parent_dir')]),
+		(innode, fa, [('parent_dir','inputnode.parent_dir')]),
 		(split, fa, [('outputnode.sub_id','inputnode.sub_id'),
 					('outputnode.scan_id','inputnode.scan_id'),
 					('outputnode.uid','inputnode.uid')]) ])
 					
 	tbss1 = tbss.create_tbss_1_preproc(name='tbss1')
-	tbss2 = create_tbss_2_reg_n(name='tbss2')
-	tbss3 = create_tbss_3_postreg_find_best(name='tbss3',
-		target=tbss2.outputnode.best_fa)
+	
+	tbss1out = pe.MapNode(
+		name='tbss1out',
+		interface=nio.DataSink(
+			infields=['tbss1.@fa','tbss1.@mask','tbss1.@slice']),
+		iterfield=['tbss1.@fa','tbss1.@mask','tbss1.@slice'])
+			
+	reg.connect([
+		(tbss1, tbss1out, [('outputnode.fa_list','tbss1.@fa')]),
+		(tbss1, tbss1out, [('outputnode.mask_list','tbss1.@mask')]),
+		(tbss1, tbss1out, [('outputnode.slices','tbss1.@slice')])
+		])
+		
+	reg.run()
+	
+	iteratefas = pe.Node(
+		name='iteratefas',
+		interface=IdentityInterface,
+			fields=['fa_list'])
+			
+	reg.connect([
+		(tbss1, iteratefas, [('outputnode.fa_list','fa_list')])
+		])
+	iteratefas.iterables=('fa_list', tbss1.inputs.outputnode.inputs.fa_list)
+	tbss2 = create_tbss_2_reg_n(name='tbss2',writeFiles=True)
 	
 	reg.connect([
-		(fa, tbss1, [('outputnode.fa_list','inputnode.fa_list')]),
-		(tbss1, tbss2, [('outputnode.fa_list','inputnode.fa_list'),
-					('outputnode.mask_list','inputnode.mask_list')]),
-		(tbss1, tbss3, [('outputnode.fa_list','inputnode.fa_list')]),
-		(tbss2, tbss3, [('outputnode.fieldcoeff_list','inputnode.field_list')])
+		(tbss1, tbss2, [
+			('outputnode.fa_list','inputnode.fa_list'),
+			('outputnode.mask_list','inputnode.mask_list')]),
+		(iteratefas,tbss2, [('fa_list','target')])
+		])
+			
+	reg.run()
+		
+	tbss3 = create_tbss_3_postreg_find_best(name='tbss3',
+		target=tbss2.inputs.outputnode.inputs.best_fa,writeFiles=True)
+	
+	reg.connect([
+		(fa, tbss1, 
+			[('outputnode.fa_list','inputnode.fa_list')]),
+		(tbss1, tbss2, 
+			[('outputnode.fa_list','inputnode.fa_list'),
+			('outputnode.mask_list','inputnode.mask_list')]),
+		(tbss1, tbss3, 
+			[('outputnode.fa_list','inputnode.fa_list')]),
+		(tbss2, tbss3, 
+			[('outputnode.fieldcoeff_list','inputnode.field_list')])
 		])
 	
 	return reg
