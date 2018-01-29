@@ -55,6 +55,15 @@ def list_to_str(sep=None, args=None):
 		raise TypeError("Not enough arguments for str creation")
 	return sep.join(str(e) for e in flatten(args))
 	
+def join_strs(sep=None, **kwargs):
+	from wf.utils import list_to_str
+	if sep is None:
+		sep=''
+	arglist = []
+	for arg in kwargs.itervalues():
+		arglist.append(arg)
+	return list_to_str(sep=sep, args=arglist)
+	
 def update_dict(indict=None, **kwargs):
 	"""update key/value pairs dictionary
 	
@@ -397,3 +406,43 @@ def testrec():
 	rec.inputs.source = source
 	rec.inputs.method = method
 	return rec
+
+def testcn(parent_dir=None, scan_list=None):
+	import nipype.pipeline.engine as pe
+	from nipype import IdentityInterface, Function
+	from wf.main import create_split_ids
+	
+	wf=pe.Workflow(name='wf')
+	
+	innode = pe.Node(
+		name='innode',
+		interface=IdentityInterface(
+			fields=[
+				'parent_dir',
+				'scan_list'],
+			mandatory_inputs=True))
+	if parent_dir is not None:
+		innode.inputs.parent_dir = parent_dir
+	if scan_list is not None:
+		innode.iterables = ('scan_list', scan_list)
+		
+	split = create_split_ids(name='split', sep='_')
+		
+	cn = pe.Node(
+		name='containernode',
+		interface=Function(
+			input_names=['sep','arg1','arg2'],
+			output_names=['string'],
+			function=join_strs))
+	cn.inputs.sep='/'
+	
+	
+	wf.connect([
+		(innode,split,
+			[('scan_list','inputnode.scan_list')]),
+		(split,cn,
+			[('outputnode.sub_id','arg1'),
+			('outputnode.scan_id','arg2')])
+		])
+
+	return wf
