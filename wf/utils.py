@@ -249,6 +249,30 @@ def find_best(id_list, list_numlists):
 		best_median = idmeans[best_index]
 
 	return best_index, best_id, best_mean, best_median
+	
+	
+def add_id_subs(input_id=None, subs=None):
+	"""create dataout substitutions combining subs with input_id"""
+	repl=[]
+	if input_id is not None:
+		if (subs is not None) and isinstance(subs, (list,tuple)):
+			for e in subs:
+				if isinstance(e, tuple) and len(e) == 2 and e[1] == 'input_id':
+					newe = (e[0],input_id)
+					repl.append(newe)
+				else:
+					repl.append(e)
+		else:
+			msg = 'create_out_subs:repl must be list or tuple of tuples'
+			raise TypeError(msg)
+					
+	else:
+		msg = 'create_out_subs:input_id must be specified'
+		raise NameError(msg)
+		
+	return repl
+	
+	
 #Read config.json
 def read_config(configpath):
 	"""Read in json config file
