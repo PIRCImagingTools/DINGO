@@ -1,32 +1,60 @@
 {
+ "name": "CHP_neonatal_dsi",
  "data_dir": "/home/pirc/Desktop/DWI/CHD_tractography/CHP",
- "included_psids":
+ "included_ids":
   [
-	"patient_scan_DTIFIXED"
+	"0761_MR1_42D_DTI",
+	"CHD_052_01a_DTIFIXED"
+  ],
+ "steps":
+  [
+	"filein",
+	"DSI_SRC",
+	"DSI_REC",
+	"DSI_TRK"
   ],
  "method" : 
   {
-    "name": "Neonatal_DTI",
-    "bet": "true",
-    "eddy_correct": "true",
-    "dtifit": "true",
-    "flirt": "true",
-    "fnirt": "true",
-    "dsi_studio":
+	"filein":
+	{
+	  "params":
+	  {
+	  }
+	},
+    "DSI_SRC":
     {
-      "action":    
+      "params":   
       {
-        "trk":
+        "output_sfx": "",
+		"recursive":	0
+      }
+	},
+	
+	"DSI_REC":
+	{
+	  "params":
+	  {
+			"method": "dti",
+			"output_dif":		1,
+			"output_tensor":	0,
+			"check_btable":		1
+	  }
+	},
+	"DSI_TRK":
+	{
+	  "params":
 		{
+		  "output_type": "NIFTI",
+		  "export":
+		  [
+			"stat"
+		  ],
+		  "tracts":
+		  {
 			"Genu": 
     		{
         		"fa_threshold" : 0.07,
         		"turning_angle" : 60,
-				"export" :
-				[
-					"stat"
-				],
-
         		"rois": 
         		[
             		"Genu",
@@ -46,12 +74,7 @@
     		{
         		"fa_threshold" : 0.07,
         		"turning_angle": 60,
-				"export" :
-				[
-					"stat"
-				],
-
-        		"rois": 
+				"rois": 
         		[
             		"CCBody",
             		"Sagittal_L",
@@ -75,11 +98,6 @@
     		{
         		"fa_threshold" : 0.07,
         		"turning_angle" : 60,
-				"export" :
-				[
-					"stat"
-				],
-
         		"rois": 
         		[
             		"Splenium",
@@ -105,11 +123,6 @@
     		{
         		"fa_threshold" : 0.07,
         		"turning_angle" : 60,
-				"export" :
-				[
-					"stat"
-				],
-
         		"rois": 
         		[
             		"InferiorOccipital_L",
@@ -136,11 +149,6 @@
     		{
         		"fa_threshold" : 0.07,
         		"turning_angle" : 60,
-				"export" :
-				[
-					"stat"
-				],
-
         		"rois": 
         		[
             		"InferiorOccipital_R",
@@ -167,11 +175,6 @@
     		{
         		"fa_threshold" : 0.07,
         		"turning_angle" : 60,
-				"export" :
-				[
-					"stat"
-				],
-
         		"rois": 
         		[
             		"PosteriorCingulum",
@@ -197,11 +200,6 @@
     		{
         		"fa_threshold" : 0.07,
         		"turning_angle" : 60,
-				"export" :
-				[
-					"stat"
-				],
-
         		"rois": 
         		[
             		"PosteriorCingulum",
@@ -227,11 +225,6 @@
     		{
         		"fa_threshold" : 0.07,
         		"turning_angle" : 60,
-				"export" :
-				[
-					"stat"
-				],
-
         		"rois": 
         		[
             		"ArcuateCoronal_L",
@@ -255,11 +248,6 @@
     		{
         		"fa_threshold" : 0.07,
         		"turning_angle" : 60,
-				"export" :
-				[
-					"stat"
-				],
-
         		"rois": 
         		[
             		"ArcuateCoronal_L",
@@ -282,11 +270,6 @@
     		{
         		"fa_threshold" : 0.07,
         		"turning_angle" : 60,
-				"export" :
-				[
-					"stat"
-				],
-
         		"rois": 
         		[
             		"ArcuateCoronal_R",
@@ -310,11 +293,6 @@
     		{
         		"fa_threshold" : 0.07,
         		"turning_angle" : 60,
-				"export" :
-				[
-					"stat"
-				],
-
         		"rois": 
         		[
             		"ArcuateCoronal_R",
@@ -337,11 +315,6 @@
     		{
         		"fa_threshold" : 0.07,
         		"turning_angle" : 60,
-				"export" :
-				[
-					"stat"
-				],
-
         		"rois": 
         		[
             		"AnteriorBrainstem",
@@ -369,11 +342,6 @@
     		{
         		"fa_threshold" : 0.07,
         		"turning_angle" : 60,
-				"export" :
-				[
-					"stat"
-				],
-
         		"rois": 
         		[
                		"AnteriorBrainstem",
@@ -395,57 +363,10 @@
                		"SagittalROA",
                		"TemporalCoronal_R"
         		]
-    		},
-	
-			"test_tract":
-			{
-				"fa_threshold" : 0.5,
-				"turning_angle" : 90,
-				"export" :
-				[
-					"stat"
-				],
-
-				"rois":
-				[
-					"test_ROI1",
-					"test_ROI2",
-					"test_ROI3",
-					"test_ROI4",
-					"test_ROI5",
-					"test_ROI6"
-				],
-
-				"roas":
-				[
-					"test_ROA1",
-					"test_ROA2",
-					"test_ROA3",
-					"test_ROA4",
-					"test_ROA5",
-					"test_ROA6"
-				],
-
-				"ends":
-				[
-					"test_end1",
-					"test_end2"
-				],
-				"ter": "test_ter",
-				"seed": "test_seed"
-			}
-		},
-        "ana":
-        {
-            "output":".txt",
-            "export":
-            [
-                "stat",
-				"tdi"
-            ]
-        }
+    		}
+		  }
+		}
       }
     }
   }
 
-}

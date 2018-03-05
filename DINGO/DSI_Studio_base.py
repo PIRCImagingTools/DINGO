@@ -6,11 +6,11 @@ import os
 from nipype.utils.filemanip import fname_presuffix, split_filename
 from traits.trait_base import _Undefined
 from traits.api import Trait
-from wf.utils import list_to_str
+from DINGO.utils import list_to_str
 
 
 
-class Info(object):
+class DSIInfo(object):
 	#file extensions for output types
 	ftypes = {
 		'SRC':		'.src.gz',
@@ -109,7 +109,7 @@ class Info(object):
 		try:
 			return cls.ftypes[output_type]
 		except KeyError:
-			msg = 'Invalid DSIStudioOUTPUTTYPE: ', output_type
+			msg = 'Invalid DSIStudioOUTPUTTYPE: %s' % output_type
 			raise KeyError(msg)
 
 	@classmethod
@@ -130,7 +130,7 @@ class Info(object):
 		try:
 			return cls.act_out[action_type]
 		except KeyError:
-			msg = 'Invalid DSIStudioACTIONTYPE: ', action_type
+			msg = 'Invalid DSIStudioACTIONTYPE: %s' % action_type
 			raise KeyError(msg)
 			
 	@classmethod
@@ -149,7 +149,7 @@ class Info(object):
 		try:
 			return cls.rec_method_id_n[method_id]
 		except KeyError:
-			msg = 'Invalid DSIStudio Reconstruction method: ', method_id
+			msg = 'Invalid DSIStudio Reconstruction method: %s' % method_id
 			raise KeyError(msg)
 			
 	@classmethod
@@ -168,7 +168,7 @@ class Info(object):
 		try:
 			return len(cls.rec_param_ids[method_id])
 		except KeyError:
-			msg = 'Invalid DSIStudio Reconstruction method: ', method_id
+			msg = 'Invalid DSIStudio Reconstruction method: %s' % method_id
 			raise KeyError(msg)
 			
 	@classmethod
@@ -187,7 +187,7 @@ class Info(object):
 		try:
 			return cls.rec_param_types[method_id]
 		except KeyError:
-			msg = 'Invalid DSIStudio Reconstruction method: ', method_id
+			msg = 'Invalid DSIStudio Reconstruction method: %s' % method_id
 			raise KeyError(msg)
 			
 	@classmethod
@@ -205,7 +205,7 @@ class Info(object):
 		try:
 			return cls.rec_param_ids[method_id]
 		except KeyError:
-			msg = 'Invalid DSIStudio Reconstruction method: ', method_id
+			msg = 'Invalid DSIStudio Reconstruction method: %s' % method_id
 			raise KeyError(msg)
 			
 	@classmethod
@@ -214,7 +214,7 @@ class Info(object):
 		try:
 			return cls.rec_method_id_inputs[method_id]
 		except KeyError:
-			msg = 'Invalid DSIStudio Reconstruction method: ', method_id
+			msg = 'Invalid DSIStudio Reconstruction method: %s' % method_id
 			raise KeyError(msg)
 
 
@@ -249,9 +249,10 @@ class DSIStudioOutputSpec(TraitedSpec):
 class DSIStudioCommand(CommandLine):
 	"""Base support for DSI Studio commands.
 	"""
-	_cmd = "dsi_studio"
+	_cmd = "dsistudio"
 	_output_type = None
 	_action = None
+	terminal_output = 'file_split'
 
 	input_spec = DSIStudioInputSpec
 
@@ -264,7 +265,7 @@ class DSIStudioCommand(CommandLine):
 			raise Exception("Missing action command")
 
 		if self._output_type is None:
-			self._output_type = Info.a_to_ot(self._action)
+			self._output_type = DSIInfo.a_to_ot(self._action)
 
 		if not isdefined(self.inputs.output_type):
 			self.inputs.output_type = self._output_type
@@ -307,7 +308,7 @@ class DSIStudioCommand(CommandLine):
 		if cwd is None:
 			cwd = os.getcwd()
 		if ext is None:
-			ext = Info.ot_to_ext(self.inputs.output_type)
+			ext = DSIInfo.ot_to_ext(self.inputs.output_type)
 		if change_ext:
 			if suffix:
 				suffix = "".join((suffix, ext))
@@ -458,37 +459,73 @@ class DSIStudioFiberInputSpec(DSIStudioInputSpec):
 	delete_repeat = traits.Enum(0,1, 
 		argstr="--delete_repeat=%d",
 		desc="0 or 1, 1 removes repeat tracks with distance < 1 mm")
-	track = File(genfile=True,
+		
+	track = traits.Either(
+		File(genfile=True),
+		traits.Enum('no_file'),
 		argstr="--output=%s",
 		hash_files=False,
 		desc="output tract file name, format may be txt, trk, or nii",
 		position=3)
+		
+	tract_name = traits.Str(desc='suffix to append to source filename')
+		
 	endpt = File(#maybe genfile
 		argstr="--end_point=%s",
 		hash_files=False,
 		desc="endpoint file name, format may be txt or mat")
-		
-	export = traits.List(traits.Enum(
-			"stat","tdi","tdi2","tdi_color","tdi_end",
-			"tdi2_end","fa","gfa","qa","nqa","md","ad","rd","report"),
+	
+	#separate for later use, inner trait doesn't seem to have values property
+	_export_values = ('stat','tdi','tdi2','tdi_color','tdi_end',
+		'fa','gfa','qa','nqa','md','ad','rd','report')
+	export = traits.List(traits.Enum(*_export_values),
 		argstr="--export=%s", 
 		sep=',',
 		desc="export information related to fiber tracts")
+		
+	stat = traits.Bool(desc='export statistics along tract or in region')
+	tdi = traits.Bool(desc='export tract density image')
+	tdi2 = traits.Bool(desc='export tract density image in subvoxel diffusion '
+		'space')
+	tdi_color = traits.Bool(desc='export tract color density image')
+	tdi_end = traits.Bool(desc='export tract density image endpoints')
+	tdi2_end = traits.Bool(desc='export tract density image endpoints in '
+		'subvoxel diffusion space')
+	fa = traits.Bool(desc='export along tract fractional anisotropy values')
+	gfa = traits.Bool(desc='export along tract generalized fractional '
+		'anisotropy values')
+	qa = traits.Bool(desc='export along tract quantitative anisotropy values')
+	nqa = traits.Bool(desc='export along tract normalized quantitative '
+		'anisotropy values')
+	md = traits.Bool(desc='export along tract mean diffusivity values')
+	ad = traits.Bool(desc='export along tract axial diffusivity values')
+	rd = traits.Bool(desc='export along tract radial diffusivity values')
+	
+	report = traits.Bool(desc='export tract reports with specified profile '
+		'style and bandwidth',
+		requires=['report_val','report_pstyle','report_bandwidth'])
 	report_val = traits.Enum("fa","gfa","qa","nqa","md","ad","rd",
 		argstr="%s",
 		sep=":",
-		desc="type of values for tract report")
+		desc="type of value for tract report")
 	report_pstyle = traits.Enum(0,1,2,3,4, 
 		argstr="%d",
 		sep=":",
 		requires=["export"],
 		desc="profile style for tract report 0:x, 1:y, 2:z, 3:along tracts, "
 			"4:tract mean")
-	report_bandwidth = traits.Float(1.0, 
-		argstr="%.1f",
+	report_bandwidth = traits.Int(
+		argstr="%d",
 		sep=":",
 		requires=["export"],
 		desc="bandwidth for tract report")
+	report_fa = traits.Bool(desc='export tract report on fa values')
+	report_gfa = traits.Bool(desc='export tract report on gfa values')
+	report_qa = traits.Bool(desc='export tract report on qa values')
+	report_nqa = traits.Bool(desc='export tract report on nqa values')
+	report_md = traits.Bool(desc='export tract report on md values')
+	report_ad = traits.Bool(desc='export tract report on ad values')
+	report_rd = traits.Bool(desc='export tract report on rd values')
 		
 	connectivity = InputMultiPath(File(exists=True), 
 		argstr="--connectivity=%s",
@@ -639,10 +676,55 @@ class DSIStudioFiberCommand(DSIStudioCommand):
 						"N entries in %s" %
 						(varnamear, varnameatlas))
 						
+	def _update_report(self):
+		"""Update report, report_val from related boolean traits"""
+		name = 'report'
+		secname = 'report_val'
+		secfield = 'values'
+		thisbool = getattr(self.inputs, name)
+		default_traits = getattr(self.inputs.trait(secname),secfield)
+		
+		newvalues = []
+		for default in default_traits:
+			subname = []
+			subname.extend((name,'_',default))
+			subname = ''.join(subname)
+			if isdefined(thisbool) and thisbool:
+				subbool = getattr(self.inputs, subname)
+				if isdefined(subbool) and subbool:
+					newvalues.append(subname)
+			else:
+				setattr(self.inputs, subname, _Undefined())
+		if len(newvalues) > 0:
+			setattr(self.inputs, name, True)
+			setattr(self.inputs, secname, newvalues)
+		else:
+			setattr(self.inputs, name, _Undefined())
+			setattr(self.inputs, secname, _Undefined())
+	
+						
+	def _update_export(self):
+		"""Update export from related traits"""
+		name = 'export'
+		default_traits = getattr(self.inputs, ''.join(('_',name,'_values')))
+		
+		self._update_report()
+		
+		newvalues = []
+		for default in default_traits:
+			subbool = getattr(self.inputs, default)
+			if isdefined(subbool) and subbool:
+				newvalues.append(subbool)
+		if len(newvalues) > 0:
+			setattr(self.inputs, name, newvalues)
+		else:
+			setattr(self.inputs, name, _Undefined())
+	
 						
 	def _check_mandatory_inputs(self):
 		"""correct values, then call super"""
 		self._update_regions()
+		self._update_export()
 					
 		super(DSIStudioFiberCommand, self)._check_mandatory_inputs()
 			
@@ -848,6 +930,10 @@ class DSIStudioFiberCommand(DSIStudioCommand):
 						str(self.inputs.report_bandwidth)))
 					i = value.index(e)
 					value[i] = "".join(str(newe))
+				else:
+					raise AttributeError('Export report requested, but not all '
+						'required fields: ("report_val", "report_pstyle", '
+						'"report_bandwidth") have been set')
 			return argstr % sep.join(str(e) for e in value)
 			
 		elif name == "connectivity":
@@ -864,7 +950,7 @@ class DSIStudioFiberCommand(DSIStudioCommand):
 				return super(DSIStudioFiberCommand, 
 				self._format_arg(name, trait_spec, value))
 			else:
-				raise AttributeError("N inputs for connectivity, connectivity_"
+				raise IndexError("N inputs for connectivity, connectivity_"
 				"type, connectivity_value must be equal")
 		
 		else:
@@ -873,14 +959,19 @@ class DSIStudioFiberCommand(DSIStudioCommand):
 			self)._format_arg(name, trait_spec, value)
 
 	def _gen_filename(self, name):
-		if name == "track":
-			_, filename, _ = split_filename(
-				os.path.abspath(self.inputs.source))
+		if name == 'track':
+			_, infilename, _ = split_filename(
+				os.path.abspath(getattr(self.inputs, 'source')))
+			tract_name = getattr(self.inputs, 'tract_name')
+			if isdefined(tract_name):
+				sfx = tract_name
+			else:
+				sfx = 'track'
 			fname = []
 			fname.extend((filename,
-				"_track",
-				Info.ot_to_ext(self.inputs.output_type)))
-			return "".join(fname)
+				'_', sfx,
+				DSIInfo.ot_to_ext(self.inputs.output_type)))
+			return ''.join(fname)
 		else:
 			return super(DSIStudioFiberCommand, self)._gen_filename(name)
 
@@ -900,6 +991,18 @@ class DSIStudioFiberCommand(DSIStudioCommand):
 			deftoskip.extend(skip)
 			toskip.extend(deftoskip)
 		return super(DSIStudioFiberCommand, self)._parse_inputs(skip=toskip)
+		
+	def _list_outputs(self):
+		outputs = self._outputs().get()
+		for key in outputs.iterkeys():
+			if key == 'track':
+				if isdefined(getattr(self.inputs, 'track')):
+					outputs['track'] = self._gen_filename
+			if isdefined(getattr(self.inputs, key)):
+				outputs[key] = self.gen_fname(
+					self.inputs.source, suffix='_'+key)
+
+		return outputs
 
 
 
@@ -998,18 +1101,6 @@ class DSIStudioTrack(DSIStudioFiberCommand):
 	_output_type = "TRK"
 	input_spec = DSIStudioTrackInputSpec
 	output_spec = DSIStudioFiberOutputSpec
-	
-	def _list_outputs(self):
-		outputs = self._outputs().get()
-		tractdir = os.path.join(os.getcwd(),"Tracts")
-		if isdefined(self.inputs.output):
-			outputs["track"] = self.inputs.output
-		else:
-			outputs["track"] = self._gen_fname("track", cwd=tractdir)
-		
-		if isdefined(self.inputs.export):
-			outputs["export"] = self.inputs.export
-
 
 
 
@@ -1095,6 +1186,18 @@ class DSIStudioSourceOutputSpec(DSIStudioOutputSpec):
 
 class DSIStudioSource(DSIStudioCommand):
 	"""DSI Studio SRC action support
+	
+	Example
+	-------
+	
+	from DINGO.DSI_Studio_base import DSIStudioSource
+	src = DSIStudioSource()
+	src.inputs.source = 'mydti.nii.gz'
+	src.inputs.bval = 'mybval.bval'
+	src.inputs.bvec = 'mybvec.bvec'
+	src.cmdline
+	'dsistudio --action=src --source=mydti.nii.gz --output=mydti.src.gz \
+	--bval=mybval.bval --bvec=mybvec.bvec
 	"""
 	_action = "src"
 	_output_type = "SRC"
@@ -1107,7 +1210,7 @@ class DSIStudioSource(DSIStudioCommand):
 				os.path.abspath(self.inputs.source))
 			fname = []
 			fname.extend((filename,
-				Info.ot_to_ext(self.inputs.output_type)))
+				DSIInfo.ot_to_ext(self.inputs.output_type)))
 			return "".join(fname)
 		else:
 			return super(DSIStudioSource, self)._gen_filename(name)
@@ -1115,7 +1218,7 @@ class DSIStudioSource(DSIStudioCommand):
 
 
 class DSIStudioReconstructInputSpec(DSIStudioInputSpec):
-
+	
 	thread_count = traits.Int(2, 
 		argstr="--thread_count=%d",
 		desc="Number of threads to use for reconstruction")
@@ -1128,37 +1231,37 @@ class DSIStudioReconstructInputSpec(DSIStudioInputSpec):
 	method_dsi = traits.Bool(
 		xor=["method_dti","method_frqbi","method_shqbi","method_gqi",
 			"method_hardi","method_qsdr"],
-		requires=list(Info.rec_mid_to_req('dsi')),
+		requires=list(DSIInfo.rec_mid_to_req('dsi')),
 		desc="assign DSI method for reconstruction")
 	method_dti = traits.Bool(
 		xor=["method_dsi","method_frqbi","method_shqbi","method_gqi",
 			"method_hardi","method_qsdr"],
-		requires=list(Info.rec_mid_to_req('dti')),
+		requires=list(DSIInfo.rec_mid_to_req('dti')),
 		desc="assign DTI method for reconstruction")
 	method_frqbi = traits.Bool(
 		xor=["method_dti","method_dsi","method_shqbi","method_gqi",
 			"method_hardi","method_qsdr"],
-		requires=list(Info.rec_mid_to_req('frqbi')),
+		requires=list(DSIInfo.rec_mid_to_req('frqbi')),
 		desc="assign Funk-Radon QBI method for reconstruction")
 	method_shqbi = traits.Bool(
 		xor=["method_dti","method_frqbi","method_dsi","method_gqi",
 			"method_hardi","method_qsdr"],
-		requires=list(Info.rec_mid_to_req('shqbi')),
+		requires=list(DSIInfo.rec_mid_to_req('shqbi')),
 		desc="assign Spherical Harmonic QBI method for reconstruction")
 	method_gqi = traits.Bool(
 		xor=["method_dti","method_frqbi","method_shqbi","method_dsi",
 			"method_hardi","method_qsdr"],
-		requires=list(Info.rec_mid_to_req('gqi')),
+		requires=list(DSIInfo.rec_mid_to_req('gqi')),
 		desc="assign GQI method for reconstruction")
 	method_hardi = traits.Bool(
 		xor=["method_dti","method_frqbi","method_shqbi","method_gqi",
 			"method_dsi","method_qsdr"],
-		requires=list(Info.rec_mid_to_req('hardi')),
+		requires=list(DSIInfo.rec_mid_to_req('hardi')),
 		desc="Convert to HARDI")
 	method_qsdr = traits.Bool(
 		xor=["method_dti","method_frqbi","method_shqbi","method_gqi",
 			"method_hardi","method_dsi"],
-		requires=list(Info.rec_mid_to_req('qsdr')),
+		requires=list(DSIInfo.rec_mid_to_req('qsdr')),
 		desc="assign QSDR method for reconstruction")
 							
 	method = traits.Enum('dti','dsi','frqbi','shqbi','gqi','hardi','qsdr',
@@ -1357,7 +1460,7 @@ class DSIStudioReconstruct(DSIStudioCommand):
 			setattr(self.inputs, varidname, True)
 		else:
 			#sfx is 'dsi', 'dti' etc.
-			for sfx in Info.rec_method_id_n.iterkeys():
+			for sfx in DSIInfo.rec_method_id_n.iterkeys():
 				idname =[]
 				idname.extend(('method_',sfx))
 				varidname = ''.join(idname)
@@ -1399,8 +1502,8 @@ class DSIStudioReconstruct(DSIStudioCommand):
 		mval = getattr(self.inputs, 'method')
 		if isdefined(mval):
 			#update param values, requires, and mandatory flag based on method
-			nparams = Info.rec_mid_to_np(mval)
-			paramsources = Info.rec_mid_to_pids(mval)
+			nparams = DSIInfo.rec_mid_to_np(mval)
+			paramsources = DSIInfo.rec_mid_to_pids(mval)
 			if nparams > 0:
 				self.inputs.trait(name).mandatory = True#update param.mandatory
 				spec.requires = []#clear param.requires
@@ -1451,19 +1554,19 @@ class DSIStudioReconstruct(DSIStudioCommand):
 		
 		if name == "method":
 			#method id to n
-			return argstr % Info.rec_mid_to_mn(value)
+			return argstr % DSIInfo.rec_mid_to_mn(value)
 			
 		if name == "param":
 			#method should be defined, parsed in alphabetical order
 			recmid = getattr(self.inputs, 'method')
-			expnparams = Info.rec_mid_to_np(recmid)
-			expparamtypes = Info.rec_mid_to_ptype(recmid)
+			expnparams = DSIInfo.rec_mid_to_np(recmid)
+			expparamtypes = DSIInfo.rec_mid_to_ptype(recmid)
 			if recmid == "DTI":
 				pass #no params
 			
 			if len(value) == expnparams:
 				for e in value:
-					if isinstance(e, Info.rec_mid_to_ptype(
+					if isinstance(e, DSIInfo.rec_mid_to_ptype(
 						recmid)[value.index(e)]):
 						#numbered from 0
 						arglist.append(argstr % (value.index(e),e))
@@ -1503,8 +1606,8 @@ class DSIStudioReconstruct(DSIStudioCommand):
 		#super._parse_inputs any var with an argstr will be parsed if not in skip
 		#up
 		recmid = getattr(self.inputs, 'method')
-		incp=set(Info.rec_method_id_inputs[recmid])
-		allp = set().union(*Info.rec_method_id_inputs.itervalues())
+		incp=set(DSIInfo.rec_method_id_inputs[recmid])
+		allp = set().union(*DSIInfo.rec_method_id_inputs.itervalues())
 		excp = allp.difference(incp)
 		print(incp)
 		print(allp)
@@ -1604,7 +1707,7 @@ class DSIStudioExport(DSIStudioCommand):
 		for e in value:
 			rvunjoined.extend((source, 
 				value[value.index(e)],#DSI Studio adds export target to ext
-				Info.ot_to_ext(self.inputs.output_type)))
+				DSIInfo.ot_to_ext(self.inputs.output_type)))
 		for e in rvunjoined:
 			retval.append("".join(e))
 		return retval
