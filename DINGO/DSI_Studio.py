@@ -55,7 +55,7 @@ class DSI_SRC(DINGOnode):
 			
 			
 class REC_prep(DINGOnode):
-	"""Nipype node to erode the BET mask to pass to DSI_REC"""
+	"""Nipype node to erode the BET mask (over-inclusive) to pass to DSI_REC"""
 
 	connection_spec = {
 		'in_file'		:	['BET','mask_file']
@@ -103,6 +103,32 @@ class DSI_REC(DINGOnode):
 		
 		
 class DSI_TRK(DINGOflow):
+	"""Nipype wf to create a trk with fiber file and input parameters
+	DSIStudioTrack.inputs will not seem to reflect the config until
+	self._check_mandatory_inputs(), part of run() and cmdline(), is executed
+	But, it the data will be in the indict field.
+	
+	Parameters
+	----------
+	name		: 	Str (workflow name, default 'DSI_TRK')
+	inputs		:	Dict Track Node InputName=ParameterValue
+		(Inputs['tracts'] is used specially as an iterable, other params
+		will apply to each tract)
+	**kwargs	:	Workflow InputName=ParameterValue
+		any unspecified tracting parameters will be defaults of DSIStudioTrack
+	
+	e.g. dsi_trk = DSI_TRK(name='dsi_trk',\
+						inputs={'source':'myfibfile.fib.gz',\
+								'rois':['myROI1.nii.gz','myROI2.nii.gz'],\
+								'roas':['myROA.nii.gz'],\
+								'tract_name':'track'})
+					
+	Returns
+	-------
+	Nipype workflow
+		dsi_trk.outputnode.outputs=['tract_list']
+		e.g. os.path.abspath(myfibfile_track.nii.gz)
+	"""
 	_inputnode = 'inputnode'
 	_outputnode = 'outputnode'
 	
@@ -110,32 +136,7 @@ class DSI_TRK(DINGOflow):
 		'fib_file'		:	['DSI_REC','fiber_file']
 	}
 	def __init__(self, name="DSI_TRK", inputs={}, **kwargs):
-		"""Nipype wf to create a trk with fiber file and input parameters
-		DSIStudioTrack.inputs will not seem to reflect the config until
-		self._check_mandatory_inputs(), part of run() and cmdline(), is executed
-		But, it the data will be in the indict field.
 		
-		Parameters
-		----------
-		name		: 	Str (workflow name, default 'DSI_TRK')
-		inputs		:	Dict Track Node InputName=ParameterValue
-			(Inputs['tracts'] is used specially as an iterable, other params
-			will apply to each tract)
-		**kwargs	:	Workflow InputName=ParameterValue
-			any unspecified tracting parameters will be defaults of DSIStudiotract
-		
-		e.g. dsi_trk = DSI_TRK(name='dsi_trk',\
-							inputs={'source':'myfibfile.fib.gz',\
-									'rois':['myROI1.nii.gz','myROI2.nii.gz'],\
-									'roas':['myROA.nii.gz'],\
-									'tract_name':'track'})
-						
-		Returns
-		-------
-		Nipype workflow
-			dsi_trk.outputnode.outputs=['tract_list']
-			e.g. os.path.abspath(myfibfile_track.nii.gz)
-		"""
 		import copy
 		super(DSI_TRK, self).__init__(name=name, **kwargs)
 		
@@ -152,7 +153,7 @@ class DSI_TRK(DINGOflow):
 			if 'rois' not in inputs:
 				#config specifies no tracts
 				raise KeyError('CANNOT TRACK! Neither "tracts" nor "rois" in '
-				'params.\nParams: %s' % inputs)
+				'inputs.')
 			else:
 				#config specifies one tract
 				inputnode.inputs.tract_inputs = inputs
@@ -189,18 +190,19 @@ class DSI_TRK(DINGOflow):
 
 		trknode = pe.Node(
 			name="trknode",
-			interface=DSIStudioTrack())	
+			interface=DSIStudioTrack())
+			
+		###TODO regex match regions to file grab of niftis in subject region_dir
 			
 		self.connect([
 			(inputnode, trknode, [('fib_file','source'),
 								('tractnames_list','tract_name')]),
-			(inputnode, merge_roas, [('tract_inputs','tract_input')]),
+			(inputnode, merge_roas, [('tract_inputs','inputnode.tract_input')]),
 			(merge_roas, trknode, [('outputnode.new_tract_input','indict'),
 								('outputnode.new_roa','roas')]),
 			(trknode, outputnode, [('tract','tract_list')])
 			])
 					
-	@staticmethod
 	def create_merge_roas(name='merge_roas'):
 		"""Create nipype workflow that will merge roas in tract_input"""
 		merge = pe.Workflow(name=name)

@@ -1192,7 +1192,7 @@ class DSIStudioSourceInputSpec(DSIStudioInputSpec):
 
 class DSIStudioSourceOutputSpec(DSIStudioOutputSpec):
 	
-	output = File(exists=True,
+	output = File(exists=False,
 		desc="DSI Studio src file")
 
 
@@ -1227,7 +1227,7 @@ class DSIStudioSource(DSIStudioCommand):
 			return super(DSIStudioSource, self)._gen_filename(name)
 			
 	def _list_outputs(self):
-		outputs = self._outputs().get()
+		outputs = self._output_spec().get()
 		outputs['output'] = self._gen_filename('output')
 		return outputs
 
@@ -1449,7 +1449,7 @@ class DSIStudioReconstructOutputSpec(DSIStudioOutputSpec):
 #qsdr: The images were reconstructed using q-space diffeomorphic reconstruction
 #R72: The goodness-of-fit between the subject's data and the template has a R-squared value of 0.72
 
-
+###TODO Capture from stdout
 
 class DSIStudioReconstruct(DSIStudioCommand):
 	"""DSI Studio reconstruct action support
@@ -1716,7 +1716,7 @@ class DSIStudioExportOutputSpec(DSIStudioOutputSpec):
 
 class DSIStudioExport(DSIStudioCommand):
 	"""DSI Studio export action support for exporting matrix information
-	INCOMPLETE
+	TESTING
 	"""
 	_action = "exp"
 	_output_type = "NIFTI"

@@ -2,7 +2,7 @@
  "pid": "foopatient",
  "scanid": "fooscan",
  "sequenceid": "fooseq",
- "parent_dir": "/home/pirc/Desktop/DWI/CHD_tractography/CHP",
+ "parent_dir": "/path/to/parent/of/patient/folders",
  "paths":
   {
 	"dti_dir": "pid/scanid",

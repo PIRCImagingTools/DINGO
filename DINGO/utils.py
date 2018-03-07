@@ -301,24 +301,26 @@ def tobool(s):
 	tobool('YeS')	->	True
 	tobool(1)		->	True
 	"""
+	bools = {
+		1		:	True,
+		'1'		:	True,
+		't'		:	True,
+		'true'	:	True,
+		'y'		:	True,
+		'yes'	:	True,
+		0		:	False,
+		'0'		:	False,
+		'f'		:	False,
+		'false'	:	False,
+		'n'		:	False,
+		'no'	:	False
+	}
 	if isinstance(s, bool):
 		return s
 	if isinstance(s, (str,unicode)):
-		sl = s.lower()
-	if (sl == 1 or
-		sl == "1" or
-		sl == "true" or 
-		sl == "t" or 
-		sl == "y" or 
-		sl == "yes"):
-		return True
-	elif (sl == 0 or
-		  sl == "0" or 
-		  sl == "false" or 
-		  sl == "f" or 
-		  sl == "n" or 
-		  sl == "no"):
-		return False
+		s = s.lower()
+	if s in bools:
+		return bools[s]
 	else:
 		raise ValueError("%s cannot be converted to bool" % (s))
 

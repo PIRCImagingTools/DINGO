@@ -2,10 +2,16 @@ import os
 from DINGO.utils import DynImport, read_config, tobool, reverse_lookup
 import nipype.pipeline.engine as pe
 from nipype import IdentityInterface
+from pprint import pprint
 
 
 class DINGO(pe.Workflow):
-	"""Create a workflow from a json config file"""
+	"""Create a workflow from a json config file
+	
+	from DINGO.base import DINGO
+	mywf = DINGO(configpath='/path/to/config.json')
+	mywf.run()
+	"""
 	
 	workflow_to_module = {
 		'SplitIDs'					:	'DINGO.wf',
@@ -147,7 +153,12 @@ class DINGO(pe.Workflow):
 			hasattr(ci.inputs, paramval):
 				cival = getattr(ci.inputs, paramval)
 				self.input_params[name].update({paramkey:cival})
-		self.subflows[name] = obj(name=name, inputs=self.input_params[name])
+		try:
+			self.subflows[name] = obj(name=name, inputs=self.input_params[name])
+		except:
+			print('#######Error######')
+			pprint(self.input_params[name])
+			raise
 	
 	def make_connection(self, srcobj, srcfield, destobj, destfield):
 		"""Connect srcfield and destfield, allow for nodes and workflows"""
@@ -173,9 +184,14 @@ class DINGO(pe.Workflow):
 		print('Connected %s.%s --> %s.%s' % 
 			(srcobj.name, srcname, destobj.name, destname))
 		
-	def connect_subwfs(self):
+	def _connect_subwfs(self):
 		"""update subwf.connection_spec with self.input_connections[subwfname]
 		and connect subwfs
+		
+		Expects
+		-------
+		self.subflows[subwfname] = subwfobj
+		self.input_connections[subwfname] = {'input':['src','output']}
 		"""
 		for destkey, destobj in self.subflows.iteritems():
 			#name, obj
@@ -346,7 +362,7 @@ class DINGO(pe.Workflow):
 			print('Create Workflow/Node Name:%s, Obj:%s' % (name, step))
 			self.create_subwf(step, name)
 			
-		self.connect_subwfs()
+		self._connect_subwfs()
 	
 
 class DINGOflow(pe.Workflow):

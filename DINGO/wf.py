@@ -336,14 +336,15 @@ class FileIn_SConfig(DINGOflow):
 			return os.path.join(base_dir, sub_id, scan_id, cfgname)
 			
 	def create_field_template(base_dir, sub_id, scan_id, uid,\
-		config=None, path_keys=None):
+		config=None, path_keys=None, myrepl=None):
 			import os
-			myrepl = {
-				'pid'			:	sub_id,
-				'scanid'		:	scan_id,
-				'sequenceid'	:	uid,
-				'parent_dir'	:	base_dir
-			}
+			if myrepl is None:
+				myrepl = {
+					'pid'			:	sub_id,
+					'scanid'		:	scan_id,
+					'sequenceid'	:	uid,
+					'parent_dir'	:	base_dir
+				}
 			
 			values = [None] * len(myrepl)
 			for k,v in myrepl.iteritems():
