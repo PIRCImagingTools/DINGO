@@ -11,6 +11,7 @@ class DINGO(pe.Workflow):
 		'SplitIDs'					:	'DINGO.wf',
 		'IterateIDs'				:	'DINGO.wf',
 		'FileIn'					:	'DINGO.wf',
+		'FileIn_SConfig'			:	'DINGO.wf',
 		'FileOut'					:	'DINGO.wf',
 		'Reorient'					:	'DINGO.fsl',
 		'EddyC'						:	'DINGO.fsl',
@@ -23,6 +24,10 @@ class DINGO(pe.Workflow):
 		'TBSS_prereg'				:	'DINGO.fsl',
 		'TBSS_reg_NXN'				:	'DINGO.fsl',
 		'TBSS_postreg'				:	'DINGO.fsl',
+		'DSI_SRC'					:	'DINGO.DSI_Studio',
+		'REC_prep'					:	'DINGO.DSI_Studio',
+		'DSI_REC'					:	'DINGO.DSI_Studio',
+		'DSI_TRK'					:	'DINGO.DSI_Studio',
 		'create_reorient'			:	'DINGO.fsl',
 		'create_eddyc'				:	'DINGO.fsl',
 		'create_bet'				:	'DINGO.fsl',
@@ -35,10 +40,7 @@ class DINGO(pe.Workflow):
 		'create_invwarp_all2best'	:	'DINGO.fsl',
 		'create_warp_regions'		:	'DINGO.fsl',
 		'create_applywarp'			:	'DINGO.fsl',
-		'create_tbss_registration'	:	'DINGO.fsl',
-		'DSI_SRC'					:	'DINGO.DSI_Studio',
-		'DSI_REC'					:	'DINGO.DSI_Studio',
-		'DSI_TRK'					:	'DINGO.DSI_Studio'
+		'create_tbss_registration'	:	'DINGO.fsl'
 	}
 
 	subflows = dict()#could be workflows as well
@@ -202,42 +204,14 @@ class DINGO(pe.Workflow):
 						'["connect"] for linked downstream nodes.')
 				else:
 					#testsrckey is step that appears once, name!=step
-					srckey = reverse_lookup(self.name2step, testsrckey)
+					try:
+						srckey = reverse_lookup(self.name2step, testsrckey)
+					except ValueError:
+						print('destkey: %s' % destkey)
+						raise
 					
 				srcobj = self.subflows[srckey]
 				self.make_connection(srcobj, srcfield, destobj, destfield)
-				#if issubclass(type(srcobj),pe.Node):
-					#if issubclass(type(destobj), pe.Node):
-						#self.connect(srcobj, srcfield, destobj, destfield)
-					#elif issubclass(type(destobj), pe.Workflow):
-						#if hasattr(destobj, '_inputnode'):
-							#destname = (destobj._inputnode, destfield)
-						#else:
-							##simple attempt to support non DINGOflow
-							#destname = ('inputnode', destfield)
-				#try:
-					##to connect as a node
-					#self.connect(srcobj, srcfield, destobj, destfield)
-					#print('Connected %s:%s --> %s:%s' %
-						#(srckey, srcfield, destkey, destfield))
-				#except Exception:
-					#try:
-						##to connect as a workflow with subnode
-						#srcname = (srcobj._outputnode, srcfield)
-					#except AttributeError:
-						##simple attempt to support workflows without _outputnode
-						#srcname = ('outputnode', srcfield)
-					#try:
-						#destname = (destobj._inputnode, destfield)
-					#except AttributeError:
-						##simple attempt to support workflows with _inputnode
-						#destname = ('inputnode', destfield)
-					#srcname = '.'.join(srcname)
-					#destname = '.'.join(destname)
-					
-					#self.connect(srcobj, srcname, destobj, destname)
-					#print('Connected %s:%s --> %s:%s' %
-						#(srckey, srcname, destkey, destname))
 		
 			
 	def create_wf_from_config(self, cfgpath, expected_keys=None):
@@ -285,6 +259,8 @@ class DINGO(pe.Workflow):
 		input_fields = self.check_input_fields(cfg_bn, cfg, expected_keys)
 		if 'data_dir' in input_fields:
 			self.base_dir = input_fields['data_dir']
+		if 'name' in input_fields:
+			self.name = input_fields['name']
 
 		#Set up from config
 		config_inputs = pe.Node(name='config_inputs', 
@@ -374,6 +350,10 @@ class DINGO(pe.Workflow):
 	
 
 class DINGOflow(pe.Workflow):
+	"""Add requisite properties to Nipype Workflow. Output folder 'Name', will 
+	be in top level of nipype cache with its own parameterized iterables 
+	folders.
+	"""
 	_inputnode = None
 	_outputnode = None
 	_joinsource = 'config_inputs'
@@ -387,6 +367,9 @@ class DINGOflow(pe.Workflow):
 			
 			
 class DINGOnode(pe.Node):
+	"""Add requisite properties to Nipype Node. Output folder 'Name', will be in
+	 the parameterized iterables folders.
+	 """
 	_joinsource = 'config_inputs'
 	connection_spec = {}
 	

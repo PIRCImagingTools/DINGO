@@ -25,17 +25,20 @@ class HelperFSL(DINGO):
 	
 	def __init__(self, **kwargs):
 		wfm = {
-		'Neonatal_tbss_reg'		:	'DINGO.fsl',
 		'Reorient'				:	'DINGO.fsl',
 		'EddyC'					:	'DINGO.fsl',
 		'BET'					:	'DINGO.fsl',
 		'DTIFIT'				:	'DINGO.fsl',
 		'FLIRT'					:	'DINGO.fsl',
 		'FNIRT'					:	'DINGO.fsl',
-		'ApplyWarp'				:	'DINGO.fsl'
+		'ApplyWarp'				:	'DINGO.fsl',
+		'FSL_nonlinreg'			:	'DINGO.fsl',
+		'TBSS_prereg'			:	'DINGO.fsl',
+		'TBSS_reg_NXN'			:	'DINGO.fsl',
+		'TBSS_postreg'			:	'DINGO.fsl',
 		}
 		
-		super(HelperFlow, self).__init__(workflow_to_module=wfm, **kwargs)
+		super(HelperFSL, self).__init__(workflow_to_module=wfm, **kwargs)
 			
 	
 class Reorient(DINGOnode):
@@ -362,8 +365,7 @@ class TBSS_reg_NXN(DINGOflow):
 								('mask_list','mask_list')])
 			])
 		
-						
-	@staticmethod
+
 	def create_tbss_2_reg(name="tbss_2_reg",\
 	target=None, target_id=None, id_list=None, fa_list=None, mask_list=None):
 		"""TBSS nonlinear registration:
@@ -495,7 +497,7 @@ class TBSS_reg_NXN(DINGOflow):
 			
 		return tbss2
 	
-	@staticmethod	
+	
 	def tbss2_target(n_procs=None, \
 	target=None, target_id=None, id_list=None, fa_list=None, mask_list=None):
 		"""Wrap tbss2 workflow in mapnode(functionnode) to iterate over fa_files
@@ -578,7 +580,7 @@ class TBSS_postreg(DINGOflow):
 								('mm_list','inputnode.mm_list')])
 			])
 					
-	@staticmethod
+
 	def create_find_best(name="find_best"):
 		"""Find best target for FA warps, to minimize mean deformation
 		
@@ -673,7 +675,7 @@ class TBSS_postreg(DINGOflow):
 			])
 		return fb
 		
-	@staticmethod
+
 	def create_tbss_3_postreg(name='tbss_3_postreg',\
 	estimate_skeleton=True, suffix=None, target='best',\
 	id_list=None, fa_list=None, field_list=None, mm_list=None):

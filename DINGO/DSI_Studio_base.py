@@ -249,10 +249,10 @@ class DSIStudioOutputSpec(TraitedSpec):
 class DSIStudioCommand(CommandLine):
 	"""Base support for DSI Studio commands.
 	"""
-	_cmd = "dsistudio"
+	_cmd = "dsi_studio"
 	_output_type = None
 	_action = None
-	terminal_output = 'file_split'
+	terminal_output = 'file'
 
 	input_spec = DSIStudioInputSpec
 
@@ -316,7 +316,7 @@ class DSIStudioCommand(CommandLine):
 				suffix = ext
 		if suffix is None:
 			suffix = ""
-		fname = fname_presuffix(basename, suffix=suffix, use_ext=True,
+		fname = fname_presuffix(basename, suffix=suffix, use_ext=False,
 								newpath=cwd)
 		return fname
 		
@@ -470,9 +470,11 @@ class DSIStudioFiberInputSpec(DSIStudioInputSpec):
 		
 	tract_name = traits.Str(desc='suffix to append to source filename')
 		
-	endpt = File(#maybe genfile
+	endpt = File(
 		argstr="--end_point=%s",
 		hash_files=False,
+		name_source=['source'],
+		name_template='%s_endpt.txt',
 		desc="endpoint file name, format may be txt or mat")
 	
 	#separate for later use, inner trait doesn't seem to have values property
@@ -569,38 +571,38 @@ class DSIStudioFiberOutputSpec(DSIStudioOutputSpec):
 	track = File(desc="path/name of fiber track file (if generated)")
 	endpt = File(desc="path/name of fiber track end points file "
 					  "(if generated)")
-	stat = File(desc="path/name of fiber track stats file (if generated)")
-	tdi = File(desc="path/name of fiber track tract density image file "
+	stat_file = File(desc="path/name of fiber track stats file (if generated)")
+	tdi_file = File(desc="path/name of fiber track tract density image file "
 					    "(if generated)")
-	tdi2 = File(desc="path/name of fiber track tract density image file "
+	tdi2_file = File(desc="path/name of fiber track tract density image file "
 						 "in subvoxel diffusion space (if generated)")
-	tdi_color = File(desc="path/name of fiber track tract color density "
+	tdi_color_file = File(desc="path/name of fiber track tract color density "
 							  "image file (if generated)")
-	tdi_end = File(desc="path/name of fiber track tract density image "
+	tdi_end_file = File(desc="path/name of fiber track tract density image "
 							"endpoints file (if generated)")
-	tdi2_end = File(desc="path/name of fiber track tract density image "
+	tdi2_end_file = File(desc="path/name of fiber track tract density image "
 							 "endpoints in subvoxel diffusion space file "
 							 "(if generated")
-	fa = File(desc="path/name of along tract fa values file (if generated)")
-	gfa = File(desc="path/name of along tract gfa values file (if generated)")
-	qa = File(desc="path/name of along tract qa values file (if generated)")
-	nqa = File(desc="path/name of along tract nqa values file (if generated)")
-	md = File(desc="path/name of along tract md values file (if generated)")
-	ad = File(desc="path/name of along tract ad values file (if generated)")
-	rd = File(desc="path/name of along tract rd values file (if generated)")
-	report_fa = File(desc="path/name of tract report fa values file "
+	fa_file = File(desc="path/name of along tract fa values file (if generated)")
+	gfa_file = File(desc="path/name of along tract gfa values file (if generated)")
+	qa_file = File(desc="path/name of along tract qa values file (if generated)")
+	nqa_file = File(desc="path/name of along tract nqa values file (if generated)")
+	md_file = File(desc="path/name of along tract md values file (if generated)")
+	ad_file = File(desc="path/name of along tract ad values file (if generated)")
+	rd_file = File(desc="path/name of along tract rd values file (if generated)")
+	report_fa_file = File(desc="path/name of tract report fa values file "
 						  "(if generated)")
-	report_gfa = File(desc="path/name of tract report gfa values file "
+	report_gfa_file = File(desc="path/name of tract report gfa values file "
 						  "(if generated)")
-	report_qa = File(desc="path/name of tract report qa values file "
+	report_qa_file = File(desc="path/name of tract report qa values file "
 						  "(if generated)")
-	report_nqa = File(desc="path/name of tract report nqa values file "
+	report_nqa_file = File(desc="path/name of tract report nqa values file "
 						  "(if generated)")
-	report_md = File(desc="path/name of tract report md values file "
+	report_md_file = File(desc="path/name of tract report md values file "
 						  "(if generated)")
-	report_ad = File(desc="path/name of tract report ad values file "
+	report_ad_file = File(desc="path/name of tract report ad values file "
 						  "(if generated)")
-	report_rd = File(desc="path/name of tract report rd values file "
+	report_rd_file = File(desc="path/name of tract report rd values file "
 						  "(if generated)")
 
 
@@ -994,13 +996,24 @@ class DSIStudioFiberCommand(DSIStudioCommand):
 		
 	def _list_outputs(self):
 		outputs = self._outputs().get()
+		texts = ('stat','fa','gfa','qa','nqa','md','ad','rd','report_fa',
+				'report_gfa','report_nqa','report_md','report_ad','report_rd')
+		imgs = ('tdi','tdi2','tdi_color','tdi_end','tdi2_end')
 		for key in outputs.iterkeys():
+			inputkey = key.replace('_file','')
 			if key == 'track':
 				if isdefined(getattr(self.inputs, 'track')):
-					outputs['track'] = self._gen_filename
-			if isdefined(getattr(self.inputs, key)):
-				outputs[key] = self.gen_fname(
-					self.inputs.source, suffix='_'+key)
+					outputs['track'] = self._gen_filename(key)
+			elif inputkey in texts and \
+			isdefined(getattr(self.inputs, inputkey)) and \
+			getattr(self.inputs, inputkey):
+				outputs[key] = self.gen_fname(self.inputs.source, 
+				suffix='_'+inputkey, change_ext=True, ext='.txt')
+			elif inputkey in imgs and \
+			isdefined(getattr(self.inputs, inputkey)) and \
+			getattr(self.inputs, inputkey):
+				outputs[key] = self.gen_fname(self.inputs.source,
+				suffix='_'+inputkey, change_ext=True, ext='.nii')
 
 		return outputs
 
@@ -1206,14 +1219,17 @@ class DSIStudioSource(DSIStudioCommand):
 
 	def _gen_filename(self, name):
 		if name == "output":
-			_, filename, _ = split_filename(
-				os.path.abspath(self.inputs.source))
-			fname = []
-			fname.extend((filename,
-				DSIInfo.ot_to_ext(self.inputs.output_type)))
-			return "".join(fname)
+			out = self.inputs.output
+			if not isdefined(out) and isdefined(self.inputs.source):
+				out = self._gen_fname(self.inputs.source, change_ext=True)
+			return os.path.abspath(out)
 		else:
 			return super(DSIStudioSource, self)._gen_filename(name)
+			
+	def _list_outputs(self):
+		outputs = self._outputs().get()
+		outputs['output'] = self._gen_filename('output')
+		return outputs
 
 
 
@@ -1428,6 +1444,7 @@ class DSIStudioReconstructOutputSpec(DSIStudioOutputSpec):
 #rdi: The restricted diffusioin imaging metrics were calculated 
 #de: deconvolution was used to sharpen the ODF
 #dec: decomposition was used to sharpen the ODF
+#dti: The images were reconstructed using diffusion tensor imaging
 #gqi: The images were reconstructed using generalized q-sampling imaging
 #qsdr: The images were reconstructed using q-space diffeomorphic reconstruction
 #R72: The goodness-of-fit between the subject's data and the template has a R-squared value of 0.72
@@ -1467,7 +1484,7 @@ class DSIStudioReconstruct(DSIStudioCommand):
 				sfxvalue = getattr(self.inputs, varidname)
 				if isdefined(sfxvalue) and sfxvalue == True:
 					newval = sfx
-				setattr(self.inputs, 'method', newval)
+					setattr(self.inputs, 'method', newval)
 				
 	def _update_param(self):
 		name = 'param'
@@ -1479,7 +1496,7 @@ class DSIStudioReconstruct(DSIStudioCommand):
 		dcnvspec = self.inputs.trait(dcnv)
 		if isdefined(dcnvval):
 			if dcnvval == 0:
-				dcnvspec.requires = None#requires to default
+				dcnvspec.requires = None#requires default
 			elif dcnvval == 1:
 				dcnvspec.requires=['regularization']
 				if spec.requires is None:
@@ -1491,7 +1508,7 @@ class DSIStudioReconstruct(DSIStudioCommand):
 		dcmpspec = self.inputs.trait(dcmp)
 		if isdefined(dcmpval):
 			if dcmpval == 0:
-				dcmpspec.requires = None#requires to default
+				dcmpspec.requires = None#requires default
 			elif dcmpval == 1:
 				dcmpspec.requires=['decomp_frac','m_value']
 				if spec.requires is None:
@@ -1505,9 +1522,9 @@ class DSIStudioReconstruct(DSIStudioCommand):
 			nparams = DSIInfo.rec_mid_to_np(mval)
 			paramsources = DSIInfo.rec_mid_to_pids(mval)
 			if nparams > 0:
-				self.inputs.trait(name).mandatory = True#update param.mandatory
-				spec.requires = []#clear param.requires
-				spec.requires.extend(paramsources)#update param.requires
+				self.inputs.trait(name).mandatory = True
+				spec.requires = []
+				spec.requires.extend(paramsources)
 				paramlist = []
 				if not isdefined(value):#param is undefined
 					value = []
@@ -1522,8 +1539,8 @@ class DSIStudioReconstruct(DSIStudioCommand):
 				setattr(self.inputs, name, value)#update param.value
 			else:
 				self.inputs.trait(name).mandatory = None#param.mandatory to def
-				spec.requires = None#param.requires to default
-				setattr(self.inputs, name, _Undefined())#param value to default
+				spec.requires = None#param.requires default
+				setattr(self.inputs, name, _Undefined())#param value default
 			
 	def _check_mandatory_inputs(self):
 		"""using this to insert/update necessary values, then call super
@@ -1548,7 +1565,7 @@ class DSIStudioReconstruct(DSIStudioCommand):
 		"""
 
 		argstr = trait_spec.argstr
-		print argstr #debug
+		#print argstr #debug
 		sep = trait_spec.sep if trait_spec.sep is not None else " "
 		arglist = []
 		
@@ -1604,14 +1621,10 @@ class DSIStudioReconstruct(DSIStudioCommand):
 
 	def _parse_inputs(self, skip=None):
 		#super._parse_inputs any var with an argstr will be parsed if not in skip
-		#up
 		recmid = getattr(self.inputs, 'method')
 		incp=set(DSIInfo.rec_method_id_inputs[recmid])
 		allp = set().union(*DSIInfo.rec_method_id_inputs.itervalues())
 		excp = allp.difference(incp)
-		print(incp)
-		print(allp)
-		print(excp)
 		deftoskip =[]
 		for elt in excp:
 			deftoskip.append(elt)
@@ -1623,6 +1636,17 @@ class DSIStudioReconstruct(DSIStudioCommand):
 			deftoskip.extend(skip)
 			toskip.extend(deftoskip)
 		return super(DSIStudioReconstruct, self)._parse_inputs(skip=toskip)
+		
+	def _list_outputs(self):
+		outputs = self._outputs().get()
+		#This is not quite correct, as described in outputspec
+		ext = []
+		ext.append(self.inputs.method)
+		ext.append(DSIInfo.ot_to_ext(self.inputs.output_type))
+		ext = ''.join(ext)
+		outputs['fiber_file'] = self._gen_fname(
+			self.inputs.source, change_ext=True, ext=ext)
+		return outputs
 
 
 

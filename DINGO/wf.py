@@ -17,6 +17,7 @@ class HelperFlow(DINGO):
 		wfm = {
 		'SplitIDs'				:	'DINGO.wf',
 		'FileIn'				:	'DINGO.wf',
+		'FileIn_SConfig'		:	'DINGO.wf',
 		'FileOut'				:	'DINGO.wf'
 		}
 		
@@ -24,46 +25,47 @@ class HelperFlow(DINGO):
 	
 	
 class SplitIDs(DINGOflow):
+	"""Nipype node to iterate a list of ids into separate subject, scan, and
+	task ids.
+	
+	Parameters
+	----------
+	name			:	Str (workflow name, default 'split_ids')
+	parent_dir		:	Directory (contains subject folders)
+	scan_list		:	List[Str] 
+	scan_list_sep	:	Str (separator for fields in id)
+		
+	e.g. split_ids = create_split_ids(name='split_ids', 
+				parent_dir=os.getcwd(),
+				scan_list=[0761_MR1_42D_DTIFIXED,CHD_052_01a_DTIFIXED],
+				sep='_')
+		
+	Returns
+	-------
+	splitids	:	Nipype workflow
+	(splitids.outputnode.outputs=['sub_id','scan_id','uid'])
+	e.g. {0: {parent_dir='/home/pirc/Desktop/DWI/CHD_tractography/CHP',
+				sub_id='0761', scan_id='MR1', uid='42D_DTIFIXED'},
+		  1: {parent_dir='/home/pirc/Desktop/DWI/CHD_tractography/CHP',
+				sub_id='CHD_052', scan_id='01a', uid='DTIFIXED'}}
+				
+	Workflow Inputs
+	---------------
+	inputnode.scan_list
+	inputnode.scan_list_sep
+	
+	Workflow Outputs
+	----------------
+	outputnode.sub_id
+	outputnode.scan_id
+	outputnode.uid
+	"""
 	_inputnode = 'inputnode'
 	_outputnode = 'outputnode'
 	
 	def __init__(self, name='SplitIDs',\
 	inputs={'parent_dir':None,'scan_list':None,'scan_list_sep':'_'}, **kwargs):
-		"""Nipype node to iterate a list of ids into separate subject, scan, and
-		task ids.
 		
-		Parameters
-		----------
-		name			:	Str (workflow name, default 'split_ids')
-		parent_dir		:	Directory (contains subject folders)
-		scan_list		:	List[Str] 
-		scan_list_sep	:	Str (separator for fields in id)
-			
-		e.g. split_ids = create_split_ids(name='split_ids', 
-					parent_dir=os.getcwd(),
-					scan_list=[0761_MR1_42D_DTIFIXED,CHD_052_01a_DTIFIXED],
-					sep='_')
-			
-		Returns
-		-------
-		splitids	:	Nipype workflow
-		(splitids.outputnode.outputs=['sub_id','scan_id','uid'])
-		e.g. {0: {parent_dir='/home/pirc/Desktop/DWI/CHD_tractography/CHP',
-					sub_id='0761', scan_id='MR1', uid='42D_DTIFIXED'},
-			  1: {parent_dir='/home/pirc/Desktop/DWI/CHD_tractography/CHP',
-					sub_id='CHD_052', scan_id='01a', uid='DTIFIXED'}}
-					
-		Workflow Inputs
-		---------------
-		inputnode.scan_list
-		inputnode.scan_list_sep
-		
-		Workflow Outputs
-		----------------
-		outputnode.sub_id
-		outputnode.scan_id
-		outputnode.uid
-		"""
 		super(SplitIDs, self).__init__(name=name, **kwargs)
 		
 		#Create Workflow
@@ -121,9 +123,40 @@ class SplitIDs(DINGOflow):
 	
 	
 class FileIn(DINGOnode):
-	#_inputnode = 'filein'
-	#_outputnode = 'filein'
-
+	"""
+	Parameters
+	----------
+	name			:	Workflow name
+	infields		:	List, template field arguments
+		(default ['sub_id','scan_id','uid'])
+	outfields		:	List, output files 
+		(default ['nifti'])
+	exts			:	Dict, extensions for output files
+		(default {'nifti':'.nii.gz'}, only used if field_template 
+		unspecified for outfield, and template ends in .ext)
+	template		:	Str, default template
+		(default '%s/%s/%s_%s_%s.ext')
+	field_template	:	Dict, overwrite default template per outfield
+	template_args	:	Dict, linking infields to template or field_template
+	sort_filelist	:	Boolean
+	
+	Returns
+	-------
+	DataGrabber workflow
+	
+	Inputs
+	------
+	filein.infields
+	filein.template
+	filein.field_template
+	filein.template_args
+	filein.sort_filelist
+	filein.base_directory
+	
+	Outputs
+	-------
+	filein.outfields
+	"""
 	connection_spec = {
 		'sub_id'			:	['SplitIDs','sub_id'],
 		'scan_id'			:	['SplitIDs','scan_id'],
@@ -134,40 +167,6 @@ class FileIn(DINGOnode):
 	inputs={'infields':None, 'outfields':None, 'exts':None, 'template':None,\
 	'field_template':None, 'template_args':None, 'sort_filelist':True},\
 	**kwargs):
-		"""
-		Parameters
-		----------
-		name			:	Workflow name
-		infields		:	List, template field arguments
-			(default ['sub_id','scan_id','uid'])
-		outfields		:	List, output files 
-			(default ['nifti'])
-		exts			:	Dict, extensions for output files
-			(default {'nifti':'.nii.gz'}, only used if field_template 
-			unspecified for outfield, and template ends in .ext)
-		template		:	Str, default template
-			(default '%s/%s/%s_%s_%s.ext')
-		field_template	:	Dict, overwrite default template per outfield
-		template_args	:	Dict, linking infields to template or field_template
-		sort_filelist	:	Boolean
-		
-		Returns
-		-------
-		DataGrabber workflow
-		
-		Inputs
-		------
-		filein.infields
-		filein.template
-		filein.field_template
-		filein.template_args
-		filein.sort_filelist
-		filein.base_directory
-		
-		Outputs
-		-------
-		filein.outfields
-		"""
 	
 		#Defaults
 		if 'infields' not in inputs or inputs['infields'] is None:
@@ -210,7 +209,7 @@ class FileIn(DINGOnode):
 			field_template = inputs['field_template']
 			outfields = field_template.keys()
 			
-		if 'templat_args' not in inputs or inputs['template_args'] is None:
+		if 'template_args' not in inputs or inputs['template_args'] is None:
 			template_args = dict()
 			for i in range(0,lof):
 				template_args.update(
@@ -223,9 +222,6 @@ class FileIn(DINGOnode):
 		super(FileIn, self).__init__(name=name, 
 			interface=nio.DataGrabber(infields=infields, outfields=outfields), 
 			**kwargs)
-		#datain = pe.Node(
-			#name='filein',
-			#interface=nio.DataGrabber(infields=infields,outfields=outfields))
 			
 		self.inputs.base_directory = base_directory
 		self.inputs.template = template
@@ -233,9 +229,173 @@ class FileIn(DINGOnode):
 		self.inputs.template_args = template_args
 		self.inputs.sort_filelist = sort_filelist
 	
-		#self.add_nodes([datain])
+	
+class FileIn_SConfig(DINGOflow):
+	"""Nipype workflow to get files specified in a subject config.json"""
+	_inputnode = 'inputnode'
+	_outputnode = 'filein'
+	
+	connection_spec = {
+		'sub_id'			:	['SplitIDs','sub_id'],
+		'scan_id'			:	['SplitIDs','scan_id'],
+		'uid'				:	['SplitIDs','uid']
+	}
+	
+	def __init__(self, name='FileIn_SConfig',\
+	inputs=dict(base_directory=None, outfields=None),\
+	**kwargs):
+		super(FileIn_SConfig, self).__init__(name=name, **kwargs)
+		
+		inputnode = pe.Node(
+			name='inputnode',
+			interface=IdentityInterface(
+				fields=[
+					'base_directory',
+					'outfields',
+					'sub_id',
+					'scan_id',
+					'uid']),
+			mandatory_inputs=True)
+			
+		if 'base_directory' in inputs and inputs['base_directory'] is not None:
+			inputnode.inputs.base_directory = inputs['base_directory']
+		if 'outfields' in inputs and inputs['outfields'] is not None:
+			inputnode.inputs.outfields = inputs['outfields']
+		else:
+			raise KeyError('outfields must be specified to instantiate %s' 
+				% self.__class__)
+		if 'sub_id' in inputs and inputs['sub_id'] is not None:
+			inputnode.inputs.sub_id = inputs['sub_id']
+		if 'scan_id' in inputs and inputs['scan_id'] is not None:
+			inputnode.inputs.scan_id = inputs['scan_id']
+		if 'uid' in inputs and inputs['uid'] is not None:
+			inputnode.inputs.uid = inputs['uid']
+			
+		cfgpath = pe.Node(
+			name='cfgpath',
+			interface=Function(
+				input_names=[
+					'base_dir',
+					'sub_id',
+					'scan_id',
+					'uid'],
+				output_names=['path'],
+				function=FileIn_SConfig.cfgpath_from_ids))
+				
+		read_conf = pe.Node(
+			name='read_conf',
+			interface=Function(
+				input_names=['configpath'],
+				output_names=['configdict'],
+				function=read_config))
+				
+		create_ft = pe.Node(
+			name='create_field_template',
+			interface=Function(
+				input_names=[
+					'base_dir',
+					'sub_id',
+					'scan_id',
+					'uid',
+					'config',
+					'path_keys'],
+				output_names=['field_template'],
+				function=FileIn_SConfig.create_field_template))
+				
+		filein = pe.Node(
+				name='filein',
+				interface=nio.DataGrabber(outfields=inputs['outfields']))
+		filein.inputs.template = '*'
+		filein.inputs.sort_filelist = True
+				
+		self.connect([
+			(inputnode, cfgpath, [('base_directory','base_dir'),
+								('sub_id','sub_id'),
+								('scan_id','scan_id'),
+								('uid','uid')]),
+			(inputnode, create_ft, [('base_directory','base_dir'),
+									('sub_id','sub_id'),
+									('scan_id','scan_id'),
+									('uid','uid'),
+									('outfields','path_keys')]),
+			(inputnode, filein, [('base_directory','base_directory')]),
+			(cfgpath, read_conf, [('path','configpath')]),
+			(read_conf, create_ft, [('configdict','config')]),
+			(create_ft, filein, [('field_template','field_template')])
+			])
+
+	def cfgpath_from_ids(base_dir=None, sub_id=None, scan_id=None, uid=None):
+		if base_dir is not None and \
+		sub_id is not None and \
+		scan_id is not None and \
+		uid is not None:
+			import os
+			cfgname = []
+			cfgname.extend((sub_id,scan_id,uid,'config.json'))
+			cfgname = '_'.join(cfgname)
+			return os.path.join(base_dir, sub_id, scan_id, cfgname)
+			
+	def create_field_template(base_dir, sub_id, scan_id, uid,\
+		config=None, path_keys=None):
+			import os
+			myrepl = {
+				'pid'			:	sub_id,
+				'scanid'		:	scan_id,
+				'sequenceid'	:	uid,
+				'parent_dir'	:	base_dir
+			}
+			
+			values = [None] * len(myrepl)
+			for k,v in myrepl.iteritems():
+				if config[k] != v:
+					raise Exception('Subject config error[%s]: '
+						'Expecting %s, Got %s'
+						% (k, v, config[k]))				
+
+			field_template = {}
+			for pathkey in path_keys:
+				value = config['paths'][pathkey]
+				dirkey = '_'.join((pathkey, 'dir'))
+				if dirkey in config['paths']:
+					dirvalue = config['paths'][dirkey]
+				else:
+					dirvalue = ''
+				value = os.path.join(dirvalue, config['paths'][pathkey])
+				for k,v in myrepl.iteritems():
+					value = value.replace(k, v)
+				field_template.update({pathkey:value})
+				
+			return field_template
+		
 
 class FileOut(DINGOflow):
+	"""
+	Parameters
+	----------
+	name 				:	Workflow name
+	pnames				:	List of parent flow names determine subcontainer
+	in_files			:	List of files to write
+	substitutions		:	List of tuple pairs for filename substitutions
+		('input_id' substitute will be replaced with subid_scanid_uid)
+		e.g. [('input_id','id'),('dtifit_','input_id')] ->
+			['input_id','id'),('dtifit_','subid_scanid_uid')]
+		
+	Returns
+	-------
+	fileout Nipype workflow
+	
+	Inputs
+	------
+	inputnode.parent_dir		:	directory of subject folders
+	inputnode.sub_id			:	subject id
+	inputnode.scan_id			:	scan id
+	inputnode.uid				:	unique id
+	inputnode.in_files			:	files to write
+	
+	Outputs
+	-------
+	Files written to parent_dir/sub_id/scan_id/pnames
+	"""
 	_inputnode = 'inputnode'
 	_outputnode = 'sink'
 	
@@ -249,33 +409,6 @@ class FileOut(DINGOflow):
 	inputs={'pnames':None, 'substitutions':None, 'in_files':None,\
 	'parent_dir':None, 'sub_id':None, 'scan_id':None, 'uid':None},\
 	**kwargs):
-		"""
-		Parameters
-		----------
-		name 				:	Workflow name
-		pnames				:	List of parent flow names determine subcontainer
-		in_files			:	List of files to write
-		substitutions		:	List of tuple pairs for filename substitutions
-			('input_id' substitute will be replaced with subid_scanid_uid)
-			e.g. [('input_id','id'),('dtifit_','input_id')] ->
-				['input_id','id'),('dtifit_','subid_scanid_uid')]
-			
-		Returns
-		-------
-		fileout Nipype workflow
-		
-		Inputs
-		------
-		inputnode.parent_dir		:	directory of subject folders
-		inputnode.sub_id			:	subject id
-		inputnode.scan_id			:	scan id
-		inputnode.uid				:	unique id
-		inputnode.in_files			:	files to write
-		
-		Outputs
-		-------
-		Files written to parent_dir/sub_id/scan_id/pnames
-		"""
 
 		super(FileOut, self).__init__(name=name, **kwargs)
 		
@@ -302,7 +435,8 @@ class FileOut(DINGOflow):
 					'sub_id','scan_id','uid'],
 				output_names=['container','out_file_list','newsubs'],
 				function=fileout_util))
-		util.inputs.names = pnames
+		if 'pnames' in inputs and inputs['pnames'] is not None:
+			util.inputs.names = pnames
 		if 'substitutions' not in inputs or inputs['substitutions'] is None:
 			substitutions = []
 		util.inputs.substitutions = substitutions	

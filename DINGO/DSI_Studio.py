@@ -11,6 +11,16 @@ from DINGO.DSI_Studio_base import (DSIStudioSource, DSIStudioReconstruct,
 from DINGO.base import (DINGO, DINGOflow, DINGOnode)
 
 
+class HelperDSI(DINGO):
+	def __init__(self, **kwargs):
+		wfm = {
+			'DSI_SRC'	:	'DINGO.DSI_Studio',
+			'REC_prep'	:	'DINGO.DSI_Studio',
+			'DSI_REC'	:	'DINGO.DSI_Studio',
+			'DSI_TRK'	:	'DINGO.DSI_Studio',
+		}
+		super(HelperDSI, self).__init__(workflow_to_module=wfm, **kwargs)
+
 class DSI_SRC(DINGOnode):
 	"""Nipype node to create a src file in DSIStudio with dwi, bval, bvec
 	
@@ -42,7 +52,21 @@ class DSI_SRC(DINGOnode):
 			name=name, 
 			interface=DSIStudioSource(**inputs),
 			**kwargs)
+			
+			
+class REC_prep(DINGOnode):
+	"""Nipype node to erode the BET mask to pass to DSI_REC"""
 
+	connection_spec = {
+		'in_file'		:	['BET','mask_file']
+	}
+	
+	def __init__(self, name="REC_prep",\
+	inputs={'op_string':'-ero', 'suffix':'_ero'}, **kwargs):
+		rp = super(REC_prep, self).__init__(
+			name=name, 
+			interface=fsl.ImageMaths(**inputs),
+			**kwargs)
 
 
 class DSI_REC(DINGOnode):
@@ -67,7 +91,7 @@ class DSI_REC(DINGOnode):
 	
 	connection_spec = {
 		'source'		:	['DSI_SRC','output'],
-		'mask'			:	['FileIn','mask']
+		'mask'			:	['REC_prep','out_file']
 	}
 
 	def __init__(self, name="DSI_REC", inputs={}, **kwargs):
@@ -118,7 +142,11 @@ class DSI_TRK(DINGOflow):
 		#Parse inputs
 		inputnode = pe.Node(name='inputnode',
 			interface=IdentityInterface(
-				fields=['fib_file','tractnames_list', 'tract_inputs']))
+				fields=[
+					'fib_file',
+					'tractnames_list', 
+					'tract_inputs', 
+					'regions']))
 		
 		if 'tracts' not in inputs:
 			if 'rois' not in inputs:
@@ -173,20 +201,8 @@ class DSI_TRK(DINGOflow):
 			])
 					
 	@staticmethod
-	def separate_roas(tract_input):
-		"""Function to remove roas key from input dictionary, used as node"""
-		#Unsure exactly how nipype treats dictionaries, to be safe, returning it
-		if 'roas' in tract_input and len(tract_input['roas']) > 5:
-			roa_list = tract_input['roas']
-			if not isinstance(roa_list, list):
-				roa_list = [roa_list]
-			del tract_input['roas']
-		else:
-			roa_list = None
-		return tract_input, roa_list
-					
-	@staticmethod
 	def create_merge_roas(name='merge_roas'):
+		"""Create nipype workflow that will merge roas in tract_input"""
 		merge = pe.Workflow(name=name)
 		
 		inputnode = pe.Node(
@@ -195,12 +211,24 @@ class DSI_TRK(DINGOflow):
 				fields=['tract_input']),
 			mandatory_inputs=True)
 			
+		def separate_roas(tract_input):
+			"""Function to split roas key from input dictionary, used as node"""
+			#Unsure if nipype copies or passes dicts, to be safe returning it
+			if 'roas' in tract_input and len(tract_input['roas']) > 5:
+				roa_list = tract_input['roas']
+				if not isinstance(roa_list, list):
+					roa_list = [roa_list]
+				del tract_input['roas']
+			else:
+				roa_list = None
+			return tract_input, roa_list
+			
 		separate_roas = pe.Node(
 			name='separate_roas',
 			interface=Function(
 				input_names=['tract_input'],
 				output_names=['new_tract_input', 'roa_list'],
-				function=DSI_TRK.separate_roas))
+				function=separate_roas))
 		
 		mergenode = pe.Node(
 			name='mergenode',

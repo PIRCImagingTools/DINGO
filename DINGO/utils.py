@@ -409,9 +409,9 @@ def read_config(configpath):
 	"""
 
 	import logging
+	from DINGO.utils import json_load_byteified
 	logger = logging.getLogger(__name__)
 	try:
-		#configpath = os.path.join(filepath, filename)
 		with open(configpath) as cfg_file:
 			cfg = json_load_byteified(cfg_file)
 			cfg_file.close()
