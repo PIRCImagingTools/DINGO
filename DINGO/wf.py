@@ -280,7 +280,7 @@ class FileIn_SConfig(DINGOflow):
 					'scan_id',
 					'uid'],
 				output_names=['path'],
-				function=FileIn_SConfig.cfgpath_from_ids))
+				function=self.cfgpath_from_ids))
 				
 		read_conf = pe.Node(
 			name='read_conf',
@@ -300,7 +300,7 @@ class FileIn_SConfig(DINGOflow):
 					'config',
 					'path_keys'],
 				output_names=['field_template'],
-				function=FileIn_SConfig.create_field_template))
+				function=self.create_field_template))
 				
 		filein = pe.Node(
 				name='filein',
@@ -407,68 +407,103 @@ class FileOut(DINGOflow):
 	}
 	
 	def __init__(self, name='FileOut_SubScanUID',\
-	inputs={'pnames':None, 'substitutions':None, 'in_files':None,\
-	'parent_dir':None, 'sub_id':None, 'scan_id':None, 'uid':None},\
+	inputs=dict(substitutions=None, s2r='input_id', infields=None,\
+	parent_dir=None, sub_id=None, scan_id=None, uid=None),\
 	**kwargs):
 
 		super(FileOut, self).__init__(name=name, **kwargs)
 		
+		inputfields = ['parent_dir','sub_id','scan_id','uid']
+		if 'infields' in inputs and inputs['infields'] is not None:
+			infields = inputs['infields']
+		else:
+			infields = []
+		inputfields.extend((field.replace('.','_') for field in infields ))
+		print(inputfields)
 		inputnode = pe.Node(name='inputnode',
 			interface=IdentityInterface(
-				fields=['parent_dir','sub_id','scan_id','uid','in_files'], 
-				mandatory_inputs=True))
-				
+				fields=inputfields), 
+			mandatory_inputs=True)
+		
 		if 'parent_dir' in inputs and inputs['parent_dir'] is not None:
-			inputnode.inputs.parent_dir = parent_dir
+			inputnode.inputs.parent_dir = inputs['parent_dir']
 		if 'sub_id' in inputs and inputs['sub_id'] is not None:
-			inputnode.inputs.sub_id = sub_id
+			inputnode.inputs.sub_id = inputs['sub_id']
 		if 'scan_id' in inputs and inputs['scan_id'] is not None:
-			inputnode.inputs.scan_id = scan_id
+			inputnode.inputs.scan_id = inputs['scan_id']
 		if 'uid' in inputs and inputs['uid'] is not None:
-			inputnode.inputs.uid = uid
-		if 'in_files' in inputs and inputs['in_files'] is not None:
-			inputnode.inputs.in_files = in_files
+			inputnode.inputs.uid = inputs['uid']
 		
-		util = pe.Node(
-			name='util',
+		cont = pe.Node(
+			name='container',
 			interface=Function(
-				input_names=['names','file_list','substitutions',
-					'sub_id','scan_id','uid'],
-				output_names=['container','out_file_list','newsubs'],
-				function=fileout_util))
-		if 'pnames' in inputs and inputs['pnames'] is not None:
-			util.inputs.names = pnames
-		if 'substitutions' not in inputs or inputs['substitutions'] is None:
-			substitutions = []
-		util.inputs.substitutions = substitutions	
+				input_names=['sub_id', 'scan_id'],
+				output_names=['cont_string'],
+				function=self.container))
+				
+		prefix = pe.Node(
+			name='prefix',
+			interface=Function(
+				input_names=['sep','arg0','arg1','arg2'],
+				output_names=['pref_string'],
+				function=join_strs))
+		prefix.inputs.sep = '_'
 		
-		sink = pe.Node(name='sink', interface=nio.DataSink())
+		subs = pe.Node(
+			name='substitutions',
+			interface=Function(
+				input_names=['subs','s2r','rep'],
+				output_names=['new_subs'],
+				function=self.substitutions))
+		if 'substitutions' in inputs and inputs['substitutions'] is not None:
+			subs.inputs.subs = inputs['substitutions']
+		if 's2r' in inputs and inputs['s2r'] is not None:
+			subs.inputs.s2r = inputs['s2r']
+		
+		sink = pe.Node(name='sink', interface=nio.DataSink(infields=infields))
 		sink.inputs.parameterization = False
 		
-		self.connect([
-			(inputnode, util,
-				[('sub_id','sub_id'),
-				('scan_id','scan_id'),
-				('uid','uid'),
-				('in_files','file_list')]),
-			(inputnode, sink, 
-				[('parent_dir','base_directory')]),
-			(util, sink,
-				[('container','container'),
-				('out_file_list','outfields'),
-				('newsubs','substitutions')])
-			])
+		for field in infields:
+			self.connect([
+				(inputnode, sink, 
+					[(field.replace('.','_'), field )])
+				])
 		
-	
-def run_fileout(name='fileout',\
-inputs={'pnames':None, 'substitutions':None, 'in_files':None,\
-'parent_dir':None, 'sub_id':None, 'scan_id':None, 'uid':None}):
-	"""create_fileout then run it - Sink files"""
-	fo = FileOut(name=name, pnames=pnames, substitutions=substitutions,
-		in_files=in_files, parent_dir=parent_dir, 
-		sub_id=sub_id, scan_id=scan_id, uid=uid)
-	fo.run()
-	return fo.result.outputs
+		self.connect([
+			(inputnode, cont,
+				[('sub_id','sub_id'),
+				('scan_id','scan_id')]),
+			(inputnode, prefix, 
+				[('sub_id','arg0'),
+				('scan_id','arg1'),
+				('uid','arg2')]),
+			(inputnode, sink,
+				[('parent_dir','base_directory')]),
+			(prefix, subs,
+				[('pref_string','rep')]),
+			(cont, sink,
+				[('cont_string','container')]),
+			(subs, sink,
+				[('new_subs','substitutions')])
+			])
+					
+	def container(sub_id=None, scan_id=None):
+		import os.path as op
+		return op.join(sub_id, scan_id)
+		
+	def substitutions(subs=None, s2r=None, rep=None):
+		from traits.trait_base import _Undefined
+		if s2r is None or rep is None:
+			if subs is None:
+				return _Undefined()
+			else:
+				return subs
+		else:
+			newsubs = []
+			for pair in subs:
+				newpair = (pair[0], pair[1].replace(s2r, rep))
+				newsubs.append(newpair)
+		return newsubs
 	
 	
 #see if MapNode of Function will work instead

@@ -120,14 +120,80 @@ def DynImport(mod=None, obj=None):
 			return imp_module, None
 	else:
 		return None, None
+		
+def split_filename(fname, special_extensions=None):
+	"""Split a filename into path, base filename, and extension.
+	
+	Parameters
+	----------
+	fname				:	str - file or path name
+	special_extensions	:	list
+		list of extensions to split manually (several '.')
+		
+	Returns
+	-------
+	path	:	str - base path from fname
+	fname	:	str - base filename, without extension
+	ext		:	str - file extension from fname
+	"""
+	import os
+	
+	default_se = ('.nii.gz', 
+				'.tar.gz', 
+				'.fib.gz', 
+				'.src.gz',
+				'.trk.gz')
+	
+	if special_extensions is None:
+		special_extensions = default_se
+	else:
+		special_extensions.extend(default_se)
+							
+	path = os.path.dirname(fname)
+	fname = os.path.basename(fname)
+
+	ext = None
+	for special_ext in special_extensions:
+		ext_len = len(special_ext)
+		if (len(fname) > ext_len) and \
+		(fname[-ext_len:].lower() == special_ext.lower()):
+			ext = fname[-ext_len:]
+			fname = fname[:-ext_len]
+			break
+	if not ext:
+		fname, ext = os.path.splitext(fname)
+
+	return path, fname, ext
 	
 def fileout_util(names=None, file_list=None, substitutions=None,\
-csep='/', psep='_', nsep='.', sub_id=None, scan_id=None, uid=None):
-	"""Utility for sinker nodes to create container, folders, substitutions"""
-	from DINGO.utils import list_to_str
+psep='_', nsep='.', sub_id=None, scan_id=None, uid=None):
+	"""Utility for sinker nodes to create container, folders, substitutions
+	
+	Parameters
+	----------
+	names			:	list - parent folder names
+	file_list		:	list - files to sink
+	substitutions	:	list[tuple(str, str)
+		[('str2replace', 'input_id_suffix')]
+	sub_id			:	str - subject id
+	scan_id			:	str - scan id
+	uid				:	str - unique sequence id
+	psep			:	str - prefix separator for filename 
+		prefix = 'sub_id{psep}scan_id{psep}uid'
+	nsep			:	str - name separator for DataSink node
+		'name1{nsep}name2{nsep}'
+	
+	
+	Returns
+	-------
+	container		:	str - os.path.join(sub_id,scan_id)
+	out_file_list	:	list[str] prefix_suffix
+	newsubs			:	list[(str, str)] - [('str2replace', 'prefix_suffix')]
+	"""
+	from DINGO.utils import list_to_str, split_filename
 	import os
 	#container
-	container = list_to_str(sep=csep, args=(sub_id, scan_id))
+	container = os.path.join(sub_id, scan_id)
 	
 	#out_file_list
 	if names is not None and isinstance(names, (list,tuple,str)):
@@ -138,7 +204,8 @@ csep='/', psep='_', nsep='.', sub_id=None, scan_id=None, uid=None):
 	
 	setfl=[]
 	if file_list is not None:
-		if isinstance(file_list, (tuple,list)):
+		if not isinstance(file_list, (tuple,list)):
+			file_list = (file_list,)
 			setfl = set().union(file_list)
 			if len(setfl) != len(file_list):
 				raise IndexError('file_list does not have all unique elements')
@@ -147,15 +214,14 @@ csep='/', psep='_', nsep='.', sub_id=None, scan_id=None, uid=None):
 
 	out_file_list = []
 	for elt in setfl:
-		tempelt,_ = os.path.splitext(os.path.basename(elt))
-		newelt,_ = os.path.splitext(os.path.basename(tempelt))
+		_, newelt, _ = split_filename(elt)
 		out_file_list.append(sinkfile.replace('sinkfile',newelt))
 	nfiles = len(out_file_list)
 	
 	#newsubs
 	prefix = list_to_str(sep=psep, args=(sub_id, scan_id, uid))
 	newsubs = []
-	if substitutions is not None:
+	if substitutions is not None and isinstance(substitutions, (list,tuple)):
 		for elt in substitutions:
 			newsubs.append((elt[0], elt[1].replace('input_id','prefix')))
 	

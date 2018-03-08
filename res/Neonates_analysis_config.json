@@ -1,5 +1,5 @@
 {
- "name": "CHP_neonatal_dsi",
+ "name": "CHP_CHD_DSI",
  "data_dir": "/home/pirc/Desktop/DWI/CHD_tractography/CHP",
  "included_ids":
   [
@@ -8,31 +8,26 @@
   ],
  "steps":
   [
-	"filein",
+	["FileIn","FileIn_SConfig"],
 	"DSI_SRC",
+	"REC_prep",
 	"DSI_REC",
 	"DSI_TRK"
   ],
  "method" : 
   {
-	"filein":
+	"FileIn":
 	{
-	  "params":
+	  "inputs":
 	  {
+		"base_directory":	"data_dir",
+		"outfields":		["dti","bval","bvec","mask","regions_auto_nii"]
 	  }
-	},
-    "DSI_SRC":
-    {
-      "params":   
-      {
-        "output_sfx": "",
-		"recursive":	0
-      }
 	},
 	
 	"DSI_REC":
 	{
-	  "params":
+	  "inputs":
 	  {
 			"method": "dti",
 			"output_dif":		1,
@@ -42,19 +37,19 @@
 	},
 	"DSI_TRK":
 	{
-	  "params":
+	  "inputs":
 		{
 		  "output_type": "NIFTI",
 		  "export":
 		  [
 			"stat"
 		  ],
+		  "fa_threshold: : 0.1
+		  "turning_angle" : 60,
 		  "tracts":
 		  {
 			"Genu": 
     		{
-        		"fa_threshold" : 0.07,
-        		"turning_angle" : 60,
         		"rois": 
         		[
             		"Genu",
@@ -72,8 +67,6 @@
      
     		"CCBody":
     		{
-        		"fa_threshold" : 0.07,
-        		"turning_angle": 60,
 				"rois": 
         		[
             		"CCBody",
@@ -96,8 +89,6 @@
      
     		"Splenium":
     		{
-        		"fa_threshold" : 0.07,
-        		"turning_angle" : 60,
         		"rois": 
         		[
             		"Splenium",
@@ -121,8 +112,6 @@
      
     		"IFOF_L": 
     		{
-        		"fa_threshold" : 0.07,
-        		"turning_angle" : 60,
         		"rois": 
         		[
             		"InferiorOccipital_L",
@@ -147,8 +136,6 @@
      
     		"IFOF_R": 
     		{
-        		"fa_threshold" : 0.07,
-        		"turning_angle" : 60,
         		"rois": 
         		[
             		"InferiorOccipital_R",
@@ -173,8 +160,6 @@
      
     		"FOF_L": 
     		{
-        		"fa_threshold" : 0.07,
-        		"turning_angle" : 60,
         		"rois": 
         		[
             		"PosteriorCingulum",
@@ -198,8 +183,6 @@
      
     		"FOF_R": 
     		{
-        		"fa_threshold" : 0.07,
-        		"turning_angle" : 60,
         		"rois": 
         		[
             		"PosteriorCingulum",
@@ -223,8 +206,6 @@
      
     		"SLFA_L":
     		{
-        		"fa_threshold" : 0.07,
-        		"turning_angle" : 60,
         		"rois": 
         		[
             		"ArcuateCoronal_L",
@@ -246,8 +227,6 @@
      
     		"SLFP_L":
     		{
-        		"fa_threshold" : 0.07,
-        		"turning_angle" : 60,
         		"rois": 
         		[
             		"ArcuateCoronal_L",
@@ -268,8 +247,6 @@
      
     		"SLFA_R":
     		{
-        		"fa_threshold" : 0.07,
-        		"turning_angle" : 60,
         		"rois": 
         		[
             		"ArcuateCoronal_R",
@@ -291,8 +268,6 @@
      
     		"SLFP_R":
     		{
-        		"fa_threshold" : 0.07,
-        		"turning_angle" : 60,
         		"rois": 
         		[
             		"ArcuateCoronal_R",
@@ -313,8 +288,6 @@
      
     		"CST_L":
     		{
-        		"fa_threshold" : 0.07,
-        		"turning_angle" : 60,
         		"rois": 
         		[
             		"AnteriorBrainstem",
@@ -340,8 +313,6 @@
      
     		"CST_R":
     		{
-        		"fa_threshold" : 0.07,
-        		"turning_angle" : 60,
         		"rois": 
         		[
                		"AnteriorBrainstem",

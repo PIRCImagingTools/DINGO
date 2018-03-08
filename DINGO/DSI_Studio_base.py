@@ -1153,7 +1153,8 @@ class DSIStudioAnalysis(DSIStudioFiberCommand):
 	ana.cmdline
 
 	Would output:
-	'dsi_studio --action=ana --source=my.fib.gz --tract=myTract.trk.gz --output=myTract.txt --export=stat'
+	'dsi_studio --action=ana --source=my.fib.gz --tract=myTract.trk.gz \
+	--output=myTract.txt --export=stat'
 	"""
 	_action = "ana"
 	_output_type = "TXT"
@@ -1730,7 +1731,7 @@ class DSIStudioExport(DSIStudioCommand):
 		rvunjoined = []
 		for e in value:
 			rvunjoined.extend((source, 
-				value[value.index(e)],#DSI Studio adds export target to ext
+				e,#DSI Studio adds export target to ext
 				DSIInfo.ot_to_ext(self.inputs.output_type)))
 		for e in rvunjoined:
 			retval.append("".join(e))

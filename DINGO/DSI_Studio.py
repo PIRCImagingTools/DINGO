@@ -7,7 +7,8 @@ import os
 import logging
 from DINGO.utils import (update_dict, read_config)
 from DINGO.DSI_Studio_base import (DSIStudioSource, DSIStudioReconstruct, 
-								DSIStudioTrack, DSIStudioAnalysis)
+									DSIStudioTrack, DSIStudioAnalysis, 
+									DSIStudioExport)
 from DINGO.base import (DINGO, DINGOflow, DINGOnode)
 
 
@@ -18,6 +19,7 @@ class HelperDSI(DINGO):
 			'REC_prep'	:	'DINGO.DSI_Studio',
 			'DSI_REC'	:	'DINGO.DSI_Studio',
 			'DSI_TRK'	:	'DINGO.DSI_Studio',
+			'DSI_ANA'	:	'DINGO.DSI_Studio'
 		}
 		super(HelperDSI, self).__init__(workflow_to_module=wfm, **kwargs)
 
@@ -29,16 +31,19 @@ class DSI_SRC(DINGOnode):
 	name		: 	Str (workflow name, default 'DSI_SRC')
 	inputs		:	Dict (Node InputName=ParameterValue)
 	**kwargs	:	Workflow InputName=ParameterValue
-	
-	e.g. dsi_src = DSI_SRC(name='dsi_src',\
-							inputs={'output':'mydtifile.nii.gz',\
-									'bval':'mybvalfile.bval',\
-									'bvec':'mybvecfile.bvec'})
 					
 	Returns
 	-------
-	Nipype workflow
-		dsi_src.outputs.output = mydtifile.src.gz
+	Nipype node (name=name, interface=DSIStudioSource(**inputs), **kwargs)
+	
+	Example
+	-------
+	dsi_src = DSI_SRC(name='dsi_src',\
+					inputs={'output' : 'mydtifile.nii.gz',\
+							'bval' : 'mybvalfile.bval',\
+							'bvec' : 'mybvecfile.bvec'},
+					overwrite=False)
+	dsi_src.outputs.output = mydtifile.src.gz
 	"""
 	
 	connection_spec = {
@@ -77,16 +82,19 @@ class DSI_REC(DINGOnode):
 	name		: 	Str (workflow name, default 'DSI_REC')
 	inputs		:	Dict (REC node InputName=ParameterValue)
 	**kwargs	:	Workflow InputName=ParameterValue
-	
-	e.g. dsi_rec = DSI_REC(name='dsi_rec',
-							inputs={'source':mysrcfile.src.gz,\
-									'mask':mymaskfile.nii.gz,\
-									'method':'dti'})
 					
 	Returns
 	-------
-	Nipype workflow
-		dsi_rec.outputs.fiber_file=mysrcfile.src.gz.dti.fib.gz
+	Nipype node (name=name, interface=DSIStudioReconstruct(**inputs), **kwargs)
+	
+	Example
+	-------
+	dsi_rec = DSI_REC(name='dsi_rec',
+					inputs={'source' : 'mysrcfile.src.gz',\
+							'mask' : 'mymaskfile.nii.gz',\
+							'method' : 'dti'},
+					overwrite=False)
+	dsi_rec.outputs.fiber_file=mysrcfile.src.gz.dti.fib.gz
 	"""
 	
 	connection_spec = {
@@ -106,7 +114,7 @@ class DSI_TRK(DINGOflow):
 	"""Nipype wf to create a trk with fiber file and input parameters
 	DSIStudioTrack.inputs will not seem to reflect the config until
 	self._check_mandatory_inputs(), part of run() and cmdline(), is executed
-	But, it the data will be in the indict field.
+	But, the data will be in the indict field.
 	
 	Parameters
 	----------
@@ -116,28 +124,30 @@ class DSI_TRK(DINGOflow):
 		will apply to each tract)
 	**kwargs	:	Workflow InputName=ParameterValue
 		any unspecified tracting parameters will be defaults of DSIStudioTrack
-	
-	e.g. dsi_trk = DSI_TRK(name='dsi_trk',\
-						inputs={'source':'myfibfile.fib.gz',\
-								'rois':['myROI1.nii.gz','myROI2.nii.gz'],\
-								'roas':['myROA.nii.gz'],\
-								'tract_name':'track'})
 					
 	Returns
 	-------
 	Nipype workflow
-		dsi_trk.outputnode.outputs=['tract_list']
-		e.g. os.path.abspath(myfibfile_track.nii.gz)
+	
+	Example
+	-------
+	dsi_trk = DSI_TRK(name='dsi_trk',\
+					inputs={'source' : 'myfibfile.fib.gz',\
+							'rois' : ['myROI1.nii.gz','myROI2.nii.gz'],\
+							'roas' : ['myROA.nii.gz'],\
+							'tract_name' : 'track'})
+	dsi_trk.outputnode.outputs.tract_list = \
+	os.path.abspath(myfibfile_track.nii.gz)
 	"""
 	_inputnode = 'inputnode'
 	_outputnode = 'outputnode'
 	
 	connection_spec = {
-		'fib_file'		:	['DSI_REC','fiber_file']
+		'fib_file'		:	['DSI_REC','fiber_file'],
+		'regions'		:	['FileIn_SConfig','regions']
 	}
 	def __init__(self, name="DSI_TRK", inputs={}, **kwargs):
 		
-		import copy
 		super(DSI_TRK, self).__init__(name=name, **kwargs)
 		
 		#Parse inputs
@@ -145,7 +155,7 @@ class DSI_TRK(DINGOflow):
 			interface=IdentityInterface(
 				fields=[
 					'fib_file',
-					'tractnames_list', 
+					'tract_names', 
 					'tract_inputs', 
 					'regions']))
 		
@@ -160,15 +170,16 @@ class DSI_TRK(DINGOflow):
 		else:
 			#config specifies one or more tracts
 			#Get universal params, but where overlap want to use tract specific
-			universalinputs = copy.deepcopy(inputs)
-			del universalinputs['tracts']
+			univkeys = inputs.keys()
+			univkeys.remove('tracts')
+			universalinputs = { key : inputs[key] for key in univkeys }
 			for tract in inputs['tracts'].iterkeys():
 				for k,v in universalinputs.iteritems():
 					if k not in inputs['tracts'][tract]:
 						inputs['tracts'][tract].update(k=v)
 
 			inputnode.iterables = [
-				('tractnames_list', inputs['tracts'].keys()),
+				('tract_names', inputs['tracts'].keys()),
 				('tract_inputs', inputs['tracts'].values())]
 			inputnode.synchronize = True
 		
@@ -182,27 +193,57 @@ class DSI_TRK(DINGOflow):
 				fields=["tract_list"]),
 			joinsource='.'.join(outputjoinsource),
 			joinfield="tract_list")
+			
+		#Substitute region names for actual region files
+		replace_regions = pe.Node(
+			name='replace_regions',
+			interface=Function(
+				input_names=['tract_input','regions'],
+				output_names=['real_region_tract_input'],
+				function=self.replace_regions))
 		
 		#DSI Studio will only accept 5 ROIs or 5 ROAs. A warning would normally 
 		#be shown that only the first five listed will be used, but merging the 
 		#ROAs is viable.
-		merge_roas = DSI_TRK.create_merge_roas(name='merge_roas')
+		merge_roas = self.create_merge_roas(name='merge_roas')
 
 		trknode = pe.Node(
 			name="trknode",
 			interface=DSIStudioTrack())
 			
-		###TODO regex match regions to file grab of niftis in subject region_dir
-			
 		self.connect([
-			(inputnode, trknode, [('fib_file','source'),
-								('tractnames_list','tract_name')]),
-			(inputnode, merge_roas, [('tract_inputs','inputnode.tract_input')]),
-			(merge_roas, trknode, [('outputnode.new_tract_input','indict'),
-								('outputnode.new_roa','roas')]),
-			(trknode, outputnode, [('tract','tract_list')])
+			(inputnode, trknode, 
+				[('fib_file','source'),
+				('tract_names','tract_name')]),
+			(inputnode, replace_regions, 
+				[('tract_inputs','tract_input')]),
+			(replace_regions, merge_roas,
+				[('real_region_tract_input', 'inputnode.tract_input')]),
+			(merge_roas, trknode, 
+				[('outputnode.noroas_tract_input','indict'),
+				('outputnode.new_roa','roas')]),
+			(trknode, outputnode, 
+				[('tract','tract_list')])
 			])
-					
+		
+	def replace_regions(tract_input=None, regions=None):
+		"""Return the right regions needed by tract_input"""
+		if regions is not None:
+			#without per subject region list the analysis config must have
+			#filepaths for region lists, can only do one subject
+			region_types = ('rois','roas','seed','ends','ter')
+			for reg_type in region_types:
+				if reg_type in tract_input:
+					regionname_list = tract_input[reg_type]
+					region_files = []
+					for regionname in regionname_list:
+						for realregion in regions:#realregion is a filepath
+							if regionname in realregion:
+								region_files.append(realregion)
+								break
+					tract_input.update({reg_type : region_files})
+		return tract_input
+								
 	def create_merge_roas(name='merge_roas'):
 		"""Create nipype workflow that will merge roas in tract_input"""
 		merge = pe.Workflow(name=name)
@@ -243,16 +284,80 @@ class DSI_TRK(DINGOflow):
 		outputnode = pe.Node(
 			name='outputnode',
 			interface=IdentityInterface(
-				fields=['new_tract_input', 'new_roa']))
+				fields=['mroa_tract_input', 'new_roa']))
 				
 		merge.connect([
-			(inputnode, separate_roas, [('tract_input', 'tract_input')]),
-			(separate_roas, mergenode, [('roa_list', 'in_files')]),
-			(separate_roas, outputnode,[('new_tract_input','new_tract_input')]),
-			(mergenode, maxnode, [('merged_file', 'in_file')]),
-			(maxnode, outputnode, [('out_file', 'new_roa')])
+			(inputnode, separate_roas, 
+				[('tract_input', 'tract_input')]),
+			(separate_roas, mergenode, 
+				[('roa_list', 'in_files')]),
+			(separate_roas, outputnode,
+				[('new_tract_input','noroas_tract_input')]),
+			(mergenode, maxnode, 
+				[('merged_file', 'in_file')]),
+			(maxnode, outputnode, 
+				[('out_file', 'new_roa')])
 			])
 		
 		return merge
 		
 
+class DSI_ANA(DINGOnode):
+	"""Nipype node to run DSIStudioAnalysis
+	
+	Parameters
+	----------
+	name	:	Str (node name, default 'DSI_ANA')
+	inputs	:	Dict (DSIStudioAnalysis Node InputName=ParameterValue)
+	kwargs	:	(Nipype node InputName=ParameterValue)
+	
+	Returns
+	-------
+	Nipype node (name=name, interface=DSIStudioAnalysis(**inputs), **kwargs)
+	
+	Example
+	-------
+	dsi_ana = DSI_ANA(name='dsi_ana',
+					inputs={'source' : 'my.fib.gz'
+							'tract' : 'myTract.trk.gz'
+							'output' : 'myTract.txt'
+							'export' : 'stat'
+					overwrite=False)
+	dsi_ana.outputs.stat_file = myTract_stat.txt
+	dsi_ana.outputs.track = myTract.txt
+	"""
+	def __init__(self, name='DSI_ANA', inputs={}, **kwargs):
+		super(DSI_ANA, self).__init__(
+			name=name,
+			interface=DSIStudioAnalysis(**inputs),
+			**kwargs)
+			
+			
+class DSI_EXP(DINGOnode):
+	"""Nipype node to run DSIStudioAnalysis
+	
+	Parameters
+	----------
+	name	:	Str (node name, default 'DSI_EXP')
+	inputs	:	Dict (DSIStudioExport Node InputName=ParameterValue)
+	kwargs	:	(Nipype node InputName=ParameterValue)
+	
+	Returns
+	-------
+	Nipype node (name=name, interface=DSIStudioExport(**inputs), **kwargs)
+	
+	Example
+	-------
+	dsi_exp = DSI_EXP(name='dsi_exp',
+					inputs={'source' :	'my.fib.gz',\
+							'export' : ['fa0'],\
+							'output_type' : ['NIFTI']},
+					overwrite=False)
+	dsi_exp.outputs.export = [my.fib.gz.fa0.nii.gz]
+	"""
+	def __init__(self, name='DSI_EXP', inputs={}, **kwargs):
+		super(DSI_EXP, self).__init__(
+			name=name,
+			interface=DSIStudioExport(**inputs),
+			**kwargs)
+			

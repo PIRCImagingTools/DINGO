@@ -3,8 +3,7 @@ from nipype import config, logging
 
 from DINGO.utils import (DynImport, read_config, split_chpid, find_best,
 						join_strs, add_id_subs, fileout_util)
-from DINGO.wf import (HelperFlow, SplitIDs, FileIn, FileOut,
-						run_fileout)
+from DINGO.wf import (HelperFlow, SplitIDs, FileIn, FileIn_SConfig, FileOut)
 from DINGO.base import DINGO, DINGOflow, DINGOnode
 
 from nipype import IdentityInterface, Function
