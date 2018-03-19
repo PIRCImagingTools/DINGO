@@ -16,6 +16,7 @@ class HelperFlow(DINGO):
 	def __init__(self, **kwargs):
 		wfm = {
 		'SplitIDs'				:	'DINGO.wf',
+		'SplitIDs_iterate'		:	'DINGO.wf',
 		'FileIn'				:	'DINGO.wf',
 		'FileIn_SConfig'		:	'DINGO.wf',
 		'FileOut'				:	'DINGO.wf'
@@ -24,16 +25,66 @@ class HelperFlow(DINGO):
 		super(HelperFlow, self).__init__(workflow_to_module=wfm, **kwargs)
 	
 	
-class SplitIDs(DINGOflow):
+class SplitIDs(DINGOnode):
+	"""Nipype node to split a CHP_ID into separate subject, scan and task ids
+	
+	Parameters
+	----------
+	name				:	Str (workflow name, default 'SplitIDs')
+	inputs				:	Dict
+		parent_dir		:	Directory (base directory)
+		id				:	Str
+		id_sep			:	Str (default '_')
+	kwargs				:	Nipype Node Kwargs
+	
+	Node Inputs
+	-----------
+	psid				:	Str
+	sep					:	Str
+	
+	Node Outputs
+	------------
+	sub_id				:	Str
+	scan_id				:	Str
+	uid					:	Str
+	"""
+	
+	connection_spec = {
+		'psid'		:	['Config','included_ids']
+	}
+	
+	def __init__(self, name='SplitIDs',\
+	inputs={'parent_dir':None,'id':None,'id_sep':'_'}, **kwargs):
+		
+		if 'parent_dir' in inputs and inputs['parent_dir'] is not None:
+			self.base_dir = inputs['parent_dir']
+			
+		super(SplitIDs, self).__init__(
+			name=name,
+			interface=Function(
+				input_names=['psid','sep'],
+				output_names=['sub_id','scan_id','uid'],
+				function=split_chpid),
+			**kwargs)
+			
+		if 'id' in inputs and inputs['id'] is not None:
+			self.inputs.psid = inputs['id']
+		if 'id_sep' in inputs and inputs['id_sep'] is not None:
+			self.inputs.sep = inputs['id_sep']
+			
+			
+class SplitIDs_iterate(DINGOflow):
 	"""Nipype node to iterate a list of ids into separate subject, scan, and
 	task ids.
 	
 	Parameters
 	----------
-	name			:	Str (workflow name, default 'split_ids')
-	parent_dir		:	Directory (contains subject folders)
-	scan_list		:	List[Str] 
-	scan_list_sep	:	Str (separator for fields in id)
+	name				:	Str (workflow name, default 'SplitIDs')
+	inputs				:	Dict
+		parent_dir		:	Directory (base directory)
+		scan_list		:	List[Str] 
+		scan_list_sep	:	Str (separator for fields in id)
+	kwargs				:	Nipype Workflow Kwargs
 		
 	e.g. split_ids = create_split_ids(name='split_ids', 
 				parent_dir=os.getcwd(),
@@ -224,7 +275,7 @@ class FileIn(DINGOnode):
 			**kwargs)
 			
 		self.inputs.base_directory = base_directory
-		self.inputs.template = template
+		self.inputs.template = '*'
 		self.inputs.field_template = field_template
 		self.inputs.template_args = template_args
 		self.inputs.sort_filelist = sort_filelist
@@ -242,8 +293,10 @@ class FileIn_SConfig(DINGOflow):
 	}
 	
 	def __init__(self, name='FileIn_SConfig',\
-	inputs=dict(base_directory=None, outfields=None),\
+	inputs=None,\
 	**kwargs):
+		if inputs is None:
+			inputs = {}
 		super(FileIn_SConfig, self).__init__(name=name, **kwargs)
 		
 		inputnode = pe.Node(
@@ -262,7 +315,7 @@ class FileIn_SConfig(DINGOflow):
 		if 'outfields' in inputs and inputs['outfields'] is not None:
 			inputnode.inputs.outfields = inputs['outfields']
 		else:
-			raise KeyError('outfields must be specified to instantiate %s' 
+			raise KeyError('inputs["outfields"] must be specified to instantiate %s' 
 				% self.__class__)
 		if 'sub_id' in inputs and inputs['sub_id'] is not None:
 			inputnode.inputs.sub_id = inputs['sub_id']
@@ -275,7 +328,7 @@ class FileIn_SConfig(DINGOflow):
 			name='cfgpath',
 			interface=Function(
 				input_names=[
-					'base_dir',
+					'base_directory',
 					'sub_id',
 					'scan_id',
 					'uid'],
@@ -293,7 +346,7 @@ class FileIn_SConfig(DINGOflow):
 			name='create_field_template',
 			interface=Function(
 				input_names=[
-					'base_dir',
+					'base_directory',
 					'sub_id',
 					'scan_id',
 					'uid',
@@ -309,11 +362,11 @@ class FileIn_SConfig(DINGOflow):
 		filein.inputs.sort_filelist = True
 				
 		self.connect([
-			(inputnode, cfgpath, [('base_directory','base_dir'),
+			(inputnode, cfgpath, [('base_directory','base_directory'),
 								('sub_id','sub_id'),
 								('scan_id','scan_id'),
 								('uid','uid')]),
-			(inputnode, create_ft, [('base_directory','base_dir'),
+			(inputnode, create_ft, [('base_directory','base_directory'),
 									('sub_id','sub_id'),
 									('scan_id','scan_id'),
 									('uid','uid'),
@@ -324,8 +377,8 @@ class FileIn_SConfig(DINGOflow):
 			(create_ft, filein, [('field_template','field_template')])
 			])
 
-	def cfgpath_from_ids(base_dir=None, sub_id=None, scan_id=None, uid=None):
-		if base_dir is not None and \
+	def cfgpath_from_ids(base_directory=None, sub_id=None, scan_id=None, uid=None):
+		if base_directory is not None and \
 		sub_id is not None and \
 		scan_id is not None and \
 		uid is not None:
@@ -333,9 +386,9 @@ class FileIn_SConfig(DINGOflow):
 			cfgname = []
 			cfgname.extend((sub_id,scan_id,uid,'config.json'))
 			cfgname = '_'.join(cfgname)
-			return os.path.join(base_dir, sub_id, scan_id, cfgname)
+			return os.path.join(base_directory, sub_id, scan_id, cfgname)
 			
-	def create_field_template(base_dir, sub_id, scan_id, uid,\
+	def create_field_template(base_directory=None, sub_id=None, scan_id=None, uid=None,\
 		config=None, path_keys=None, myrepl=None):
 			import os
 			if myrepl is None:
@@ -343,7 +396,7 @@ class FileIn_SConfig(DINGOflow):
 					'pid'			:	sub_id,
 					'scanid'		:	scan_id,
 					'sequenceid'	:	uid,
-					'parent_dir'	:	base_dir
+					'parent_dir'	:	base_directory
 				}
 			
 			values = [None] * len(myrepl)
@@ -419,7 +472,6 @@ class FileOut(DINGOflow):
 		else:
 			infields = []
 		inputfields.extend((field.replace('.','_') for field in infields ))
-		print(inputfields)
 		inputnode = pe.Node(name='inputnode',
 			interface=IdentityInterface(
 				fields=inputfields), 

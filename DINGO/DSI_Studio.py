@@ -1,4 +1,5 @@
 from nipype import (IdentityInterface, Function)
+from nipype.utils.misc import str2bool
 import nipype.pipeline.engine as pe
 import nipype.interfaces.io as nio
 from nipype.interfaces.utility import Merge
@@ -52,7 +53,9 @@ class DSI_SRC(DINGOnode):
 		'bvec'			:	['FileIn','bvec']
 	}
 	
-	def __init__(self, name="DSI_SRC", inputs={}, **kwargs):
+	def __init__(self, name="DSI_SRC", inputs=None, **kwargs):
+		if inputs is None:
+			inputs = {}
 		super(DSI_SRC, self).__init__(
 			name=name, 
 			interface=DSIStudioSource(**inputs),
@@ -67,7 +70,13 @@ class REC_prep(DINGOnode):
 	}
 	
 	def __init__(self, name="REC_prep",\
-	inputs={'op_string':'-ero', 'suffix':'_ero'}, **kwargs):
+	inputs=None, **kwargs):
+		if inputs is None:
+			inputs = {}
+		if 'op_string' not in inputs:
+			inputs['op_string'] = '-ero'
+		if 'suffix' not in inputs:
+			inputs['suffix'] = '_ero'
 		rp = super(REC_prep, self).__init__(
 			name=name, 
 			interface=fsl.ImageMaths(**inputs),
@@ -102,13 +111,44 @@ class DSI_REC(DINGOnode):
 		'mask'			:	['REC_prep','out_file']
 	}
 
-	def __init__(self, name="DSI_REC", inputs={}, **kwargs):
+	def __init__(self, name="DSI_REC", inputs=None, **kwargs):
+		if inputs is None:
+			inputs = {}
 		super(DSI_REC, self).__init__(
 			name=name,
 			interface=DSIStudioReconstruct(**inputs),
 			**kwargs)
 			
+class TRKnode(pe.Node):
+	"""Replace extended iterable parameterization with simpler based on
+		just id and tract_name, not tract_inputs
+	"""	
+	def tract_name_dir(self, param):
+		"""Return a reduced parameterization for output directory"""
+		if '_tract_names' in param:
+			return param[param.index('_tract_names'):]
+		return param
+			
+	def output_dir(self):
+		"""Return the location of the output directory with tract name, not tract inputs
+		Mostly the same as nipype.pipeline.engine.Node.output_dir"""
+		if self._output_dir:
+			return self._output_dir
 		
+		if self.base_dir is None:
+			self.base_dir = mkdtemp()
+		outputdir = self.base_dir
+		if self._hierarchy:
+			outputdir = os.path.join(outputdir, *self._hierarchy.split('.'))
+		if self.parameterization:
+			params_str = ['{}'.format(p) for p in self.parameterization]
+			params_str = [self.tract_name_dir(p) for p in params_str]
+			if not str2bool(self.config['execution']['parameterize_dirs']):
+				params_str = [_parameterization_dir(p) for p in params_str]
+			outputdir = os.path.join(outputdir, *params_str)
+			
+		self._output_dir = os.path.abspath(os.path.join(outputdir, self.name))
+		return self._output_dir	
 		
 class DSI_TRK(DINGOflow):
 	"""Nipype wf to create a trk with fiber file and input parameters
@@ -139,6 +179,8 @@ class DSI_TRK(DINGOflow):
 	dsi_trk.outputnode.outputs.tract_list = \
 	os.path.abspath(myfibfile_track.nii.gz)
 	"""
+	from DSI_Studio import TRKnode
+			
 	_inputnode = 'inputnode'
 	_outputnode = 'outputnode'
 	
@@ -146,7 +188,9 @@ class DSI_TRK(DINGOflow):
 		'fib_file'		:	['DSI_REC','fiber_file'],
 		'regions'		:	['FileIn_SConfig','regions']
 	}
-	def __init__(self, name="DSI_TRK", inputs={}, **kwargs):
+	def __init__(self, name="DSI_TRK", inputs=None, **kwargs):
+		if inputs is None:
+			inputs = {}
 		
 		super(DSI_TRK, self).__init__(name=name, **kwargs)
 		
@@ -176,7 +220,7 @@ class DSI_TRK(DINGOflow):
 			for tract in inputs['tracts'].iterkeys():
 				for k,v in universalinputs.iteritems():
 					if k not in inputs['tracts'][tract]:
-						inputs['tracts'][tract].update(k=v)
+						inputs['tracts'][tract].update({k:v})
 
 			inputnode.iterables = [
 				('tract_names', inputs['tracts'].keys()),
@@ -195,7 +239,7 @@ class DSI_TRK(DINGOflow):
 			joinfield="tract_list")
 			
 		#Substitute region names for actual region files
-		replace_regions = pe.Node(
+		replace_regions = TRKnode(
 			name='replace_regions',
 			interface=Function(
 				input_names=['tract_input','regions'],
@@ -207,7 +251,7 @@ class DSI_TRK(DINGOflow):
 		#ROAs is viable.
 		merge_roas = self.create_merge_roas(name='merge_roas')
 
-		trknode = pe.Node(
+		trknode = TRKnode(
 			name="trknode",
 			interface=DSIStudioTrack())
 			
@@ -216,21 +260,23 @@ class DSI_TRK(DINGOflow):
 				[('fib_file','source'),
 				('tract_names','tract_name')]),
 			(inputnode, replace_regions, 
-				[('tract_inputs','tract_input')]),
+				[('tract_inputs','tract_input'),
+				('regions','regions')]),
 			(replace_regions, merge_roas,
 				[('real_region_tract_input', 'inputnode.tract_input')]),
 			(merge_roas, trknode, 
-				[('outputnode.noroas_tract_input','indict'),
+				[('outputnode.mroa_tract_input','indict'),
 				('outputnode.new_roa','roas')]),
 			(trknode, outputnode, 
-				[('tract','tract_list')])
+				[('track','tract_list')])
 			])
-		
+			
 	def replace_regions(tract_input=None, regions=None):
 		"""Return the right regions needed by tract_input"""
 		if regions is not None:
 			#without per subject region list the analysis config must have
 			#filepaths for region lists, can only do one subject
+			##TODO eliminate alternatives, Sagittal_L breaks on ArcuateSagittal_L
 			region_types = ('rois','roas','seed','ends','ter')
 			for reg_type in region_types:
 				if reg_type in tract_input:
@@ -244,7 +290,7 @@ class DSI_TRK(DINGOflow):
 					tract_input.update({reg_type : region_files})
 		return tract_input
 								
-	def create_merge_roas(name='merge_roas'):
+	def create_merge_roas(self, name='merge_roas'):
 		"""Create nipype workflow that will merge roas in tract_input"""
 		merge = pe.Workflow(name=name)
 		
@@ -266,18 +312,18 @@ class DSI_TRK(DINGOflow):
 				roa_list = None
 			return tract_input, roa_list
 			
-		separate_roas = pe.Node(
+		separate_roas = TRKnode(
 			name='separate_roas',
 			interface=Function(
 				input_names=['tract_input'],
 				output_names=['new_tract_input', 'roa_list'],
 				function=separate_roas))
 		
-		mergenode = pe.Node(
+		mergenode = TRKnode(
 			name='mergenode',
 			interface=fsl.Merge(dimension='t'))
 			
-		maxnode = pe.Node(
+		maxnode = TRKnode(
 			name='maxnode',
 			interface=fsl.ImageMaths(op_string='-Tmax'))
 			

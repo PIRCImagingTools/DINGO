@@ -1,9 +1,12 @@
+from nipype import config, logging
 import os
 from DINGO.utils import DynImport, read_config, tobool, reverse_lookup
 import nipype.pipeline.engine as pe
 from nipype import IdentityInterface
 from pprint import pprint
 
+#config.enable_debug_mode()
+#logging.update_logging(config)
 
 class DINGO(pe.Workflow):
 	"""Create a workflow from a json config file
@@ -15,6 +18,7 @@ class DINGO(pe.Workflow):
 	
 	workflow_to_module = {
 		'SplitIDs'					:	'DINGO.wf',
+		'SplitIDs_iterate'			:	'DINGO.wf',
 		'IterateIDs'				:	'DINGO.wf',
 		'FileIn'					:	'DINGO.wf',
 		'FileIn_SConfig'			:	'DINGO.wf',
@@ -49,9 +53,9 @@ class DINGO(pe.Workflow):
 		'create_tbss_registration'	:	'DINGO.fsl'
 	}
 
-	subflows = dict()#could be workflows as well
 	workflow_connections = dict()
 	workflow_params = dict()
+	name2step = dict()
 	
 	def __init__(self, workflow_to_module=None, configpath=None, name=None,\
 	**kwargs):
@@ -142,19 +146,46 @@ class DINGO(pe.Workflow):
 		return input_fields
 		
 		
+	def create_config_inputs(self, inputsname='Config_Inputs', **kwargs):
+		prevci = self.get_node(inputsname)
+		if prevci is not None:
+			ci = prevci
+			iterablelist = ci.iterables
+			self.remove_nodes([prevci])
+		else:
+			ci = pe.Node(name=inputsname, 
+				interface=IdentityInterface(
+					fields=kwargs.keys()))
+			iterablelist = []
+		
+		for k,v in kwargs.iteritems():
+			setattr(ci.inputs, k, v)
+			if isinstance(v, list) and k != 'steps':
+				for elt in iterablelist:
+					if k == elt[0]:#each elt a tuple of name, list
+						iterablelist.remove(elt)
+				iterablelist.append((k,v))#position doesn't matter
+			if len(iterablelist) > 0:
+				setattr(ci, 'iterables', iterablelist)
+				
+		self.add_nodes([ci])
+		self._inputsname = inputsname
+		
 	def create_subwf(self, step, name):
 		"""update subwf.inputs with self.input_params[subwfname]
 		add subwf to self.subflows[subwfname]
 		"""
 		_, obj = DynImport(mod=self.wf_to_mod(step), obj=step)
-		ci = self.get_node('config_inputs')
+		ci = self.get_node(self._inputsname)
 		for paramkey, paramval in self.input_params[name].iteritems():
 			if isinstance(paramval, (str,unicode)) and \
 			hasattr(ci.inputs, paramval):
 				cival = getattr(ci.inputs, paramval)
 				self.input_params[name].update({paramkey:cival})
 		try:
-			self.subflows[name] = obj(name=name, inputs=self.input_params[name])
+			self.subflows[name] = obj(name=name, 
+				inputs_name = self._inputsname, 
+				inputs=self.input_params[name])
 		except:
 			print('#######Error######')
 			pprint(self.input_params[name])
@@ -180,6 +211,8 @@ class DINGO(pe.Workflow):
 				destname = ('inputnode', destfield)
 		destname = '.'.join(destname)
 					
+		print('Trying to connect %s.%s --> %s.%s' %
+			(srcobj.name, srcname, destobj.name, destname))
 		self.connect(srcobj, srcname, destobj, destname)
 		print('Connected %s.%s --> %s.%s' % 
 			(srcobj.name, srcname, destobj.name, destname))
@@ -213,20 +246,23 @@ class DINGO(pe.Workflow):
 				
 				if testsrckey in self.name2step:
 					#connection from config, or at least name==step
-					srckey = testsrckey
+					srcobj = self.subflows[testsrckey]
 				elif self.name2step.values().count(testsrckey) > 1:
 					raise Exception('Step: %s used more than once, default'
 						'connections will not work. Add ["method"]["Name"]'
-						'["connect"] for linked downstream nodes.')
+						'["connect"] for linked downstream nodes.' % testsrckey)
+				elif testsrckey == 'Config' or testsrckey == self._inputsname:
+					srcobj = self.get_node(self._inputsname)
 				else:
 					#testsrckey is step that appears once, name!=step
 					try:
 						srckey = reverse_lookup(self.name2step, testsrckey)
+						srcobj = self.subflows[srckey]
 					except ValueError:
 						print('destkey: %s' % destkey)
 						raise
 					
-				srcobj = self.subflows[srckey]
+				#srcobj = self.subflows[srckey]
 				self.make_connection(srcobj, srcfield, destobj, destfield)
 		
 			
@@ -279,27 +315,10 @@ class DINGO(pe.Workflow):
 			self.name = input_fields['name']
 
 		#Set up from config
-		config_inputs = pe.Node(name='config_inputs', 
-			interface=IdentityInterface(
-				fields=input_fields.keys()))
-			
-		iterablelist = []	
-		for field, value in input_fields.iteritems():
-			setattr(config_inputs.inputs, field, value)
-			if isinstance(value, list) and value != 'steps':
-				iterablelist.append((field, value))
-		if len(iterablelist) > 0:
-			setattr(config_inputs, 'iterables', iterablelist)
-		
-		previousci = self.get_node('config_inputs')
-		if previousci is not None:
-			self.remove_nodes([previousci])
-		self.add_nodes([config_inputs])
-		
+		self.create_config_inputs(**input_fields)
 		self.subflows = dict()
 		self.input_params = dict()
 		self.input_connections = dict()
-		self.name2step = dict()
 		
 		method = input_fields['method']
 		
@@ -325,7 +344,7 @@ class DINGO(pe.Workflow):
 			else:
 				if name in self.subflows:
 					raise KeyError('Analysis Config: %s, Invalid configuration.'
-						'\nDuplicates of Name: %s' % 
+						' Duplicates of Name: %s' % 
 						(cfg_bn, name))
 				if name in method and 'inputs' in method[name]:
 					#inputs are flags for the function creating the workflow
@@ -353,8 +372,8 @@ class DINGO(pe.Workflow):
 						not isinstance(values[0], (str,unicode)) or \
 						not isinstance(values[1], (str,unicode)):
 							raise TypeError('Analysis Config: %s, '
-								'["method"]["%s"]["connect"] does not contain'
-								' appropriate types. Key: %s, Value: %s' %
+								'["method"]["%s"]["connect"] Invalid config. '
+								'Key: %s, Value: %s' %
 								(cfg_bn, name, destfield, values))
 					self.input_connections[name] = connections
 				else:
@@ -375,8 +394,12 @@ class DINGOflow(pe.Workflow):
 	_joinsource = 'config_inputs'
 	connection_spec = {}
 	
-	def __init__(self, connection_spec=None, **kwargs):
+	def __init__(self, connection_spec=None, inputs_name=None, inputs=None,
+		**kwargs):
 		super(DINGOflow,self).__init__(**kwargs)
+		
+		if inputs_name is not None:
+			self._joinsource = inputs_name
 		
 		if connection_spec is not None:
 			self.connection_spec.update(connection_spec)
@@ -389,8 +412,12 @@ class DINGOnode(pe.Node):
 	_joinsource = 'config_inputs'
 	connection_spec = {}
 	
-	def __init__(self, connection_spec=None, **kwargs):
+	def __init__(self, connection_spec=None, inputs_name=None, inputs=None, 
+		**kwargs):
 		super(DINGOnode,self).__init__(**kwargs)
+		
+		if inputs_name is not None:
+			self._joinsource = inputs_name
 		
 		if connection_spec is not None:
 			self.connection_spec.update(connection_spec)

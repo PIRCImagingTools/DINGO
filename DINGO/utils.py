@@ -348,7 +348,7 @@ def split_chpid(psid,sep):
 	return subid, scanid, uniid
 
 
-#Convert str to boolean
+#Convert to boolean
 def tobool(s):
 	"""Convert string/int true/false values to bool
 	
@@ -367,26 +367,17 @@ def tobool(s):
 	tobool('YeS')	->	True
 	tobool(1)		->	True
 	"""
-	bools = {
-		1		:	True,
-		'1'		:	True,
-		't'		:	True,
-		'true'	:	True,
-		'y'		:	True,
-		'yes'	:	True,
-		0		:	False,
-		'0'		:	False,
-		'f'		:	False,
-		'false'	:	False,
-		'n'		:	False,
-		'no'	:	False
-	}
+	true = (1, '1', 't', 'true', 'y', 'yes')
+	false = (0, '0', 'f', 'false', 'n', 'no')
+
 	if isinstance(s, bool):
 		return s
 	if isinstance(s, (str,unicode)):
 		s = s.lower()
-	if s in bools:
-		return bools[s]
+	if s in true:
+		return True
+	elif s in false:
+		return False
 	else:
 		raise ValueError("%s cannot be converted to bool" % (s))
 

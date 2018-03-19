@@ -8,7 +8,147 @@ from traits.trait_base import _Undefined
 from traits.api import Trait
 from DINGO.utils import list_to_str
 
+import pdb
 
+#copied from nipype.interfaces.base.core 
+#with additional imports for debugging purposes
+def run_command(runtime, output=None, timeout=0.01):
+    """Run a command, read stdout and stderr, prefix with timestamp.
+
+    The returned runtime contains a merged stdout+stderr log with timestamps
+    """
+    from nipype.utils.filemanip import (read_stream, 
+										canonicalize_env as _canonicalize_env)
+    from nipype.interfaces.base.support import Stream
+    from nipype import logging
+    import subprocess as sp
+    import select
+    import errno
+    import gc
+    iflogger = logging.getLogger('interface')
+
+	#Start of original
+    # Init variables
+    cmdline = runtime.cmdline
+    env = _canonicalize_env(runtime.environ)
+
+    errfile = None
+    outfile = None
+    stdout = sp.PIPE
+    stderr = sp.PIPE
+
+    if output == 'file':
+        outfile = os.path.join(runtime.cwd, 'output.nipype')
+        stdout = open(outfile, 'wb')  # t=='text'===default
+        stderr = sp.STDOUT
+    elif output == 'file_split':
+        outfile = os.path.join(runtime.cwd, 'stdout.nipype')
+        stdout = open(outfile, 'wb')
+        errfile = os.path.join(runtime.cwd, 'stderr.nipype')
+        stderr = open(errfile, 'wb')
+    elif output == 'file_stdout':
+        outfile = os.path.join(runtime.cwd, 'stdout.nipype')
+        stdout = open(outfile, 'wb')
+    elif output == 'file_stderr':
+        errfile = os.path.join(runtime.cwd, 'stderr.nipype')
+        stderr = open(errfile, 'wb')
+
+    proc = sp.Popen(
+        cmdline,
+        stdout=stdout,
+        stderr=stderr,
+        shell=True,
+        cwd=runtime.cwd,
+        env=env,
+        close_fds=True,
+    )
+
+    result = {
+        'stdout': [],
+        'stderr': [],
+        'merged': [],
+    }
+    #pdb.set_trace()#start of execution
+    if output == 'stream':
+        streams = [
+            Stream('stdout', proc.stdout),
+            Stream('stderr', proc.stderr)
+        ]
+
+        def _process(drain=0):
+            try:
+                res = select.select(streams, [], [], timeout)
+            except select.error as e:
+                iflogger.info(e)
+                if e[0] == errno.EINTR:
+                    return
+                else:
+                    raise
+            else:
+                for stream in res[0]:
+                    stream.read(drain)
+		
+        while proc.returncode is None:
+            proc.poll()
+            _process()
+
+        _process(drain=1)
+
+        # collect results, merge and return
+        result = {}
+        temp = []
+        for stream in streams:
+            rows = stream._rows
+            temp += rows
+            result[stream._name] = [r[2] for r in rows]
+        temp.sort()
+        result['merged'] = [r[1] for r in temp]
+
+    if output.startswith('file'):
+        proc.wait()
+        if outfile is not None:
+            stdout.flush()
+            stdout.close()
+            with open(outfile, 'rb') as ofh:
+                stdoutstr = ofh.read()
+            result['stdout'] = read_stream(stdoutstr, logger=iflogger)
+            del stdoutstr
+
+        if errfile is not None:
+            stderr.flush()
+            stderr.close()
+            with open(errfile, 'rb') as efh:
+                stderrstr = efh.read()
+            result['stderr'] = read_stream(stderrstr, logger=iflogger)
+            del stderrstr
+
+        if output == 'file':
+            result['merged'] = result['stdout']
+            result['stdout'] = []
+    else:
+        stdout, stderr = proc.communicate()
+        if output == 'allatonce':  # Discard stdout and stderr otherwise
+            result['stdout'] = read_stream(stdout, logger=iflogger)
+            result['stderr'] = read_stream(stderr, logger=iflogger)
+
+    runtime.returncode = proc.returncode
+    try:
+        proc.terminate()  # Ensure we are done
+    except OSError as error:
+        # Python 2 raises when the process is already gone
+        if error.errno != errno.ESRCH:
+            raise
+
+    # Dereference & force GC for a cleanup
+    del proc
+    del stdout
+    del stderr
+    gc.collect()
+
+    runtime.stderr = '\n'.join(result['stderr'])
+    runtime.stdout = '\n'.join(result['stdout'])
+    runtime.merged = '\n'.join(result['merged'])
+    return runtime
 
 class DSIInfo(object):
 	#file extensions for output types
@@ -36,16 +176,6 @@ class DSIInfo(object):
 		'gqi':		4,
 		'qsdr':		7,
 		'hardi':	6}
-	
-	#reconstruction method number of params for method id
-	rec_nparams = {
-		'dsi':		1,
-		'dti':		0,
-		'frqbi':	2,
-		'shqbi':	2,
-		'gqi':		1,
-		'qsdr':		2,
-		'hardi':	3}
 	
 	#reconstruction method param types for method id
 	rec_param_types = {
@@ -418,7 +548,7 @@ class DSIStudioFiberInputSpec(DSIStudioInputSpec):
 		requires=['seed_ar'],
 		sep=",",
 		desc="atlas name(s) found in dsistudio/build/atlas")
-	roi_atlas = traits.List(traits.Enum(
+	rois_atlas = traits.List(traits.Enum(
 		"aal", "ATAG_basal_ganglia", "brodmann", "Cerebellum-SUIT",
 		"FreeSurferDKT", "Gordan_rsfMRI333", "HarvardOxfordCort",
 		"HarvardOxfordSub","HCP-MMP1","JHU-WhiteMatter-labels-1mm",
@@ -427,7 +557,7 @@ class DSIStudioFiberInputSpec(DSIStudioInputSpec):
 		requires=['roi_ar'],
 		sep=",",
 		desc="atlas name(s) found in dsistudio/build/atlas")
-	roa_atlas = traits.List(traits.Enum(
+	roas_atlas = traits.List(traits.Enum(
 		"aal", "ATAG_basal_ganglia", "brodmann", "Cerebellum-SUIT",
 		"FreeSurferDKT", "Gordan_rsfMRI333", "HarvardOxfordCort",
 		"HarvardOxfordSub","HCP-MMP1","JHU-WhiteMatter-labels-1mm",
@@ -436,7 +566,7 @@ class DSIStudioFiberInputSpec(DSIStudioInputSpec):
 		requires=['roa_ar'],
 		sep=",",
 		desc="atlas name(s) found in dsistudio/build/atlas")
-	end_atlas = traits.List(traits.Enum(
+	ends_atlas = traits.List(traits.Enum(
 		"aal", "ATAG_basal_ganglia", "brodmann", "Cerebellum-SUIT",
 		"FreeSurferDKT", "Gordan_rsfMRI333", "HarvardOxfordCort",
 		"HarvardOxfordSub","HCP-MMP1","JHU-WhiteMatter-labels-1mm",
@@ -1284,20 +1414,20 @@ class DSIStudioReconstructInputSpec(DSIStudioInputSpec):
 	method = traits.Enum('dti','dsi','frqbi','shqbi','gqi','hardi','qsdr',
 		mandatory=True, 
 		argstr="--method=%d",
-		desc="Reconstruction method, 0:DSI, 1:DTI, 2:Funk-Randon QBI, "
-			"3:Spherical Harmonic QBI, 4:GQI, 6:Convert to HARDI, 7:QSDR")
+		desc="Reconstruction method, DSI:0, DTI:1, Funk-Randon QBI:2, "
+			"Spherical Harmonic QBI:3, GQI:4, Convert to HARDI:6, QSDR:7")
 
 	#params includes some floats, some ints depending on method, but dsi studio
 	#actually reads them all as floats, so should be fine here
-	param = traits.List(
+	param = traits.List(traits.Float(),
 		argstr="--param%s=%s",
 		desc="Reconstruction parameters, different meaning and types for "
 			"different methods")
-	param0 = traits.Float(desc="param 0 for method")
-	param1 = traits.Float(desc="param 1 for method")
-	param2 = traits.Float(desc="param 2 for method")
-	param3 = traits.Float(desc="param 3 for method")
-	param4 = traits.Float(desc="param 4 for method")
+	#param0 = traits.Float(desc="param 0 for method")
+	#param1 = traits.Float(desc="param 1 for method")
+	#param2 = traits.Float(desc="param 2 for method")
+	#param3 = traits.Float(desc="param 3 for method")
+	#param4 = traits.Float(desc="param 4 for method")
 	
 	affine = File(exists=True, 
 		argstr="--affine=%s",
@@ -1398,7 +1528,6 @@ class DSIStudioReconstructInputSpec(DSIStudioInputSpec):
 		argstr="--num_fiber=%d",
 		desc="FRQBI,SHQBI,GQI,QSDR - max count of resolving fibers per voxel, "
 			"default 5")
-	#TODO adjust params for deconv, decomp
 	deconvolution = traits.Enum(0,1, 
 		usedefault=True,
 		argstr="--deconvolution=%d",
@@ -1424,6 +1553,9 @@ class DSIStudioReconstructInputSpec(DSIStudioInputSpec):
 		argstr="--t1w=%s", 
 		requires=["regist_method"],
 		desc="QSDR - assign a t1w file for registration method 4")
+	template = File(exists=True,
+		argstr="--template=%s",
+		desc="QSDR - assign a template file for spatial normalization")
 
 
 
@@ -1433,15 +1565,21 @@ class DSIStudioReconstructOutputSpec(DSIStudioOutputSpec):
 	#filename depends on reconstruction method, and automatic detections by
 	#DSIStudio, unsure how to tell nipype workflow about all of it
 #Decoding the file extension
-#The FIB file generated during the reconstruction will include several extension. Here is a list of the explanation
+#The FIB file generated during the reconstruction will include several extension. 
+#Here is a list of the explanation
 #odf8: An 8-fold ODF tessellation was used
 #f5: For each voxel, a maximum of 5 fiber directions were resolved
 #rec: ODF information was output in the FIB file
-#csfc: quantitative diffusion MRI was conducted using CSF location as the free water calibration
+#csfc: quantitative diffusion MRI was conducted using CSF location as the free 
+#water calibration
 #hs: A half sphere scheme was used to acquired DSI
-#reg0i2: the spatial normalization was conducted using (reg0: 7-9-7 reg1: 14-18-14 reg2: 21-27-21) and the images were interpolated using (i0: trilinear interpolation, I1: Guassian radial basis i2: cubic spine)
+#reg0i2: the spatial normalization was conducted using 
+#(reg0: 7-9-7 reg1: 14-18-14 reg2: 21-27-21) and the images were interpolated 
+#using (i0: trilinear interpolation, I1: Guassian radial basis i2: cubic spine)
 #bal: The diffusion scheme was resampled to ensure balance in the 3D space
-#fx, fy, fz: The b-table was automatically flipped by DSI Studio in x-, y-, or z- direction. 012 means the order of the x-y-z coordinates is the same, whereas 102 indicates x-y flip, 210 x-z flip, and 021 y-z- flip. 
+#fx, fy, fz: The b-table was automatically flipped by DSI Studio in x-, y-, or 
+#z- direction. 012 means the order of the x-y-z coordinates is the same, 
+#whereas 102 indicates x-y flip, 210 x-z flip, and 021 y-z- flip. 
 #rdi: The restricted diffusioin imaging metrics were calculated 
 #de: deconvolution was used to sharpen the ODF
 #dec: decomposition was used to sharpen the ODF
@@ -1456,80 +1594,76 @@ class DSIStudioReconstruct(DSIStudioCommand):
 	"""DSI Studio reconstruct action support
 	TESTING
 	"""
-	nparams=dict()
 	_action = "rec"
 	_output_type = "FIB"
 	input_spec = DSIStudioReconstructInputSpec
 	output_spec = DSIStudioReconstructOutputSpec
+	#terminal_output = 'stream'
 	
-	def _update_method(self):
-		name = 'method'
-		spec = self.inputs.trait(name)
-		value = getattr(self.inputs, name)
+	def __init__(self, **inputs):
+		super(DSIStudioReconstruct, self).__init__(**inputs)
 		
-		#check if self.inputs.method is defined
-		if isdefined(value):
-			idname = []
-			idname.extend(('method_',value))
-			varidname = ''.join(idname)
-			fix = self.inputs.trait(varidname)
-			for x in fix.xor:
-				setattr(self.inputs, x, _Undefined())
-			setattr(self.inputs, varidname, True)
-		else:
-			#sfx is 'dsi', 'dti' etc.
-			for sfx in DSIInfo.rec_method_id_n.iterkeys():
-				idname =[]
-				idname.extend(('method_',sfx))
-				varidname = ''.join(idname)
-				sfxvalue = getattr(self.inputs, varidname)
-				if isdefined(sfxvalue) and sfxvalue == True:
-					newval = sfx
-					setattr(self.inputs, 'method', newval)
-				
-	def _update_param(self):
-		name = 'param'
-		spec = self.inputs.trait(name)
-		value = getattr(self.inputs, name)
+		self.inputs.on_trait_change(self._method_update, 'method')
+		self.inputs.on_trait_change(self._param_update, 'param')
 		
+	def _deconv_update(self):
 		dcnv = 'deconvolution'
 		dcnvval = getattr(self.inputs, dcnv)
 		dcnvspec = self.inputs.trait(dcnv)
-		if isdefined(dcnvval):
-			if dcnvval == 0:
-				dcnvspec.requires = None#requires default
-			elif dcnvval == 1:
-				dcnvspec.requires=['regularization']
-				if spec.requires is None:
-					spec.requires = []
-				spec.requires.extend(('regularization',))
+		paramspec = self.inputs.trait('param')
+		paramval = getattr(self.inputs, 'param')
+		subparams = ('regularization',)
+		if not isdefined(dcnvval) or dcnvval == 0:
+			setattr(dcnvspec, 'requires', None)
+			for e in subparams:
+				if paramspec.requires is not None and e in paramspec.requires:
+					paramspec.requires.remove(e)
+		elif dcnvval == 1:
+			setattr(dcnvspec, 'requires', list(subparams))
+			if paramspec.requires is None:
+				paramspec.requires = []
+			paramspec.requires.extend(subparams)
 		
+	def _decomp_update(self):
 		dcmp = 'decomposition'
 		dcmpval = getattr(self.inputs, dcmp)
 		dcmpspec = self.inputs.trait(dcmp)
-		if isdefined(dcmpval):
-			if dcmpval == 0:
-				dcmpspec.requires = None#requires default
-			elif dcmpval == 1:
-				dcmpspec.requires=['decomp_frac','m_value']
-				if spec.requires is None:
-					spec.requires = []
-				spec.requires.extend(('decomp_frac','m_value'))
-					
+		paramspec = self.inputs.trait('param')
+		paramval = getattr(self.inputs, 'param')
+		subparams = ('decomp_frac', 'm_value')
+		if not isdefined(dcmpval) or dcmpval == 0:
+			setattr(dcmpspec, 'requires', None)
+			for e in subparams:
+				if paramspec.requires is not None and e in paramspec.requires:
+					paramspec.requires.remove(e)
+		elif dcmpval == 1:
+			setattr(dcmpspec, 'requires', list(subparams))
+			if paramspec.requires is None:
+				paramspec.requires = []
+			paramspec.requires.extend(subparams)
+				
+	def _param_update(self):
+		name = 'param'
+		value = getattr(self.inputs, name)
+		spec = self.inputs.trait(name)		
+		
+		self._deconv_update()
+		self._decomp_update()	
 		
 		mval = getattr(self.inputs, 'method')
 		if isdefined(mval):
 			#update param values, requires, and mandatory flag based on method
-			nparams = DSIInfo.rec_mid_to_np(mval)
 			paramsources = DSIInfo.rec_mid_to_pids(mval)
+			nparams = len(paramsources)
+			requires = getattr(spec, 'requires')
+			if requires is None:
+				requires = []
 			if nparams > 0:
-				self.inputs.trait(name).mandatory = True
-				spec.requires = []
-				spec.requires.extend(paramsources)
+				setattr(spec, 'mandatory', True)
+				requires.extend(paramsources)
+				setattr(spec, 'requires', requires)
 				paramlist = []
-				if not isdefined(value):#param is undefined
-					value = []
-				for e in paramsources:
+				for e in requires:
 					paramval =  getattr(self.inputs, e)
 					if isdefined(paramval):
 						paramlist.append(paramval)
@@ -1537,18 +1671,54 @@ class DSIStudioReconstruct(DSIStudioCommand):
 						raise TypeError('Input: %s is <undefined>, required '
 							'parameter for Method: %s' %
 							(e, mval))
-				setattr(self.inputs, name, value)#update param.value
+				setattr(self.inputs, name, paramlist)
 			else:
-				self.inputs.trait(name).mandatory = None#param.mandatory to def
-				spec.requires = None#param.requires default
-				setattr(self.inputs, name, _Undefined())#param value default
+				setattr(spec, 'mandatory', None)
+				setattr(spec, 'requires', None)
+				#Defaults are actually to not be in spec.__dict__, but None
+				#should/seems to work the same
+				setattr(self.inputs, name, _Undefined())
+		
+	
+	def _method_update(self):
+		name = 'method'
+		value = getattr(self.inputs, name)
+		spec = self.inputs.trait(name)
+		
+		if isdefined(value):
+			setattr(spec, 'requires', list(DSIInfo.rec_mid_to_req(value)))
+		else:
+			setattr(spec, 'requires', None)
+		
+		self._param_update()
+		
+		##if method defined, set method_value to True, other methods to False
+		#if isdefined(value):
+			#idname = []
+			#idname.extend(('method_',value))
+			#varidname = ''.join(idname)
+			#fix = self.inputs.trait(varidname)
+			#for x in fix.xor:
+				#setattr(self.inputs, x, _Undefined())
+			#setattr(self.inputs, varidname, True)
+		#else:
+			##sfx is 'dsi', 'dti' etc.
+			#for sfx in DSIInfo.rec_method_id_n.iterkeys():
+				#idname =[]
+				#idname.extend(('method_',sfx))
+				#varidname = ''.join(idname)
+				#sfxvalue = getattr(self.inputs, varidname)
+				#if isdefined(sfxvalue) and sfxvalue == True:
+					#newval = sfx
+					#setattr(self.inputs, 'method', newval)
+		
 			
 	def _check_mandatory_inputs(self):
 		"""using this to insert/update necessary values, then call super
 		_check_mandatory_inputs called before any cmd is run
 		"""
-		self._update_method()
-		self._update_param()
+		self._method_update()
+		self._param_update()
 
 		#run original _check_mandatory_inputs
 		super(DSIStudioReconstruct, self)._check_mandatory_inputs()
@@ -1577,21 +1747,21 @@ class DSIStudioReconstruct(DSIStudioCommand):
 		if name == "param":
 			#method should be defined, parsed in alphabetical order
 			recmid = getattr(self.inputs, 'method')
-			expnparams = DSIInfo.rec_mid_to_np(recmid)
 			expparamtypes = DSIInfo.rec_mid_to_ptype(recmid)
 			if recmid == "DTI":
 				pass #no params
 			
 			if len(value) == expnparams:
 				for e in value:
+					e_idx = value.index(e)
 					if isinstance(e, DSIInfo.rec_mid_to_ptype(
-						recmid)[value.index(e)]):
+						recmid)[e_idx]):
 						#numbered from 0
-						arglist.append(argstr % (value.index(e),e))
+						arglist.append(argstr % (e_idx,e))
 					else:
 						raise AttributeError("Param type: %s != Expected "
 							"Param type: %s for Param: %s, in Method: %s" %
-							(type(e),expparamtypes[value.index(e)],e,
+							(type(e),expparamtypes[e_idx],e,
 							recmid))
 				return sep.join(arglist)
 			else:
@@ -1648,6 +1818,60 @@ class DSIStudioReconstruct(DSIStudioCommand):
 		outputs['fiber_file'] = self._gen_fname(
 			self.inputs.source, change_ext=True, ext=ext)
 		return outputs
+		
+	def aggregate_outputs(self, runtime=None, needed_outputs=None):
+		"""DSIStudio reconstruct will write the output to the input directory
+		with a variable filename, but puts this information in stdout. Copy and 
+		fix.
+		"""
+		return super(DSIStudioReconstruct, self).aggregate_outputs(
+			runtime=runtime, needed_outputs=needed_outputs)
+	
+	#copied from nipype.interfaces.base.core.CommandLine for debugging
+	def _run_interface(self, runtime, correct_return_codes=(0,)):
+		"""Execute command via subprocess
+
+		Parameters
+		----------
+		runtime : passed by the run function
+
+		Returns
+		-------
+		runtime : updated runtime information
+			adds stdout, stderr, merged, cmdline, dependencies, command_path
+
+		"""
+		import shlex
+		from nipype.utils.filemanip import which, get_dependencies
+
+		out_environ = self._get_environ()
+		# Initialize runtime Bunch
+		runtime.stdout = None
+		runtime.stderr = None
+		runtime.cmdline = self.cmdline
+		runtime.environ.update(out_environ)
+
+		# which $cmd
+		executable_name = shlex.split(self._cmd_prefix + self.cmd)[0]
+		cmd_path = which(executable_name, env=runtime.environ)
+
+		if cmd_path is None:
+			raise IOError(
+				'No command "%s" found on host %s. Please check that the '
+				'corresponding package is installed.' % (executable_name,
+														 runtime.hostname))
+
+		runtime.command_path = cmd_path
+		runtime.dependencies = (get_dependencies(executable_name,
+												 runtime.environ)
+								if self._ldd else '<skipped>')
+		runtime = run_command(runtime, output=self.terminal_output)
+		
+		if runtime.returncode is None or \
+				runtime.returncode not in correct_return_codes:
+			self.raise_exception(runtime)
+
+		return runtime
 
 
 

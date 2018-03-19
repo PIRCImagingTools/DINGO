@@ -10,7 +10,7 @@ from nipype import IdentityInterface, Function
 import nipype.pipeline.engine as pe
 import nipype.interfaces.io as nio
 from nipype.interfaces.base import traits, DynamicTraitedSpec, isdefined
-from nipype.interfaces.utility import Merge
+from nipype.interfaces.utility import Merge, Select
 from nipype.interfaces import fsl
 from nipype.workflows.dmri.fsl import tbss
 
@@ -147,26 +147,30 @@ class DTIFIT(DINGOflow):
 		self.connect(dtibasename,'basename',dti,'base_name')
 	
 
-class FLIRT(DINGOflow):
-	_inputnode = 'flirt'
-	_outputnode = 'flirt'
+class FLIRT(DINGOnode):
+	#_inputnode = 'flirt'
+	#_outputnode = 'flirt'
 
 	connection_spec = {
 		'in_file'	:	['DTIFIT','FA']
 	}
 	
 	def __init__(self, name='FLIRT', inputs={}, **kwargs):
-		super(FLIRT, self).__init__(name=name, **kwargs)
+		super(FLIRT, self).__init__(
+			name=name,
+			interface=fsl.FLIRT(**inputs),
+			**kwargs)
+		#super(FLIRT, self).__init__(name=name, **kwargs)
 		
-		flirt = pe.Node(
-			name='flirt',
-			interface=fsl.FLIRT(**inputs))
-		self.add_nodes([flirt])
+		#flirt = pe.Node(
+			#name='flirt',
+			#interface=fsl.FLIRT(**inputs))
+		#self.add_nodes([flirt])
 		
 
-class FNIRT(DINGOflow):
-	_inputnode = 'fnirt'
-	_outputnode = 'fnirt'
+class FNIRT(DINGOnode):
+	#_inputnode = 'fnirt'
+	#_outputnode = 'fnirt'
 	
 	connection_spec = {
 		'affine_file'	:	['FLIRT','out_matrix_file'],
@@ -174,18 +178,21 @@ class FNIRT(DINGOflow):
 	}
 	
 	def __init__(self,name='FNIRT', inputs={}, **kwargs):
+		super(FNIRT, self).__init__(
+			name=name,
+			interface=fsl.FNIRT(**inputs),
+			**kwargs)
 		
+		#super(FNIRT, self).__init__(name=name, **kwargs)
 		
-		super(FNIRT, self).__init__(name=name, **kwargs)
+		#fnirt = pe.Node(
+			#name='fnirt',
+			#interface=fsl.FNIRT(**inputs))
+		#self.add_nodes([fnirt])
 		
-		fnirt = pe.Node(
-			name='fnirt',
-			interface=fsl.FNIRT(**inputs))
-		self.add_nodes([fnirt])
-		
-class ApplyWarp(DINGOflow):
-	_inputnode = 'applywarp'
-	_outputnode = 'applywarp'
+class ApplyWarp(DINGOnode):
+	#_inputnode = 'applywarp'
+	#_outputnode = 'applywarp'
 	
 	connection_spec = {
 		'in_file'		:	['FileIn','in_file'],
@@ -194,12 +201,16 @@ class ApplyWarp(DINGOflow):
 	}
 	
 	def __init__(self,name='fsl_applywarp', inputs={}, **kwargs):
-		super(ApplyWarp, self).__init__(name=name, **kwargs)
+		super(ApplyWarp, self).__init__(
+			name=name,
+			interface=fsl.ApplyWarp(**inputs),
+			**kwargs)
+		#super(ApplyWarp, self).__init__(name=name, **kwargs)
 		
-		applywarp = pe.Node(
-			name='applywarp',
-			interface=fsl.ApplyWarp(**inputs))
-		self.add_nodes([applywarp])
+		#applywarp = pe.Node(
+			#name='applywarp',
+			#interface=fsl.ApplyWarp(**inputs))
+		#self.add_nodes([applywarp])
 		
 		
 class FSL_genFA(DINGOflow):
@@ -207,7 +218,9 @@ class FSL_genFA(DINGOflow):
 	_outputnode = 'outputnode'
 	
 	connection_spec = {
-	
+		'dti'		:	['FileIn','dti'],
+		'bval'		:	['FileIn','bval'],
+		'bvec'		:	['FileIn','bvec']
 	}
 		
 		
@@ -220,7 +233,7 @@ class FSL_nonlinreg(DINGOflow):
 	}
 	
 	def __init__(self, name='fsl_nonlinreg',\
-	inputs=dict(\
+	inputs=dict(
 		FA=True, flirtopts={'dof':12}, fnirtopts={'fieldcoeff_file':True}),\
 	**kwargs):
 		"""
@@ -325,7 +338,7 @@ class TBSS_reg_NXN(DINGOflow):
 	}
 	
 	def __init__(self, name='TBSS_reg_NXN',\
-	inputs=dict(fa_list=None, mask_list=None, id_list=None),\
+	inputs=dict(fa_list=None, mask_list=None, id_list=None, n_procs=None),\
 	**kwargs):
 		
 		super(TBSS_reg_NXN, self).__init__(name=name, **kwargs)
@@ -342,7 +355,13 @@ class TBSS_reg_NXN(DINGOflow):
 			inputnode.inputs.mask_list = inputs['mask_list']
 		if 'id_list' in inputs and inputs['id_list'] is not None:
 			inputnode.inputs.id_list = inputs['id_list']
-				
+		if 'n_procs' in inputs and inputs['n_procs'] is not None:
+			n_procs = inputs['n_procs']
+		else:
+			n_procs = 1
+		
+		cfg = dict(execution={'remove_unnecessary_outputs':False})
+		config.update_config(cfg)
 		#In order to iterate over something not set in advance, workflow must be
 		#in a function node, within a map node with the proper iterfield
 		#tbss2 workflow: registration nxn
@@ -350,11 +369,13 @@ class TBSS_reg_NXN(DINGOflow):
 			name='tbss2',
 			interface=Function(
 				input_names=[
+					'n_procs',
 					'target_id','target',
 					'id_list','fa_list','mask_list'],
 				output_names=['mat_list','fieldcoeff_list','mean_median_list'],
 				function=TBSS_reg_NXN.tbss2_target),
 			iterfield=['target','target_id'])
+		tbss2.inputs.n_procs = n_procs
 			
 		self.connect([
 			(inputnode, tbss2, [('id_list','target_id'),
@@ -364,7 +385,7 @@ class TBSS_reg_NXN(DINGOflow):
 								('mask_list','mask_list')])
 			])
 		
-
+	@staticmethod
 	def create_tbss_2_reg(name="tbss_2_reg",\
 	target=None, target_id=None, id_list=None, fa_list=None, mask_list=None):
 		"""TBSS nonlinear registration:
@@ -412,7 +433,6 @@ class TBSS_reg_NXN(DINGOflow):
 				output_names=['i2r'],
 				function=join_strs),
 			iterfield=['arg0'])
-			
 		i2r.inputs.sep = '_'
 		i2r.inputs.arg1 = 'to'
 		
@@ -424,15 +444,38 @@ class TBSS_reg_NXN(DINGOflow):
 				output_names=['i2rwarp'],
 				function=join_strs),
 			iterfield=['arg0'])
-			
-		i2rwarp.sep = '_'
-		i2rwarp.arg1 = 'warp'
+		i2rwarp.inputs.sep = '_'
+		i2rwarp.inputs.arg1 = 'warp.nii.gz'
+		
+		i2rwarped = pe.MapNode(
+			name='i2rwarped',
+			interface=Function(
+				input_names=['sep','arg0','arg1'],
+				output_names=['i2rwarped'],
+				function=join_strs),
+			iterfield=['arg0'])
+		i2rwarped.inputs.sep = '_'
+		i2rwarped.inputs.arg1 = 'warped.nii.gz'
+		
+		i2rnii = pe.MapNode(
+			name='i2rnii',
+			interface=Function(
+				input_names=['sep','arg0','arg1'],
+				output_names=['i2rnii'],
+				function=join_strs),
+			iterfield=['arg0'])
+		i2rnii.inputs.sep = ''
+		i2rnii.inputs.arg1 = '.nii.gz'
 		
 		tbss2.connect([
 			(inputnode, i2r, 
 				[('input_id','arg0'),
 				('target_id','arg2')]),
 			(i2r, i2rwarp,
+				[('i2r','arg0')]),
+			(i2r, i2rwarped,
+				[('i2r','arg0')]),
+			(i2r, i2rnii,
 				[('i2r','arg0')])
 			])
 				
@@ -440,12 +483,12 @@ class TBSS_reg_NXN(DINGOflow):
 		flirt = pe.MapNode(
 			name='flirt',
 			interface=fsl.FLIRT(dof=12),
-			iterfield=['in_file','in_weight'])
+			iterfield=['in_file','in_weight','out_file'])
 
 		fnirt = pe.MapNode(
 			name='fnirt',
 			interface=fsl.FNIRT(fieldcoeff_file=True),
-			iterfield=['in_file','fieldcoeff_file'])
+			iterfield=['in_file','affine_file','fieldcoeff_file','warped_file'])
 				
 		if fsl.no_fsl():
 			warn('NO FSL found')
@@ -462,10 +505,12 @@ class TBSS_reg_NXN(DINGOflow):
 			(inputnode, fnirt, 
 				[('input_img','in_file'),
 				('target_img','ref_file')]),
-			(i2r, flirt, 
-				[('i2r','out_file')]),
+			(i2rnii, flirt, 
+				[('i2rnii','out_file')]),
 			(i2rwarp, fnirt,
 				[('i2rwarp','fieldcoeff_file')]),
+			(i2rwarped, fnirt,
+				[('i2rwarped','warped_file')]),
 			(flirt, fnirt, 
 				[('out_matrix_file', 'affine_file')])
 			])
@@ -476,7 +521,7 @@ class TBSS_reg_NXN(DINGOflow):
 			interface=fsl.ImageMaths(op_string='-sqr -Tmean'),
 			iterfield=['in_file'])
 		
-		meanmedian = pe.Node(
+		meanmedian = pe.MapNode(
 			name='meanmedian',
 			interface=fsl.ImageStats(op_string='-M -P 50'),
 			iterfield=['in_file'])
@@ -484,12 +529,12 @@ class TBSS_reg_NXN(DINGOflow):
 		outputnode = pe.Node(
 			name='outputnode',
 			interface=IdentityInterface(
-				fields=['linear_matrix','fieldcoeff_file','mean_median']))
+				fields=['linear_matrix','fieldcoeff','mean_median']))
 
 		tbss2.connect([
 			(flirt, outputnode, [('out_matrix_file', 'linear_matrix')]),
 			(fnirt, sqrTmean, [('fieldcoeff_file','in_file')]),
-			(fnirt, outputnode, [('fieldcoeff_file', 'fieldcoeff_file')]),
+			(fnirt, outputnode, [('fieldcoeff_file', 'fieldcoeff')]),
 			(sqrTmean, meanmedian, [('out_file','in_file')]),
 			(meanmedian, outputnode, [('out_stat', 'mean_median')])
 			])
@@ -501,27 +546,35 @@ class TBSS_reg_NXN(DINGOflow):
 	target=None, target_id=None, id_list=None, fa_list=None, mask_list=None):
 		"""Wrap tbss2 workflow in mapnode(functionnode) to iterate over fa_files
 		"""
+		from DINGO.fsl import TBSS_reg_NXN
+		import os
 		
 		if (target is not None) and \
 		(target_id is not None) and \
 		(id_list is not None) and \
 		(fa_list is not None) and \
 		(mask_list is not None):
-			tbss2n = TBSS_reg_NXN.create_tbss_2_reg_n(
+			tbss2n = TBSS_reg_NXN.create_tbss_2_reg(
 				name='tbss2n',
 				target=target,
 				target_id=target_id,
 				id_list=id_list,
 				fa_list=fa_list,
 				mask_list=mask_list)
+			tbss2n.base_dir = os.getcwd()
 			
 			if (n_procs is None) or (not isinstance(n_procs, int)):
 				n_procs=1
 			
-			tbss2n.run(plugin='MultiProc', plugin_args={'n_procs': n_procs})
-			mat_list = tbss2n.result.outputs.outputnode.mat_list
-			fieldcoeff_list = tbss2n.result.outputs.outputnode.fieldcoeff_list
-			mean_median_list = tbss2n.result.outputs.outputnode.mean_median_list
+			results = tbss2n.run(plugin='MultiProc', plugin_args={'n_procs': n_procs})
+			print(results)
+			try:
+				print(results.outputnode.linear_matrix)
+			except:
+				print(results.linear_matrix)
+			mat_list = results.outputs.outputnode.linear_matrix
+			fieldcoeff_list = results.outputs.outputnode.fieldcoeff
+			mean_median_list = results.outputs.outputnode.mean_median
 			
 			return mat_list, fieldcoeff_list, mean_median_list
 		
@@ -544,8 +597,7 @@ class TBSS_postreg(DINGOflow):
 		
 		if 'target' not in inputs:
 			inputs.update(target='best')
-		else:
-			inputs.update(target='FMRIB58_FA_1mm.nii.gz')
+			#other possibility is 'FMRIB58_FA_1mm.nii.gz'
 		
 		#super to set _joinsource
 		super(TBSS_postreg, self).__init__(name=name, **kwargs)
@@ -570,17 +622,16 @@ class TBSS_postreg(DINGOflow):
 			inputs.update(suffix='warp')
 			
 				
-		tbss3 = TBSS_postreg.create_tbss_3_postreg(**inputs)
+		tbss3 = self.create_tbss_3_postreg(**inputs)
 		
-		self.connect([
-			(inputnode, tbss3, [('id_list','inputnode.id_list'),
-								('fa_list','inputnode.fa_list'),
-								('field_list','inputnode.field_list')
-								('mm_list','inputnode.mm_list')])
-			])
+		self.connect(inputnode, 'id_list', tbss3, 'inputnode.id_list')
+		self.connect(inputnode, 'fa_list', tbss3, 'inputnode.fa_list')
+		self.connect(inputnode, 'field_list', tbss3, 'inputnode.field_list')
+		self.connect(inputnode, 'mm_list', 
+					 tbss3, 'inputnode.means_medians_lists')
 					
 
-	def create_find_best(name="find_best"):
+	def create_find_best(self, name="find_best"):
 		"""Find best target for FA warps, to minimize mean deformation
 		
 		Inputs
@@ -675,7 +726,7 @@ class TBSS_postreg(DINGOflow):
 		return fb
 		
 
-	def create_tbss_3_postreg(name='tbss_3_postreg',\
+	def create_tbss_3_postreg(self, name='tbss_3_postreg',\
 	estimate_skeleton=True, suffix=None, target='best',\
 	id_list=None, fa_list=None, field_list=None, mm_list=None):
 		"""find best target from fa_list, then apply warps
@@ -747,7 +798,7 @@ class TBSS_postreg(DINGOflow):
 			
 		if target == 'best':
 			#Find best target that limits mean deformation, insert before applywarp
-			fb = TBSS_postreg.create_find_best(name='find_best')
+			fb = self.create_find_best(name='find_best')
 			
 			rename2target = pe.MapNode(
 				name='rename2target',
