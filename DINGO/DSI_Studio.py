@@ -1,5 +1,6 @@
-from nipype import (IdentityInterface, Function)
+from nipype import (config, logging, IdentityInterface, Function)
 from nipype.utils.misc import str2bool
+from tempfile import mkdtemp
 import nipype.pipeline.engine as pe
 import nipype.interfaces.io as nio
 from nipype.interfaces.utility import Merge
@@ -11,6 +12,8 @@ from DINGO.DSI_Studio_base import (DSIStudioSource, DSIStudioReconstruct,
 									DSIStudioTrack, DSIStudioAnalysis, 
 									DSIStudioExport)
 from DINGO.base import (DINGO, DINGOflow, DINGOnode)
+
+import pdb
 
 
 class HelperDSI(DINGO):
@@ -249,6 +252,8 @@ class DSI_TRK(DINGOflow):
 		#DSI Studio will only accept 5 ROIs or 5 ROAs. A warning would normally 
 		#be shown that only the first five listed will be used, but merging the 
 		#ROAs is viable.
+		cfg = dict(execution={'remove_unnecessary_outputs':False})
+		config.update_config(cfg)
 		merge_roas = self.create_merge_roas(name='merge_roas')
 
 		trknode = TRKnode(
@@ -262,29 +267,31 @@ class DSI_TRK(DINGOflow):
 			(inputnode, replace_regions, 
 				[('tract_inputs','tract_input'),
 				('regions','regions')]),
+			(inputnode, merge_roas,
+				[('tract_names','inputnode.tract_name')]),
 			(replace_regions, merge_roas,
 				[('real_region_tract_input', 'inputnode.tract_input')]),
 			(merge_roas, trknode, 
-				[('outputnode.mroa_tract_input','indict'),
-				('outputnode.new_roa','roas')]),
+				[('outputnode.mroas_tract_input','indict')]),
 			(trknode, outputnode, 
 				[('track','tract_list')])
-			])
+		])
 			
 	def replace_regions(tract_input=None, regions=None):
 		"""Return the right regions needed by tract_input"""
+		import re
 		if regions is not None:
 			#without per subject region list the analysis config must have
-			#filepaths for region lists, can only do one subject
-			##TODO eliminate alternatives, Sagittal_L breaks on ArcuateSagittal_L
+			#filepaths for region lists, thus can only work in one space
 			region_types = ('rois','roas','seed','ends','ter')
 			for reg_type in region_types:
 				if reg_type in tract_input:
 					regionname_list = tract_input[reg_type]
 					region_files = []
 					for regionname in regionname_list:
+						pattern = ''.join(('(?<=_)',regionname))
 						for realregion in regions:#realregion is a filepath
-							if regionname in realregion:
+							if re.search(pattern, realregion):
 								region_files.append(realregion)
 								break
 					tract_input.update({reg_type : region_files})
@@ -297,53 +304,58 @@ class DSI_TRK(DINGOflow):
 		inputnode = pe.Node(
 			name='inputnode',
 			interface=IdentityInterface(
-				fields=['tract_input']),
+				fields=['tract_input', 'tract_name']),
 			mandatory_inputs=True)
 			
-		def separate_roas(tract_input):
-			"""Function to split roas key from input dictionary, used as node"""
-			#Unsure if nipype copies or passes dicts, to be safe returning it
+		def merge_roas(tract_input, tract_name):
+			"""Function to merge roas into one image, used as node"""
+			from DINGO.DSI_Studio import TRKnode
+			import nipype.interfaces.fsl as fsl
+			import os
 			if 'roas' in tract_input and len(tract_input['roas']) > 5:
 				roa_list = tract_input['roas']
 				if not isinstance(roa_list, list):
 					roa_list = [roa_list]
-				del tract_input['roas']
-			else:
-				roa_list = None
-			return tract_input, roa_list
+				merged_filename = ''.join((tract_name,'_mergedroas','.nii.gz'))
+				
+				mergenode = TRKnode(
+					base_dir=os.getcwd(),
+					name='mergenode',
+					interface=fsl.Merge(in_files=roa_list, 
+										merged_file=merged_filename,
+										dimension='t'))
+				merge_result = mergenode.run()
+				mroas = merge_result.outputs.merged_file
+				
+				maxnode = TRKnode(
+					base_dir=os.getcwd(),
+					name='maxnode',
+					interface=fsl.ImageMaths(in_file=mroas, op_string='-Tmax'))
+				max_result = maxnode.run()
+				mmroas = max_result.outputs.out_file
+				tract_input.update({'roas' : mmroas})
+			#Unsure if nipype function copies or passes dicts, to be safe returning it
+			return tract_input
 			
-		separate_roas = TRKnode(
-			name='separate_roas',
+		merge_roas_node = TRKnode(
+			name='merge_roas',
 			interface=Function(
-				input_names=['tract_input'],
-				output_names=['new_tract_input', 'roa_list'],
-				function=separate_roas))
-		
-		mergenode = TRKnode(
-			name='mergenode',
-			interface=fsl.Merge(dimension='t'))
-			
-		maxnode = TRKnode(
-			name='maxnode',
-			interface=fsl.ImageMaths(op_string='-Tmax'))
+				input_names=['tract_input','tract_name'],
+				output_names=['mroas_tract_input'],
+				function=merge_roas))
 			
 		outputnode = pe.Node(
 			name='outputnode',
 			interface=IdentityInterface(
-				fields=['mroa_tract_input', 'new_roa']))
+				fields=['mroas_tract_input']))
 				
 		merge.connect([
-			(inputnode, separate_roas, 
-				[('tract_input', 'tract_input')]),
-			(separate_roas, mergenode, 
-				[('roa_list', 'in_files')]),
-			(separate_roas, outputnode,
-				[('new_tract_input','noroas_tract_input')]),
-			(mergenode, maxnode, 
-				[('merged_file', 'in_file')]),
-			(maxnode, outputnode, 
-				[('out_file', 'new_roa')])
-			])
+			(inputnode, merge_roas_node, 
+				[('tract_input', 'tract_input'),
+				('tract_name','tract_name')]),
+			(merge_roas_node, outputnode,
+				[('mroas_tract_input','mroas_tract_input')])
+		])
 		
 		return merge
 		

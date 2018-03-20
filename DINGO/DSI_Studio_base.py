@@ -367,7 +367,8 @@ class DSIStudioInputSpec(CommandLineInputSpec):
 		argstr="> %s",
 		desc="Log file path/name")
 	indict = traits.Dict(
-		desc="Dict of keys for inputspec, with their values")
+		desc="Dict of keys for inputspec, with their values, will overwrite all"
+			" conflicts")
 
 
 
@@ -406,6 +407,7 @@ class DSIStudioCommand(CommandLine):
 			self.inputs.action = self._action
 		else:
 			self._action_update()
+		self._update_from_indict()
 
 	@property
 	def action(self):
@@ -416,6 +418,15 @@ class DSIStudioCommand(CommandLine):
 
 	def _action_update(self):
 		self._action = self.inputs.action
+		
+	def _update_from_indict(self):
+		"""Check indict for values to add to inputs"""
+		if isdefined(self.inputs.indict):
+			for key, value in self.inputs.indict.iteritems():
+				if key in self.inputs.__dict__:
+					setattr(self.inputs, key, value)
+					#print("Input: '%s' set to Value: %s" % (key, value))
+					#Type checking is handled by traits InputSpec
 
 	def _gen_fname(self, basename, cwd=None, suffix=None, change_ext=True, ext=None):
 		"""Generate a filename based on input.
@@ -450,17 +461,11 @@ class DSIStudioCommand(CommandLine):
 								newpath=cwd)
 		return fname
 		
-	def _check_mandatory_inputs(self):
-		"""check indict for values to add to inputs, then call super"""
-		if isdefined(self.inputs.indict):
-			for key, value in self.inputs.indict.iteritems():
-				if key in self.inputs.__dict__:
-					setattr(self.inputs, key, value)
-					print('Input: %s set to Value: %s' % (key, value))
-					#Type checking is handled by traits InputSpec
+	#def _check_mandatory_inputs(self):
+		#"""Call super, since executed before command output being used for debugging"""
+		#pdb.set_trace()
+		#super(DSIStudioCommand, self)._check_mandatory_inputs()
 		
-		super(DSIStudioCommand, self)._check_mandatory_inputs()
-
 				  
 
 class DSIStudioFiberInputSpec(DSIStudioInputSpec):
@@ -489,7 +494,7 @@ class DSIStudioFiberInputSpec(DSIStudioInputSpec):
 		argstr="--roi%s=%s",
 		desc="roi through which tracts must pass, txt, analyze, nifti")
 	rois_ar = traits.List(traits.Str(),
-		requires=["roi_atlas"],
+		requires=["rois_atlas"],
 		desc="region in atlas through which tracts must pass")
 	rois_actions = traits.List(traits.List(traits.Enum(
 				"smoothing","erosion","dilation","defragment","negate",
@@ -501,7 +506,7 @@ class DSIStudioFiberInputSpec(DSIStudioInputSpec):
 		argstr="--roa%s=%s",
 		desc="roa files which tracts must avoid, txt, analyze, nifti")
 	roas_ar = traits.List(traits.Str(), 
-		requires=["roa_atlas"],
+		requires=["roas_atlas"],
 		desc="region in atlas which tracts must avoid")
 	roas_actions = traits.List(traits.List(traits.Enum(
 				"smoothing","erosion","dilation","defragment","negate",
@@ -514,7 +519,7 @@ class DSIStudioFiberInputSpec(DSIStudioInputSpec):
 		desc="filter out tracks that do not end in this region, txt, analyze, "
 			"or nifti")
 	ends_ar = traits.List(traits.Str(), 
-		requires=["end_atlas"],
+		requires=["ends_atlas"],
 		desc="region in atlas that will filter out tracks that do not end here")
 	ends_actions = traits.List(traits.List(traits.Enum(
 				"smoothing","erosion","dilation","defragment","negate",
@@ -554,7 +559,7 @@ class DSIStudioFiberInputSpec(DSIStudioInputSpec):
 		"HarvardOxfordSub","HCP-MMP1","JHU-WhiteMatter-labels-1mm",
 		"MNI", "OASIS_TRT_20", "sri24_tissues","sri24_tzo116plus",
 		"talairach","tractography"),
-		requires=['roi_ar'],
+		requires=['rois_ar'],
 		sep=",",
 		desc="atlas name(s) found in dsistudio/build/atlas")
 	roas_atlas = traits.List(traits.Enum(
@@ -563,7 +568,7 @@ class DSIStudioFiberInputSpec(DSIStudioInputSpec):
 		"HarvardOxfordSub","HCP-MMP1","JHU-WhiteMatter-labels-1mm",
 		"MNI", "OASIS_TRT_20", "sri24_tissues","sri24_tzo116plus",
 		"talairach","tractography"),
-		requires=['roa_ar'],
+		requires=['roas_ar'],
 		sep=",",
 		desc="atlas name(s) found in dsistudio/build/atlas")
 	ends_atlas = traits.List(traits.Enum(
@@ -572,7 +577,7 @@ class DSIStudioFiberInputSpec(DSIStudioInputSpec):
 		"HarvardOxfordSub","HCP-MMP1","JHU-WhiteMatter-labels-1mm",
 		"MNI", "OASIS_TRT_20", "sri24_tissues","sri24_tzo116plus",
 		"talairach","tractography"),
-		requires=['end_ar'],
+		requires=['ends_ar'],
 		sep=",",
 		desc="atlas name(s) found in dsistudio/build/atlas")
 	ter_atlas = traits.Enum(
@@ -593,6 +598,7 @@ class DSIStudioFiberInputSpec(DSIStudioInputSpec):
 	track = traits.Either(
 		File(genfile=True),
 		traits.Enum('no_file'),
+		genfile=True,
 		argstr="--output=%s",
 		hash_files=False,
 		desc="output tract file name, format may be txt, trk, or nii",
@@ -600,12 +606,14 @@ class DSIStudioFiberInputSpec(DSIStudioInputSpec):
 		
 	tract_name = traits.Str(desc='suffix to append to source filename')
 		
-	endpt = File(
+	endpt = traits.Bool(
 		argstr="--end_point=%s",
-		hash_files=False,
-		name_source=['source'],
-		name_template='%s_endpt.txt',
-		desc="endpoint file name, format may be txt or mat")
+		requires=['endpt_format'],
+		desc="whether to output endpoints file")
+		
+	endpt_format = traits.Enum('txt','mat',
+		usedefault=True,
+		desc="endpoint file format, 'txt' or 'mat'")
 	
 	#separate for later use, inner trait doesn't seem to have values property
 	_export_values = ('stat','tdi','tdi2','tdi_color','tdi_end',
@@ -743,7 +751,8 @@ class DSIStudioFiberCommand(DSIStudioCommand):
 	"""
 	input_spec = DSIStudioFiberInputSpec
 	
-	def _update_regions(self):
+	def _regions_update(self):
+		"""Update region category ('rois','roas',etc.) with atlas regions"""
 		regions = ('rois','roas','ends','seed','ter')
 		for name in regions:
 			value = getattr(self.inputs, name)
@@ -808,55 +817,64 @@ class DSIStudioFiberCommand(DSIStudioCommand):
 						"N entries in %s" %
 						(varnamear, varnameatlas))
 						
-	def _update_report(self):
+	def _report_update(self):
 		"""Update report, report_val from related boolean traits"""
 		name = 'report'
 		secname = 'report_val'
 		secfield = 'values'
 		thisbool = getattr(self.inputs, name)
 		default_traits = getattr(self.inputs.trait(secname),secfield)
-		
 		newvalues = []
-		for default in default_traits:
-			subname = []
-			subname.extend((name,'_',default))
-			subname = ''.join(subname)
-			if isdefined(thisbool) and thisbool:
-				subbool = getattr(self.inputs, subname)
-				if isdefined(subbool) and subbool:
-					newvalues.append(subname)
+		if default_traits is not None:
+			for e in default_traits:
+				subname = []
+				subname.extend((name,'_',e))
+				subname = ''.join(subname)
+				if isdefined(thisbool) and thisbool:
+					subbool = getattr(self.inputs, subname)
+					if isdefined(subbool) and subbool:
+						newvalues.append(subname)
+				else:
+					setattr(self.inputs, subname, _Undefined())
+			if len(newvalues) > 0:
+				setattr(self.inputs, name, True)
+				setattr(self.inputs, secname, newvalues)
 			else:
-				setattr(self.inputs, subname, _Undefined())
-		if len(newvalues) > 0:
-			setattr(self.inputs, name, True)
-			setattr(self.inputs, secname, newvalues)
-		else:
-			setattr(self.inputs, name, _Undefined())
-			setattr(self.inputs, secname, _Undefined())
+				setattr(self.inputs, name, _Undefined())
+				setattr(self.inputs, secname, _Undefined())
 	
 						
-	def _update_export(self):
+	def _export_update(self):
 		"""Update export from related traits"""
 		name = 'export'
+		values = getattr(self.inputs, name)
+		if not isdefined(values):
+			values = []
 		default_traits = getattr(self.inputs, ''.join(('_',name,'_values')))
 		
-		self._update_report()
+		self._report_update()
 		
 		newvalues = []
-		for default in default_traits:
-			subbool = getattr(self.inputs, default)
-			if isdefined(subbool) and subbool:
-				newvalues.append(subbool)
-		if len(newvalues) > 0:
-			setattr(self.inputs, name, newvalues)
+		for e in default_traits:
+			subbool = getattr(self.inputs, e)
+			if isdefined(subbool):
+				if subbool:
+					if e not in values:
+						newvalues.append(e)
+				elif e in values:
+					values.remove(e)
+		if len(newvalues) + len(values) > 0:
+			values.extend(newvalues)
+			setattr(self.inputs, name, values)
 		else:
 			setattr(self.inputs, name, _Undefined())
 	
 						
 	def _check_mandatory_inputs(self):
 		"""correct values, then call super"""
-		self._update_regions()
-		self._update_export()
+		self._update_from_indict()
+		self._regions_update()
+		self._export_update()
 					
 		super(DSIStudioFiberCommand, self)._check_mandatory_inputs()
 			
@@ -1051,21 +1069,21 @@ class DSIStudioFiberCommand(DSIStudioCommand):
 			
 		elif name == "export": 
 			for e in value:
-				if e == "report" and \
-				self.inputs.report_val is not None and \
-				self.inputs.report_pstyle is not None and \
-				self.inputs.report_bandwidth is not None:
-					newe = []
-					newe.extend((e,":",
-						self.inputs.report_val,":",
-						str(self.inputs.report_pstyle),":",
-						str(self.inputs.report_bandwidth)))
-					i = value.index(e)
-					value[i] = "".join(str(newe))
-				else:
-					raise AttributeError('Export report requested, but not all '
-						'required fields: ("report_val", "report_pstyle", '
-						'"report_bandwidth") have been set')
+				if e == "report":
+					if isdefined(self.inputs.report_val) and \
+					isdefined(self.inputs.report_pstyle) and \
+					isdefined(self.inputs.report_bandwidth):
+						newe = []
+						newe.extend((e,":",
+							self.inputs.report_val,":",
+							str(self.inputs.report_pstyle),":",
+							str(self.inputs.report_bandwidth)))
+						i = value.index(e)
+						value[i] = "".join(str(newe))
+					else:
+						raise AttributeError('Export report requested, but not all '
+							'required fields: ("report_val", "report_pstyle", '
+							'"report_bandwidth") have been set')
 			return argstr % sep.join(str(e) for e in value)
 			
 		elif name == "connectivity":
@@ -1091,7 +1109,9 @@ class DSIStudioFiberCommand(DSIStudioCommand):
 			self)._format_arg(name, trait_spec, value)
 
 	def _gen_filename(self, name):
+		"""Executed if self.inputs.name is undefined, but genfile=True"""
 		if name == 'track':
+			trackval = getattr(self.inputs, 'track')
 			_, infilename, _ = split_filename(
 				os.path.abspath(getattr(self.inputs, 'source')))
 			tract_name = getattr(self.inputs, 'tract_name')
@@ -1100,7 +1120,7 @@ class DSIStudioFiberCommand(DSIStudioCommand):
 			else:
 				sfx = 'track'
 			fname = []
-			fname.extend((filename,
+			fname.extend((infilename,
 				'_', sfx,
 				DSIInfo.ot_to_ext(self.inputs.output_type)))
 			return ''.join(fname)
@@ -1108,19 +1128,14 @@ class DSIStudioFiberCommand(DSIStudioCommand):
 			return super(DSIStudioFiberCommand, self)._gen_filename(name)
 
 	def _parse_inputs(self, skip=None):
-		deftoskip = ["report_val",
+		deftoskip = ("report_val",
 					"report_pstyle",
-					"report_bandwidth",
-					"seed_action",
-					"roi_action",
-					"roa_action",
-					"end_action",
-					"ter_action"]
+					"report_bandwidth")
 		if skip is None:
 			toskip = deftoskip
 		else:
 			toskip = []
-			deftoskip.extend(skip)
+			toskip.extend(skip)
 			toskip.extend(deftoskip)
 		return super(DSIStudioFiberCommand, self)._parse_inputs(skip=toskip)
 		
@@ -1132,18 +1147,22 @@ class DSIStudioFiberCommand(DSIStudioCommand):
 		for key in outputs.iterkeys():
 			inputkey = key.replace('_file','')
 			if key == 'track':
-				if isdefined(getattr(self.inputs, 'track')):
-					outputs['track'] = self._gen_filename(key)
+				outputs['track'] = self._gen_filename('track')
+			elif key == 'endpt' and \
+			isdefined(getattr(self.inputs, 'endpt')) and \
+			getattr(self.inputs, 'endpt'):
+				outputs['endpt'] = self._gen_fname(self._gen_filename('track'),
+				suffix='_endpt', change_ext=True, ext=self.inputs.endpt_format)
 			elif inputkey in texts and \
 			isdefined(getattr(self.inputs, inputkey)) and \
 			getattr(self.inputs, inputkey):
-				outputs[key] = self.gen_fname(self.inputs.source, 
-				suffix='_'+inputkey, change_ext=True, ext='.txt')
+				outputs[key] = self.gen_fname(self._gen_filename('track'),
+				suffix=''.join(('.', inputkey)), change_ext=True, ext='.txt')
 			elif inputkey in imgs and \
 			isdefined(getattr(self.inputs, inputkey)) and \
 			getattr(self.inputs, inputkey):
-				outputs[key] = self.gen_fname(self.inputs.source,
-				suffix='_'+inputkey, change_ext=True, ext='.nii')
+				outputs[key] = self.gen_fname(self._gen_filename('track'),
+				suffix=''.join(('.', inputkey)), change_ext=True, ext='.nii')
 
 		return outputs
 
@@ -1249,7 +1268,7 @@ class DSIStudioTrack(DSIStudioFiberCommand):
 
 class DSIStudioAnalysisInputSpec(DSIStudioFiberInputSpec):
 
-	output_type = traits.Enum("TXT", "TRK", "NIFTI",
+	output_type = traits.Enum("NIFTI", "TRK", "TXT",
 		usedefault=True,
 		desc="DSI Studio ana action output type")
 	#if more than 1 roi is given, or track is specified, DSIstudio will
@@ -1266,7 +1285,6 @@ class DSIStudioAnalysisInputSpec(DSIStudioFiberInputSpec):
 		argstr="--atlas=%s",
 		sep=",",
 		desc="atlas name(s) found in dsistudio/build/atlas")
-	
 
 
 
@@ -1361,6 +1379,11 @@ class DSIStudioSource(DSIStudioCommand):
 		outputs = self._output_spec().get()
 		outputs['output'] = self._gen_filename('output')
 		return outputs
+		
+	def _check_mandatory_inputs(self):
+		"""Update other inputs from inputs.indict then call super"""
+		self._update_from_indict()
+		super(DSIStudioSource, self)._check_mandatory_inputs()
 
 
 
@@ -1717,8 +1740,8 @@ class DSIStudioReconstruct(DSIStudioCommand):
 		"""using this to insert/update necessary values, then call super
 		_check_mandatory_inputs called before any cmd is run
 		"""
+		self._update_from_indict()
 		self._method_update()
-		self._param_update()
 
 		#run original _check_mandatory_inputs
 		super(DSIStudioReconstruct, self)._check_mandatory_inputs()
@@ -1916,7 +1939,10 @@ class DSIStudioAtlas(DSIStudioCommand):
 	_output_type = "NIFTI"
 	input_spec = DSIStudioAtlasInputSpec
 
-	
+	def _check_mandatory_inputs(self):
+		"""Update other inputs from inputs.indict then call super"""
+		self._update_from_indict()
+		super(DSIStudioAtlas, self)._check_mandatory_inputs()
 
 class DSIStudioExportInputSpec(DSIStudioInputSpec):
 	export = traits.List(
@@ -1960,4 +1986,9 @@ class DSIStudioExport(DSIStudioCommand):
 		for e in rvunjoined:
 			retval.append("".join(e))
 		return retval
+		
+	def _check_mandatory_inputs(self):
+		"""Update other inputs from inputs.indict then call super"""
+		self._update_from_indict()
+		super(DSIStudioExport, self)._check_mandatory_inputs()
 
