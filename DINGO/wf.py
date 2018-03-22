@@ -13,7 +13,7 @@ import nipype.interfaces.io as nio
 	
 class HelperFlow(DINGO):
 	
-	def __init__(self, **kwargs):
+	def __init__(self, workflow_to_module=None, **kwargs):
 		wfm = {
 		'SplitIDs'				:	'DINGO.wf',
 		'SplitIDs_iterate'		:	'DINGO.wf',
@@ -22,7 +22,17 @@ class HelperFlow(DINGO):
 		'FileOut'				:	'DINGO.wf'
 		}
 		
-		super(HelperFlow, self).__init__(workflow_to_module=wfm, **kwargs)
+		if workflow_to_module is None:
+			workflow_to_module = wfm
+		else:
+			for k,v in wfm.iteritems():
+				if k not in workflow_to_module:
+					workflow_to_module.update({k:v})
+		
+		super(HelperFlow, self).__init__(
+			workflow_to_module=workflow_to_module,
+			**kwargs
+		)
 	
 	
 class SplitIDs(DINGOnode):
@@ -282,7 +292,20 @@ class FileIn(DINGOnode):
 	
 	
 class FileIn_SConfig(DINGOflow):
-	"""Nipype workflow to get files specified in a subject config.json"""
+	"""Nipype workflow to get files specified in a subject config.json
+	
+	Mandatory Inputs - either in dict arg inputs or connected to inputnode
+	----------------
+	base_directory		:	Str
+	outfields			:	List[Str]
+	sub_id				:	Str
+	scan_id				:	Str
+	uid					:	Str
+	
+	Optional Inputs - in dict arg inputs or connected to create_ft
+	---------------
+	repl				:	List or Dict
+	"""
 	_inputnode = 'inputnode'
 	_outputnode = 'filein'
 	
@@ -351,9 +374,13 @@ class FileIn_SConfig(DINGOflow):
 					'scan_id',
 					'uid',
 					'config',
-					'path_keys'],
+					'path_keys',
+					'repl'],
 				output_names=['field_template'],
 				function=self.create_field_template))
+				
+		if 'repl' in inputs and inputs['repl'] is not None:
+			create_ft.inputs.repl = inputs['repl']
 				
 		filein = pe.Node(
 				name='filein',
@@ -389,23 +416,39 @@ class FileIn_SConfig(DINGOflow):
 			return os.path.join(base_directory, sub_id, scan_id, cfgname)
 			
 	def create_field_template(base_directory=None, sub_id=None, scan_id=None, uid=None,\
-		config=None, path_keys=None, myrepl=None):
+		config=None, path_keys=None, repl=None):
 			import os
-			if myrepl is None:
-				myrepl = {
-					'pid'			:	sub_id,
-					'scanid'		:	scan_id,
-					'sequenceid'	:	uid,
-					'parent_dir'	:	base_directory
-				}
-			
+			defrepl = {
+				'pid'			:	sub_id,
+				'scanid'		:	scan_id,
+				'sequenceid'	:	uid,
+				'parent_dir'	:	base_directory
+			}
+			#set up replacement dict
+			if repl is None:
+				myrepl = defrepl
+			else:
+				myrepl = dict()
+				if isinstance(repl, (list,tuple)):
+					for e in repl:
+						myrepl.update({e:'placeholder'})
+				elif isinstance(repl, (str,unicode)):
+					myrepl.update({repl:'placeholder'})
+				elif isinstance(repl, dict):
+					myrepl = repl
+				for k,v in defrepl.iteritems():
+					if k not in myrepl:
+						myrepl.update({k:v})
+			#get or compare (error check) to config
 			values = [None] * len(myrepl)
 			for k,v in myrepl.iteritems():
-				if config[k] != v:
+				if v == 'placeholder':
+					myrepl.update({k:config['paths'][k]})
+				elif config[k] != v:
 					raise Exception('Subject config error[%s]: '
 						'Expecting %s, Got %s'
-						% (k, v, config[k]))				
-
+						% (k, v, config[k]))			
+			#create field template dict
 			field_template = {}
 			for pathkey in path_keys:
 				value = config['paths'][pathkey]

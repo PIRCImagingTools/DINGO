@@ -8,6 +8,7 @@ from nipype.interfaces import fsl
 import os
 import logging
 from DINGO.utils import (update_dict, read_config)
+from DINGO.wf import HelperFlow
 from DINGO.DSI_Studio_base import (DSIStudioSource, DSIStudioReconstruct, 
 									DSIStudioTrack, DSIStudioAnalysis, 
 									DSIStudioExport)
@@ -16,14 +17,15 @@ from DINGO.base import (DINGO, DINGOflow, DINGOnode)
 import pdb
 
 
-class HelperDSI(DINGO):
+class HelperDSI(HelperFlow):
 	def __init__(self, **kwargs):
 		wfm = {
 			'DSI_SRC'	:	'DINGO.DSI_Studio',
 			'REC_prep'	:	'DINGO.DSI_Studio',
 			'DSI_REC'	:	'DINGO.DSI_Studio',
 			'DSI_TRK'	:	'DINGO.DSI_Studio',
-			'DSI_ANA'	:	'DINGO.DSI_Studio'
+			'DSI_ANA'	:	'DINGO.DSI_Studio',
+			'DSI_EXP'	:	'DINGO.DSI_Studio'
 		}
 		super(HelperDSI, self).__init__(workflow_to_module=wfm, **kwargs)
 

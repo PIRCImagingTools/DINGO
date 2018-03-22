@@ -38,6 +38,8 @@ class DINGO(pe.Workflow):
 		'REC_prep'					:	'DINGO.DSI_Studio',
 		'DSI_REC'					:	'DINGO.DSI_Studio',
 		'DSI_TRK'					:	'DINGO.DSI_Studio',
+		'DSI_ANA'					:	'DINGO.DSI_Studio',
+		'DSI_EXP'					:	'DINGO.DSI_Studio',
 		'create_reorient'			:	'DINGO.fsl',
 		'create_eddyc'				:	'DINGO.fsl',
 		'create_bet'				:	'DINGO.fsl',
