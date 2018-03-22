@@ -291,7 +291,8 @@ class DSI_TRK(DINGOflow):
 					regionname_list = tract_input[reg_type]
 					region_files = []
 					for regionname in regionname_list:
-						pattern = ''.join(('(?<=_)',regionname))
+						#match pattern preceded by '\' or '_' or '/'
+						pattern = ''.join(('(?<=[\\\\_\/])',regionname))
 						for realregion in regions:#realregion is a filepath
 							if re.search(pattern, realregion):
 								region_files.append(realregion)
