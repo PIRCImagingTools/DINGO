@@ -3,46 +3,6 @@ import importlib
 import copy
 import json
 
-def dice_coef(nii_A, nii_B, output):
-	"""
-	Dice Coefficient:
-		D = 2*(A == B)/(A)+(B)
-
-	Input is two binary masks in the same 3D space
-	NII format
-
-	Output is a DICE score and overlap image
-	"""
-	
-	from nipy import load_image, save_image
-	import numpy as np
-	import getpass
-	from nipy.core.api import Image, vox2mni
-	
-	imageA = load_image(nii_A)
-	dataA = imageA.get_data()
-	sumA = np.sum(dataA)
-	coord = imageA.coordmap
-
-
-	imageB = load_image(nii_B)
-	dataB = imageB.get_data()
-	sumB = np.sum(dataB)
-
-	overlap = dataA + dataB
-	intersect = overlap[np.where(overlap==2)].sum()
-
-	dice = intersect/(sumA + sumB)
-
-	print("Dice coefficient = {0}".format(dice))
-
-
-	def save_nii(data,coord, save_file):
-		arr_img = Image(data, coord)
-		save_image(arr_img, save_file)
-
-	save_nii(overlap, coord, output)
-
 def flatten(l, ltypes=(list, tuple)):
 	"""flatten lists and tuples to a single list, ignore empty
 	

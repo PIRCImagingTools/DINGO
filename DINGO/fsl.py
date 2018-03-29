@@ -29,6 +29,7 @@ class HelperFSL(DINGO):
 		'BET'					:	'DINGO.fsl',
 		'DTIFIT'				:	'DINGO.fsl',
 		'FLIRT'					:	'DINGO.fsl',
+		'ApplyXFM'				:	'DINGO.fsl',
 		'FNIRT'					:	'DINGO.fsl',
 		'ApplyWarp'				:	'DINGO.fsl',
 		'FSL_nonlinreg'			:	'DINGO.fsl',
@@ -41,8 +42,6 @@ class HelperFSL(DINGO):
 			
 	
 class Reorient(DINGOnode):
-	#_inputnode = 'reorient'
-	#_outputnode = 'reorient'
 
 	connection_spec = {
 		'in_file'		:	['FileIn', 'dti']
@@ -53,16 +52,9 @@ class Reorient(DINGOnode):
 			name=name, 
 			interface=fsl.Reorient2Std(**inputs),
 			**kwargs)
-		
-		#reorient = pe.Node(
-			#name='reorient',
-			#interface=fsl.Reorient2Std(**inputs))
-		#self.add_nodes([reorient])
 	
 
 class EddyC(DINGOnode):
-	#_inputnode = 'eddyc'
-	#_outputnode = 'eddyc'
 
 	connection_spec = {
 		'in_file'		:	['Reorient', 'out_file']
@@ -73,15 +65,9 @@ class EddyC(DINGOnode):
 			name=name, 
 			interface=fsl.EddyCorrect(**inputs),
 			**kwargs)
-		#eddyc = pe.Node(
-			#name='eddyc',
-			#interface=fsl.EddyCorrect(**inputs))
-		#self.add_nodes([eddyc])
 	
 
 class BET(DINGOnode):
-	#_inputnode = 'bet'
-	#_outputnode = 'bet'
 
 	connection_spec = {
 		'in_file'		:	['EddyC', 'eddy_corrected']
@@ -92,10 +78,6 @@ class BET(DINGOnode):
 			name=name, 
 			interface=fsl.BET(**inputs),
 			**kwargs)
-		#bet = pe.Node(
-				#name='bet',
-				#interface=fsl.BET(**inputs))
-		#self.add_nodes([bet])
 	
 
 class DTIFIT(DINGOflow):
@@ -148,8 +130,6 @@ class DTIFIT(DINGOflow):
 	
 
 class FLIRT(DINGOnode):
-	#_inputnode = 'flirt'
-	#_outputnode = 'flirt'
 
 	connection_spec = {
 		'in_file'	:	['DTIFIT','FA']
@@ -160,17 +140,26 @@ class FLIRT(DINGOnode):
 			name=name,
 			interface=fsl.FLIRT(**inputs),
 			**kwargs)
-		#super(FLIRT, self).__init__(name=name, **kwargs)
-		
-		#flirt = pe.Node(
-			#name='flirt',
-			#interface=fsl.FLIRT(**inputs))
-		#self.add_nodes([flirt])
 		
 
+class ApplyXFM(DINGOflow):
+	
+	_inputnode = 'xfmnode'
+	_outputnode = 'xfmnode'
+	connection_spec = {
+		'in_matrix_file'	:	['FLIRT', 'out_matrix_file']
+	}
+	
+	def __init__(self,name='ApplyXFM', inputs={}, **kwargs):
+		super(ApplyXFM, self).__init__(name=name, **kwargs)
+		
+		xfmnode = pe.MapNode(
+			name='xfmnode',
+			interface=fsl.ApplyXFM(**inputs),
+			iterfield=['in_file'])
+		self.add_nodes([xfmnode])
+
 class FNIRT(DINGOnode):
-	#_inputnode = 'fnirt'
-	#_outputnode = 'fnirt'
 	
 	connection_spec = {
 		'affine_file'	:	['FLIRT','out_matrix_file'],
@@ -183,16 +172,8 @@ class FNIRT(DINGOnode):
 			interface=fsl.FNIRT(**inputs),
 			**kwargs)
 		
-		#super(FNIRT, self).__init__(name=name, **kwargs)
-		
-		#fnirt = pe.Node(
-			#name='fnirt',
-			#interface=fsl.FNIRT(**inputs))
-		#self.add_nodes([fnirt])
 		
 class ApplyWarp(DINGOnode):
-	#_inputnode = 'applywarp'
-	#_outputnode = 'applywarp'
 	
 	connection_spec = {
 		'in_file'		:	['FileIn','in_file'],
@@ -205,12 +186,6 @@ class ApplyWarp(DINGOnode):
 			name=name,
 			interface=fsl.ApplyWarp(**inputs),
 			**kwargs)
-		#super(ApplyWarp, self).__init__(name=name, **kwargs)
-		
-		#applywarp = pe.Node(
-			#name='applywarp',
-			#interface=fsl.ApplyWarp(**inputs))
-		#self.add_nodes([applywarp])
 		
 		
 class FSL_genFA(DINGOflow):

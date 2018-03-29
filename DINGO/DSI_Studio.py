@@ -276,7 +276,7 @@ class DSI_TRK(DINGOflow):
 			(merge_roas, trknode, 
 				[('outputnode.mroas_tract_input','indict')]),
 			(trknode, outputnode, 
-				[('track','tract_list')])
+				[('output','tract_list')])
 		])
 			
 	def replace_regions(tract_input=None, regions=None):
@@ -363,7 +363,7 @@ class DSI_TRK(DINGOflow):
 		return merge
 		
 
-class DSI_ANA(DINGOnode):
+class DSI_ANA(DINGOflow):
 	"""Nipype node to run DSIStudioAnalysis
 	
 	Parameters
@@ -387,8 +387,21 @@ class DSI_ANA(DINGOnode):
 	dsi_ana.outputs.stat_file = myTract_stat.txt
 	dsi_ana.outputs.track = myTract.txt
 	"""
+	_inputnode = 'ananode'
+	_outputnode = 'ananode'
+	
 	def __init__(self, name='DSI_ANA', inputs={}, **kwargs):
-		super(DSI_ANA, self).__init__(
+		super(DSI_ANA, self).__init__(name=name, **kwargs)
+		
+		ananode = pe.MapNode(
+			name='ananode',
+			interface=DSIStudioAnalysis(**inputs),
+			iterfield=['tract'])
+		self.add_nodes([ananode])
+
+class DSI_ANAnode(DINGOnode):
+	def __init__(self, name='DSI_ANA', inputs={}, **kwargs):
+		super(DSI_ANAnode, self).__init__(
 			name=name,
 			interface=DSIStudioAnalysis(**inputs),
 			**kwargs)

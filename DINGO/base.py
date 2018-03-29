@@ -23,11 +23,13 @@ class DINGO(pe.Workflow):
 		'FileIn'					:	'DINGO.wf',
 		'FileIn_SConfig'			:	'DINGO.wf',
 		'FileOut'					:	'DINGO.wf',
+		'DICE'						:	'DINGO.wf',
 		'Reorient'					:	'DINGO.fsl',
 		'EddyC'						:	'DINGO.fsl',
 		'BET'						:	'DINGO.fsl',
 		'DTIFIT'					:	'DINGO.fsl',
 		'FLIRT'						:	'DINGO.fsl',
+		'ApplyXFM'					:	'DINGO.fsl',
 		'FNIRT'						:	'DINGO.fsl',
 		'ApplyWarp'					:	'DINGO.fsl',
 		'FSL_nonlinreg'				:	'DINGO.fsl',
@@ -384,43 +386,69 @@ class DINGO(pe.Workflow):
 			self.create_subwf(step, name)
 			
 		self._connect_subwfs()
+		
+		
+class DINGOmeta(type):
+	def __new__(mcls, name, bases, attrs):
+		nipype_types = {
+			'Workflow'	:	pe.Workflow, 
+			'Node'		:	pe.Node, 
+			'JoinNode'	:	pe.JoinNode, 
+			'MapNode'	:	pe.MapNode
+		}
+		if 'nipype_parent' in attrs.keys() and \
+		not any([v in bases for v in nipype_types.iteritems()]):
+			newbases = (nipype_types[attrs['nipype_parent']],)
+			return type.__new__(mcls, name, newbases, attrs)
+		
+		
+class DINGObase(object):
+	#__metaclass__ = DINGOmeta
+	config_inputs = 'config_inputs'
+	connection_spec = {}
+	
+	def __init__(self, connection_spec=None, inputs_name=None, **kwargs):
+		
+		if inputs_name is not None:
+			self.config_inputs = inputs_name
+		
+		if connection_spec is not None:
+			self.connection_spec.update(connection_spec)
 	
 
-class DINGOflow(pe.Workflow):
+class DINGOflow(pe.Workflow, DINGObase):
 	"""Add requisite properties to Nipype Workflow. Output folder 'Name', will 
 	be in top level of nipype cache with its own parameterized iterables 
 	folders.
 	"""
 	_inputnode = None
 	_outputnode = None
-	_joinsource = 'config_inputs'
-	connection_spec = {}
 	
-	def __init__(self, connection_spec=None, inputs_name=None, inputs=None,
-		**kwargs):
-		super(DINGOflow,self).__init__(**kwargs)
-		
-		if inputs_name is not None:
-			self._joinsource = inputs_name
-		
-		if connection_spec is not None:
-			self.connection_spec.update(connection_spec)
+	def __init__(self, connection_spec=None, inputs_name=None, **kwargs):
+		pe.Workflow.__init__(self, **kwargs)
+		DINGObase.__init__(self,
+			connection_spec=connection_spec,
+			inputs_name=inputs_name)
+
 			
 			
-class DINGOnode(pe.Node):
+class DINGOnode(pe.Node, DINGObase):
 	"""Add requisite properties to Nipype Node. Output folder 'Name', will be in
 	 the parameterized iterables folders.
 	 """
-	_joinsource = 'config_inputs'
-	connection_spec = {}
+	#_joinsource = 'config_inputs'
+	#connection_spec = {}
 	
-	def __init__(self, connection_spec=None, inputs_name=None, inputs=None, 
-		**kwargs):
-		super(DINGOnode,self).__init__(**kwargs)
+	def __init__(self, connection_spec=None, inputs_name=None, **kwargs):
+		pe.Node.__init__(self, **kwargs)
+		DINGObase.__init__(self, 
+			connection_spec=connection_spec,
+			inputs_name=inputs_name)
+		#super(DINGOnode,self).__init__(**kwargs)
 		
-		if inputs_name is not None:
-			self._joinsource = inputs_name
+		#if inputs_name is not None:
+			#self._joinsource = inputs_name
 		
-		if connection_spec is not None:
-			self.connection_spec.update(connection_spec)
+		#if connection_spec is not None:
+			#self.connection_spec.update(connection_spec)
 	

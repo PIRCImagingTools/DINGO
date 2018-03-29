@@ -595,7 +595,7 @@ class DSIStudioFiberInputSpec(DSIStudioInputSpec):
 		argstr="--delete_repeat=%d",
 		desc="0 or 1, 1 removes repeat tracks with distance < 1 mm")
 		
-	track = traits.Either(
+	output = traits.Either(
 		File(genfile=True),
 		traits.Enum('no_file'),
 		genfile=True,
@@ -706,7 +706,7 @@ class DSIStudioFiberInputSpec(DSIStudioInputSpec):
 
 class DSIStudioFiberOutputSpec(DSIStudioOutputSpec):
 	"""Output specification for fiber tracking, trk, ana"""
-	track = File(desc="path/name of fiber track file (if generated)")
+	output = File(desc="path/name of fiber track file (if generated)")
 	endpt = File(desc="path/name of fiber track end points file "
 					  "(if generated)")
 	stat_file = File(desc="path/name of fiber track stats file (if generated)")
@@ -1108,25 +1108,6 @@ class DSIStudioFiberCommand(DSIStudioCommand):
 			return super(DSIStudioFiberCommand, 
 			self)._format_arg(name, trait_spec, value)
 
-	def _gen_filename(self, name):
-		"""Executed if self.inputs.name is undefined, but genfile=True"""
-		if name == 'track':
-			trackval = getattr(self.inputs, 'track')
-			_, infilename, _ = split_filename(
-				os.path.abspath(getattr(self.inputs, 'source')))
-			tract_name = getattr(self.inputs, 'tract_name')
-			if isdefined(tract_name):
-				sfx = tract_name
-			else:
-				sfx = 'track'
-			fname = []
-			fname.extend((infilename,
-				'_', sfx,
-				DSIInfo.ot_to_ext(self.inputs.output_type)))
-			return ''.join(fname)
-		else:
-			return super(DSIStudioFiberCommand, self)._gen_filename(name)
-
 	def _parse_inputs(self, skip=None):
 		deftoskip = ("report_val",
 					"report_pstyle",
@@ -1146,22 +1127,22 @@ class DSIStudioFiberCommand(DSIStudioCommand):
 		imgs = ('tdi','tdi2','tdi_color','tdi_end','tdi2_end')
 		for key in outputs.iterkeys():
 			inputkey = key.replace('_file','')
-			if key == 'track':
-				outputs['track'] = self._gen_filename('track')
+			if key == 'output':
+				outputs['output'] = self._gen_filename('output')
 			elif key == 'endpt' and \
 			isdefined(getattr(self.inputs, 'endpt')) and \
 			getattr(self.inputs, 'endpt'):
-				outputs['endpt'] = self._gen_fname(self._gen_filename('track'),
+				outputs['endpt'] = self._gen_fname(self._gen_filename('output'),
 				suffix='_endpt', change_ext=True, ext=self.inputs.endpt_format)
 			elif inputkey in texts and \
 			isdefined(getattr(self.inputs, inputkey)) and \
 			getattr(self.inputs, inputkey):
-				outputs[key] = self.gen_fname(self._gen_filename('track'),
+				outputs[key] = self.gen_fname(self._gen_filename('output'),
 				suffix=''.join(('.', inputkey)), change_ext=True, ext='.txt')
 			elif inputkey in imgs and \
 			isdefined(getattr(self.inputs, inputkey)) and \
 			getattr(self.inputs, inputkey):
-				outputs[key] = self.gen_fname(self._gen_filename('track'),
+				outputs[key] = self.gen_fname(self._gen_filename('output'),
 				suffix=''.join(('.', inputkey)), change_ext=True, ext='.nii')
 
 		return outputs
@@ -1263,6 +1244,24 @@ class DSIStudioTrack(DSIStudioFiberCommand):
 	_output_type = "TRK"
 	input_spec = DSIStudioTrackInputSpec
 	output_spec = DSIStudioFiberOutputSpec
+	
+	def _gen_filename(self, name):
+		"""Executed if self.inputs.name is undefined, but genfile=True"""
+		if name == 'output':
+			_, infilename, _ = split_filename(
+				os.path.abspath(getattr(self.inputs, 'source')))
+			tract_name = getattr(self.inputs, 'tract_name')
+			if isdefined(tract_name):
+				sfx = ''.join(('_',tract_name))
+			else:
+				sfx = '_track'
+			fname = []
+			fname.extend((infilename,
+				sfx,
+				DSIInfo.ot_to_ext(self.inputs.output_type)))
+			return ''.join(fname)
+		else:
+			return super(DSIStudioFiberCommand, self)._gen_filename(name)
 
 
 
@@ -1271,9 +1270,9 @@ class DSIStudioAnalysisInputSpec(DSIStudioFiberInputSpec):
 	output_type = traits.Enum("NIFTI", "TRK", "TXT",
 		usedefault=True,
 		desc="DSI Studio ana action output type")
-	#if more than 1 roi is given, or track is specified, DSIstudio will
+	#if more than 1 roi is given, or tract is specified, DSIstudio will
 	#do tract analysis, else region analysis
-	track = File(exists=True, 
+	tract = File(exists=True, 
 		argstr="--tract=%s",
 		desc="assign tract file for analysis")
 	atlas = traits.List(traits.Enum(
@@ -1308,6 +1307,32 @@ class DSIStudioAnalysis(DSIStudioFiberCommand):
 	_output_type = "TXT"
 	input_spec = DSIStudioAnalysisInputSpec
 	output_spec = DSIStudioFiberOutputSpec
+	
+	def _gen_filename(self, name):
+		"""Executed if self.inputs.name is undefined, but genfile=True"""
+		if name == 'output':
+			tractval = getattr(self.inputs, 'tract')
+			tract_name = getattr(self.inputs, 'tract_name')
+			sourceval = getattr(self.inputs, 'source')
+			
+			if isdefined(tract_name):
+				sfx = ''.join(('_',tract_name))
+			else:
+				sfx = '_track'
+				
+			if isdefined(tractval):
+				_, infilename, _ = split_filename(os.path.abspath(tractval))
+				sfx = ''
+			else:
+				_, infilename, _ = split_filename(os.path.abspath(sourceval))
+
+			fname = []
+			fname.extend((infilename,
+						  sfx,
+						  DSIInfo.ot_to_ext(self.inputs.output_type)))
+			return ''.join(fname)
+		else:
+			return super(DSIStudioFiberCommand, self)._gen_filename(name)
 
 
 

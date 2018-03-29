@@ -1,7 +1,6 @@
 import os
 from nipype import config, logging
-from DINGO.utils import (DynImport, read_config, split_chpid,
-						join_strs, add_id_subs, fileout_util)
+from DINGO.utils import (read_config, split_chpid, join_strs)
 from DINGO.base import DINGO, DINGOflow, DINGOnode
 from nipype import IdentityInterface, SelectFiles, Function
 import nipype.pipeline.engine as pe
@@ -9,7 +8,6 @@ import nipype.interfaces.io as nio
 
 #config.enable_debug_mode()
 #logging.update_logging(config)
-
 	
 class HelperFlow(DINGO):
 	
@@ -19,7 +17,8 @@ class HelperFlow(DINGO):
 		'SplitIDs_iterate'		:	'DINGO.wf',
 		'FileIn'				:	'DINGO.wf',
 		'FileIn_SConfig'		:	'DINGO.wf',
-		'FileOut'				:	'DINGO.wf'
+		'FileOut'				:	'DINGO.wf',
+		'DICE'					:	'DINGO.wf'
 		}
 		
 		if workflow_to_module is None:
@@ -33,7 +32,226 @@ class HelperFlow(DINGO):
 			workflow_to_module=workflow_to_module,
 			**kwargs
 		)
+		
+class DICE(DINGOflow):
+	"""Nipype node to output dice image and coefficient for lists of niftis
 	
+	Inputs
+	------
+	inputnode.nii_list_A
+	inputnode.nii_list_B
+	inputnode.tract_names - so that nifti lists don't have to be guaranteed to 
+		match this parameter is used to search the filename and pass match on
+	inputnode.base_dir
+	inputnode.sub_id
+	inputnode.scan_id
+	inputnode.uid
+	inputnode.sep - separator for output file basename, default '_'
+	
+	Outputs
+	-------
+	dicenode.img
+	dicenode.coef
+	"""
+	_inputnode = 'inputnode'
+	_outputnode = 'dicenode'
+	connection_spec = {
+		'sub_id'			:	['SplitIDs','sub_id'],
+		'scan_id'			:	['SplitIDs','scan_id'],
+		'uid'				:	['SplitIDs','uid']
+	}
+	
+	def __init__(self, name='DICE', inputs={}, **kwargs):
+		super(DICE, self).__init__(name=name, **kwargs)
+		
+		input_fields = ['nii_list_A','nii_list_B', 'tract_names',
+						'base_dir','sub_id','scan_id','uid','sep','subfolder']
+		input_iters = ('tract_names', inputs['tract_names'])
+		
+		inputnode = pe.Node(
+			name='inputnode',
+			interface=IdentityInterface(fields=input_fields),
+			iterables=input_iters)
+			
+		for elt in input_fields:
+			if elt in inputs and inputs[elt] is not None:
+				setattr(inputnode.inputs, elt, inputs[elt])
+		
+		getA = pe.Node(
+			name='getA',
+			interface=Function(
+				input_names=['tract_list','tract_name'],
+				output_names=['tract'],
+				function=DICE.get_tract))
+					
+		getB = pe.Node(
+			name='getB',
+			interface=Function(
+				input_names=['tract_list','tract_name'],
+				output_names=['tract'],
+				function=DICE.get_tract))
+		
+		dicenode = pe.Node(
+			name='dicenode',
+			interface=Function(
+				input_names=['nii_A','nii_B', 'output_bn'],
+				output_names=['img','coef'],
+				function=DICE.dice_coef))
+		
+		create_bn = pe.Node(
+			name='create_bn',
+			interface=Function(
+				input_names=['sep','subfolder','nii',
+				'basedir','subid','scanid','uid'],
+				output_names=['file'],
+				function=DICE.create_basename))
+				
+		#Connect
+		self.connect([
+			(inputnode, getA, [
+				('nii_list_A', 'tract_list'),
+				('tract_names', 'tract_name')]),
+			(inputnode, getB, [
+				('nii_list_B', 'tract_list'),
+				('tract_names', 'tract_name')]),
+			(inputnode, create_bn, [
+				('sep', 'sep'),
+				('subfolder', 'subfolder'),
+				('base_dir', 'basedir'),
+				('sub_id', 'subid'),
+				('scan_id', 'scanid'),
+				('uid', 'uid')]),
+			(getA, dicenode, [
+				('tract', 'nii_A')]),
+			(getB, dicenode, [
+				('tract', 'nii_B')]),
+			(getB, create_bn, [
+				('tract', 'nii')]),
+			(create_bn, dicenode, [
+				('file', 'output_bn')])
+		])
+		
+	def get_tract(tract_list, tract_name):
+		"""Takes a list of tract file strings and single tract name, returns the 
+		matching tract from list
+		
+		tract_list = ['path/to/..._tract_name0.trk...',
+					  '/path/to/tract_name1.trk...']
+		tract_name = 'tract_name1'
+		tract = get_tract(tract_list, tract_name)
+		tract -> '/path/to/tract_name1.trk...'
+		
+		Will raise if tract not matched, or more than one match.
+		"""
+		import re
+		pattern = ''.join(('(?<=[\\\\_\/])(?P<tract>',tract_name,')(?=\.trk)'))
+		comp = re.compile(pattern)
+		searchall = [re.search(comp, t) for t in tract_list]
+		tractsearch = filter(lambda x: x is not None, searchall)
+		if len(tractsearch) == 1:
+			index = searchall.index(tractsearch[0])
+			tract = tract_list[index]
+		elif not tractsearch:
+			raise LookupError('Did not find tract: %s' % tract_name)
+		else:
+			raise LookupError('Found more than one matching tract: %s' 
+			% tract_name)
+		return tract
+	
+	def create_basename(nii=None, 
+	basedir=None, subid=None, scanid=None, uid=None, subfolder='', sep='_'):
+		"""Takes a file along with basedir, subid, scanid, uid, subfolder 
+		strings and returns a new filename.
+		
+		Parameters
+		------
+		nii			:	Str
+		basedir		:	Str
+		subid		:	Str - subfolder to basedir and leads new filename
+		scanid		:	Str - subfolder to subid, after subid in filename
+		uid			:	Str - after scanid in filename
+		subfolder	:	Str - subfolder to scanid, default nothing
+		sep			:	Str - default '_'
+		
+		Returns
+		-------
+		basename	:	Str
+			basename = '_'.join((subid, scanid, uid, tract, 'DICE'))
+			os.path.join(basedir, subid, scanid, subfolder, basename)
+		"""
+		import os
+		import re
+		from nipype.interfaces.base import isdefined
+		
+		if not isdefined(subfolder):
+			path = os.path.join(basedir, subid, scanid)
+		else:
+			path = os.path.join(basedir, subid, scanid, subfolder)
+		try:
+			os.mkdir(path)
+		except OSError:
+			pass
+		
+		if not isdefined(sep):
+			sep = '_'
+		if nii and basedir and subid and scanid and uid:
+			pattern = '(?<=[\\\\_\/])(?P<tract>\w*)(?=\.trk)'
+			thissearch = re.search(pattern, nii)
+			if thissearch:
+				tract = thissearch.group('tract')
+				basename = sep.join((subid, scanid, uid, 'DICE', tract))
+			else:
+				print('Could not find tract name in nii: %s' % nii)
+				basename = sep.join((subid, scanid, uid, 'DICE'))
+				
+			return os.path.join(path, basename)
+				
+	def dice_coef(nii_A, nii_B, output_bn):
+		"""
+		Dice Coefficient:
+			D = 2*(A == B)/(A)+(B)
+
+		Input is two binary masks in the same 3D space
+		NII format
+
+		Output is a DICE score and overlap image
+		"""
+		
+		from nipy import load_image, save_image
+		import numpy as np
+		import getpass
+		from nipy.core.api import Image, vox2mni
+		
+		imageA = load_image(nii_A)
+		dataA = imageA.get_data()
+		sumA = np.sum(dataA)
+		coord = imageA.coordmap
+
+
+		imageB = load_image(nii_B)
+		dataB = imageB.get_data()
+		sumB = np.sum(dataB)
+
+		overlap = dataA + dataB
+		intersect = overlap[np.where(overlap==2)].sum()
+
+		dice = intersect/(sumA + sumB)
+
+		def save_nii(data,coord, save_file):
+			arr_img = Image(data, coord)
+			img = save_image(arr_img, save_file)
+			return img
+			
+		def save_txt(dice, save_file_bn):
+			save_file = ''.join((save_file_bn,'.txt'))
+			f = open(save_file, 'w')
+			f.write('{0}'.format(dice))
+			f.close()
+			return save_file
+
+		img = save_nii(overlap, coord, output_bn)
+		coef = save_txt(dice, output_bn)
+		return img, coef
 	
 class SplitIDs(DINGOnode):
 	"""Nipype node to split a CHP_ID into separate subject, scan and task ids
@@ -600,25 +818,3 @@ class FileOut(DINGOflow):
 				newsubs.append(newpair)
 		return newsubs
 	
-	
-#see if MapNode of Function will work instead
-def wrapJoin(name='wrapJoin',
-module='nipype.interfaces.utility',interface='IdentityInterface',fields=None):
-	m, f = DynImport(mod=module, obj=interface)
-	#TODO finish implementation
-	
-	return None
-
-#fajoin = pe.JoinNode(
-			#name='fajoin',
-			#interface=IdentityInterface(
-				#fields=['fa_']),
-			#joinsource='inputnode',
-			#joinfield=['fa_'])
-			
-		#containerjoin = pe.JoinNode(
-			#name='containerjoin',
-			#interface=IdentityInterface(
-				#fields=['container_']),
-			#joinsource='inputnode',
-			#joinfield=['container_'])
