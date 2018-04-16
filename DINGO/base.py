@@ -66,13 +66,14 @@ class DINGO(pe.Workflow):
 		if name is None:
 			name = 'DINGO'
 		super(DINGO,self).__init__(name=name,**kwargs)
+		self.keep_and_move_files()
 		
 		if workflow_to_module is not None:
 			self.update_wf_to_mod_map(**workflow_to_module)
 		
 		if configpath is None:
 			self.configpath = None
-			print('run %s.create_wf_from_config(configpath) to add subworkflows'
+			print('run %s.create_wf_from_config() to add subworkflows'
 				% self)
 		else:
 			self.configpath = configpath
@@ -99,6 +100,11 @@ class DINGO(pe.Workflow):
 			msg = 'Workflow: %s not associated with a module' % wf
 			raise KeyError(msg)
 	
+	def keep_and_move_files(self):
+		self.config['execution'] = {
+			'use_relative_paths' : 'True',
+			'remove_unnecessary_outputs' : 'False'
+		}
 							
 	def check_input_field(self, cfg_bn, cfg, keyname, exptype):
 		if keyname not in cfg:
@@ -200,7 +206,8 @@ class DINGO(pe.Workflow):
 		if issubclass(type(srcobj), pe.Node):
 			srcname = (srcfield,)
 		elif issubclass(type(srcobj), pe.Workflow):
-			if hasattr(srcobj, '_outputnode'):
+			if hasattr(srcobj, '_outputnode') and \
+			srcobj._outputnode is not None:
 				srcname = (srcobj._outputnode, srcfield)
 			else:
 				srcname = ('outputnode', srcfield)
@@ -209,17 +216,16 @@ class DINGO(pe.Workflow):
 		if issubclass(type(destobj), pe.Node):
 			destname = (destfield,)
 		elif issubclass(type(destobj), pe.Workflow):
-			if hasattr(destobj, '_inputnode'):
+			if hasattr(destobj, '_inputnode') and \
+			destobj._inputnode is not None:
 				destname = (destobj._inputnode, destfield)
 			else:
 				destname = ('inputnode', destfield)
 		destname = '.'.join(destname)
 					
-		print('Trying to connect %s.%s --> %s.%s' %
+		print('Connecting %s.%s --> %s.%s' %
 			(srcobj.name, srcname, destobj.name, destname))
 		self.connect(srcobj, srcname, destobj, destname)
-		print('Connected %s.%s --> %s.%s' % 
-			(srcobj.name, srcname, destobj.name, destname))
 		
 	def _connect_subwfs(self):
 		"""update subwf.connection_spec with self.input_connections[subwfname]
@@ -231,8 +237,9 @@ class DINGO(pe.Workflow):
 		self.input_connections[subwfname] = {'input':['src','output']}
 		"""
 		for destkey, destobj in self.subflows.iteritems():
-			#name, obj
 			try:
+				#make sure repeat objs are not using the same dict
+				destobj.connection_spec = destobj.connection_spec.copy()
 				destobj.connection_spec.update(
 					self.input_connections[destkey])
 			except AttributeError:
@@ -242,7 +249,6 @@ class DINGO(pe.Workflow):
 					self.input_connections[destkey])
 				
 			self.workflow_connections[destkey] = destobj.connection_spec
-			
 			for destfield, values in \
 			self.workflow_connections[destkey].iteritems():
 				testsrckey = values[0]
@@ -275,7 +281,10 @@ class DINGO(pe.Workflow):
 		
 		Parameters
 		----------
-		cfgpath		:	filepath to json configuration
+		cfgpath			:	filepath to json configuration
+		expected_keys	:	tuple pairs of keyname and expected type
+			('key', expected_type)
+			(('key', expected_type), ('altkey', expected_type))
 		
 		Updates
 		-------
@@ -317,6 +326,7 @@ class DINGO(pe.Workflow):
 			self.base_dir = input_fields['data_dir']
 		if 'name' in input_fields:
 			self.name = input_fields['name']
+		print('Nipype cache at: %s' % os.path.join(self.base_dir,self.name))
 
 		#Set up from config
 		self.create_config_inputs(**input_fields)
@@ -384,7 +394,6 @@ class DINGO(pe.Workflow):
 					self.input_connections[name] = {}
 			print('Create Workflow/Node Name:%s, Obj:%s' % (name, step))
 			self.create_subwf(step, name)
-			
 		self._connect_subwfs()
 		
 		
@@ -396,24 +405,36 @@ class DINGOmeta(type):
 			'JoinNode'	:	pe.JoinNode, 
 			'MapNode'	:	pe.MapNode
 		}
+		print('mcls: %s' % mcls)
+		print('name: %s' % name)
+		print(bases)
+		print('attrs: %s' % attrs)
 		if 'nipype_parent' in attrs.keys() and \
+		attrs['nipype_parent'] is not None and \
 		not any([v in bases for v in nipype_types.iteritems()]):
 			newbases = (nipype_types[attrs['nipype_parent']],)
-			return type.__new__(mcls, name, newbases, attrs)
+			return super(DINGOmeta, mcls).__new__(mcls, name, newbases, attrs)
+		else:
+			return super(DINGOmeta, mcls).__new__(mcls, name, bases, attrs)
 		
 		
 class DINGObase(object):
-	#__metaclass__ = DINGOmeta
+#	__metaclass__ = DINGOmeta
 	config_inputs = 'config_inputs'
 	connection_spec = {}
 	
-	def __init__(self, connection_spec=None, inputs_name=None, **kwargs):
+	def __init__(self, connection_spec=None, inputs_name=None, 
+#	nipype_parent=None, 
+	**kwargs):
 		
 		if inputs_name is not None:
 			self.config_inputs = inputs_name
-		
+			
 		if connection_spec is not None:
 			self.connection_spec.update(connection_spec)
+			
+#		if nipype_parent is not None:
+#			self.nipype_parent = nipype_parent
 	
 
 class DINGOflow(pe.Workflow, DINGObase):
@@ -429,26 +450,16 @@ class DINGOflow(pe.Workflow, DINGObase):
 		DINGObase.__init__(self,
 			connection_spec=connection_spec,
 			inputs_name=inputs_name)
-
 			
 			
 class DINGOnode(pe.Node, DINGObase):
 	"""Add requisite properties to Nipype Node. Output folder 'Name', will be in
 	 the parameterized iterables folders.
 	 """
-	#_joinsource = 'config_inputs'
-	#connection_spec = {}
 	
 	def __init__(self, connection_spec=None, inputs_name=None, **kwargs):
 		pe.Node.__init__(self, **kwargs)
 		DINGObase.__init__(self, 
 			connection_spec=connection_spec,
 			inputs_name=inputs_name)
-		#super(DINGOnode,self).__init__(**kwargs)
-		
-		#if inputs_name is not None:
-			#self._joinsource = inputs_name
-		
-		#if connection_spec is not None:
-			#self.connection_spec.update(connection_spec)
 	

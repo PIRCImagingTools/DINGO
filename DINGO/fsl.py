@@ -1,9 +1,7 @@
 import os
-from nipype import config, logging
 
 from DINGO.utils import (DynImport, read_config, split_chpid, find_best,
 						join_strs, add_id_subs, fileout_util)
-from DINGO.wf import (HelperFlow, SplitIDs, FileIn, FileIn_SConfig, FileOut)
 from DINGO.base import DINGO, DINGOflow, DINGOnode
 
 from nipype import IdentityInterface, Function
@@ -16,6 +14,7 @@ from nipype.workflows.dmri.fsl import tbss
 
 from traits.api import Trait
 
+#from nipype import config, logging
 #config.enable_debug_mode()
 #logging.update_logging(config)
 	
@@ -153,10 +152,16 @@ class ApplyXFM(DINGOflow):
 	def __init__(self,name='ApplyXFM', inputs={}, **kwargs):
 		super(ApplyXFM, self).__init__(name=name, **kwargs)
 		
+		if 'iterfield' in inputs:
+			iterfield = inputs['iterfield']
+			del inputs['iterfield']
+		else:
+			iterfield = 'in_file'
+		
 		xfmnode = pe.MapNode(
 			name='xfmnode',
 			interface=fsl.ApplyXFM(**inputs),
-			iterfield=['in_file'])
+			iterfield=iterfield)
 		self.add_nodes([xfmnode])
 
 class FNIRT(DINGOnode):
@@ -173,8 +178,10 @@ class FNIRT(DINGOnode):
 			**kwargs)
 		
 		
-class ApplyWarp(DINGOnode):
+class ApplyWarp(DINGOflow):
 	
+	_inputnode = 'warpnode'
+	_outputnode = 'warpnode'
 	connection_spec = {
 		'in_file'		:	['FileIn','in_file'],
 		'ref_file'		:	['FileIn','ref_file'],
@@ -182,10 +189,19 @@ class ApplyWarp(DINGOnode):
 	}
 	
 	def __init__(self,name='fsl_applywarp', inputs={}, **kwargs):
-		super(ApplyWarp, self).__init__(
-			name=name,
+		super(ApplyWarp, self).__init__(name=name, **kwargs)
+			
+		if 'iterfield' in inputs:
+			iterfield = inputs['iterfield']
+			del inputs['iterfield']
+		else:
+			iterfield = 'in_file'
+			
+		warpnode = pe.MapNode(
+			name='warpnode',
 			interface=fsl.ApplyWarp(**inputs),
-			**kwargs)
+			iterfield=iterfield)
+		self.add_nodes([warpnode])
 		
 		
 class FSL_genFA(DINGOflow):
@@ -228,12 +244,12 @@ class FSL_nonlinreg(DINGOflow):
 		if 'flirtopts' in inputs:
 			flirtopts = inputs['flirtopts']
 		else:
-			flirtopts = {}
+			flirtopts = {'fieldcoeff_file':True}
 		
 		if 'fnirtopts' in inputs:
 			fnirtopts = inputs['fnirtopts']
 		else:
-			fnirtopts = {}
+			fnirtopts = {'dof':12}
 			
 		if 'FA' in inputs and inputs['FA']:
 			if fsl.no_fsl():
@@ -286,7 +302,7 @@ class TBSS_prereg(DINGOflow):
 				interface=IdentityInterface(
 					fields=['fa_list']),
 					mandatory_inputs=True,
-				joinsource=self._joinsource,
+				joinsource=self.config_inputs,
 				joinfield=['fa_list'])
 		else:
 			inputnode = pe.Node(
@@ -582,7 +598,7 @@ class TBSS_postreg(DINGOflow):
 				name='inputnode',
 				interface=IdentityInterface(
 					fields=['id_list','fa_list','field_list','mm_list']),
-				joinsource=self._joinsource,
+				joinsource=self.config_inputs,
 				joinfield=['field_list','mm_list'])
 		else:
 			inputnode = pe.Node(

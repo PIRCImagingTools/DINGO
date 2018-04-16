@@ -479,7 +479,8 @@ class FileIn(DINGOnode):
 		inputs['field_template'] is None or \
 		len(inputs['field_template']) != lof:
 			if lof != lex:
-				raise ValueError('len(outfields): %d != len(ext) %d' % (lof, lex))
+				raise ValueError('len(outfields): %d != len(ext) %d' 
+					% (lof, lex))
 			field_template = dict()
 			for i in range(0,lof):
 				field_template.update(
@@ -556,7 +557,8 @@ class FileIn_SConfig(DINGOflow):
 		if 'outfields' in inputs and inputs['outfields'] is not None:
 			inputnode.inputs.outfields = inputs['outfields']
 		else:
-			raise KeyError('inputs["outfields"] must be specified to instantiate %s' 
+			raise KeyError('inputs["outfields"] must be specified to '
+				'instantiate %s' 
 				% self.__class__)
 		if 'sub_id' in inputs and inputs['sub_id'] is not None:
 			inputnode.inputs.sub_id = inputs['sub_id']
@@ -592,7 +594,7 @@ class FileIn_SConfig(DINGOflow):
 					'scan_id',
 					'uid',
 					'config',
-					'path_keys',
+					'outfields',
 					'repl'],
 				output_names=['field_template'],
 				function=self.create_field_template))
@@ -615,14 +617,15 @@ class FileIn_SConfig(DINGOflow):
 									('sub_id','sub_id'),
 									('scan_id','scan_id'),
 									('uid','uid'),
-									('outfields','path_keys')]),
+									('outfields','outfields')]),
 			(inputnode, filein, [('base_directory','base_directory')]),
 			(cfgpath, read_conf, [('path','configpath')]),
 			(read_conf, create_ft, [('configdict','config')]),
 			(create_ft, filein, [('field_template','field_template')])
 			])
 
-	def cfgpath_from_ids(base_directory=None, sub_id=None, scan_id=None, uid=None):
+	def cfgpath_from_ids(base_directory=None, \
+	sub_id=None, scan_id=None, uid=None):
 		if base_directory is not None and \
 		sub_id is not None and \
 		scan_id is not None and \
@@ -633,54 +636,67 @@ class FileIn_SConfig(DINGOflow):
 			cfgname = '_'.join(cfgname)
 			return os.path.join(base_directory, sub_id, scan_id, cfgname)
 			
-	def create_field_template(base_directory=None, sub_id=None, scan_id=None, uid=None,\
-		config=None, path_keys=None, repl=None):
-			import os
-			defrepl = {
-				'pid'			:	sub_id,
-				'scanid'		:	scan_id,
-				'sequenceid'	:	uid,
-				'parent_dir'	:	base_directory
-			}
-			#set up replacement dict
-			if repl is None:
-				myrepl = defrepl
+	def create_field_template(base_directory=None, \
+	sub_id=None, scan_id=None, uid=None,\
+	config=None, outfields=None, repl=None):
+		import os
+		defrepl = {
+			'pid'			:	sub_id,
+			'scanid'		:	scan_id,
+			'sequenceid'	:	uid,
+			'parent_dir'	:	base_directory
+		}
+		#compare (error sanity check) to config
+		for k,v in defrepl.iteritems():
+			if config[k] != v:
+				raise Exception('Subject config error[%s]: '
+					'Expecting %s, Got %s'
+					% (k, v, config[k]))
+					
+		def add_dir(key, config):
+			dirkey = '_'.join((key,'dir'))
+			if dirkey in config['paths']:
+				dirvalue = config['paths'][dirkey]
 			else:
-				myrepl = dict()
-				if isinstance(repl, (list,tuple)):
-					for e in repl:
-						myrepl.update({e:'placeholder'})
-				elif isinstance(repl, (str,unicode)):
-					myrepl.update({repl:'placeholder'})
-				elif isinstance(repl, dict):
-					myrepl = repl
-				for k,v in defrepl.iteritems():
-					if k not in myrepl:
-						myrepl.update({k:v})
-			#get or compare (error check) to config
-			values = [None] * len(myrepl)
+				dirvalue = ''
+			return os.path.join(dirvalue, config['paths'][key])
+		
+		#get values from config
+		myrepl = dict()
+		if isinstance(repl, (str,unicode)):
+			myrepl.update({repl:config['paths'][repl]})
+		elif isinstance(repl, (list,tuple)):
+			for e in repl:
+				myrepl.update({e:config['paths'][e]})
+		elif isinstance(repl, dict):
+			myrepl = repl
+			
+		#value substitution of placeholders
+		for e in repl: #repl must be in most to least dependent order
+			for mk,mv in myrepl.iteritems():
+				if e in mv:
+					myrepl.update({mk:mv.replace(e,myrepl[e])})
+								
+		#create field template dict
+		field_template = dict()
+		for o in outfields:
+			#add dir to outfield not repl so it's not duplicated
+			value = config['paths'][o]
+			dirkey = '_'.join((o, 'dir'))
+			if dirkey in config['paths']:
+				dirvalue = config['paths'][dirkey]
+			else:
+				dirvalue = ''
+			value = os.path.join(dirvalue, value)
 			for k,v in myrepl.iteritems():
-				if v == 'placeholder':
-					myrepl.update({k:config['paths'][k]})
-				elif config[k] != v:
-					raise Exception('Subject config error[%s]: '
-						'Expecting %s, Got %s'
-						% (k, v, config[k]))			
-			#create field template dict
-			field_template = {}
-			for pathkey in path_keys:
-				value = config['paths'][pathkey]
-				dirkey = '_'.join((pathkey, 'dir'))
-				if dirkey in config['paths']:
-					dirvalue = config['paths'][dirkey]
-				else:
-					dirvalue = ''
-				value = os.path.join(dirvalue, config['paths'][pathkey])
-				for k,v in myrepl.iteritems():
+				if k in value:
 					value = value.replace(k, v)
-				field_template.update({pathkey:value})
-				
-			return field_template
+			for dk,dv in defrepl.iteritems():
+				if dk in value:
+					value = value.replace(dk, dv)
+			field_template.update({o:value})
+			
+		return field_template
 		
 
 class FileOut(DINGOflow):
@@ -688,28 +704,28 @@ class FileOut(DINGOflow):
 	Parameters
 	----------
 	name 				:	Workflow name
-	pnames				:	List of parent flow names determine subcontainer
-	in_files			:	List of files to write
-	substitutions		:	List of tuple pairs for filename substitutions
-		('input_id' substitute will be replaced with subid_scanid_uid)
-		e.g. [('input_id','id'),('dtifit_','input_id')] ->
-			['input_id','id'),('dtifit_','subid_scanid_uid')]
+	inputs				:	Dict
+			whether to make sink a mapnode
+		substitutions	:	List of pairs for filename substitutions
+			(s2r substitute will be replaced with subid_scanid_uid)
+			e.g. [('input_id','id'),('dtifit_','input_id')] ->
+				[('input_id','id'),('dtifit_','subid_scanid_uid')]
+		s2r				:	Str
+			replace in substitutions
+		infields		:	List of output fields
+		iterfield		:	Str, infield used as iterfield
+		parent_dir		:	Str
+		sub_id			:	Str
+		scan_id			:	Str
+		uid				:	Str
 		
 	Returns
 	-------
 	fileout Nipype workflow
 	
-	Inputs
-	------
-	inputnode.parent_dir		:	directory of subject folders
-	inputnode.sub_id			:	subject id
-	inputnode.scan_id			:	scan id
-	inputnode.uid				:	unique id
-	inputnode.in_files			:	files to write
-	
 	Outputs
 	-------
-	Files written to parent_dir/sub_id/scan_id/pnames
+	Files written to parent_dir/sub_id/scan_id/
 	"""
 	_inputnode = 'inputnode'
 	_outputnode = 'sink'
@@ -721,12 +737,21 @@ class FileOut(DINGOflow):
 	}
 	
 	def __init__(self, name='FileOut_SubScanUID',\
-	inputs=dict(substitutions=None, s2r='input_id', infields=None,\
+	inputs=dict(substitutions=None, s2r='input_id', \
+	iterfield=None, infields=None, \
 	parent_dir=None, sub_id=None, scan_id=None, uid=None),\
 	**kwargs):
 
 		super(FileOut, self).__init__(name=name, **kwargs)
 		
+		
+		if 'iterfield' in inputs and inputs['iterfield'] is not None:
+			nodetype = pe.MapNode
+			sinkargs = dict(iterfield=inputs['iterfield'])
+		else:
+			nodetype = pe.Node
+			sinkargs = {}
+			
 		inputfields = ['parent_dir','sub_id','scan_id','uid']
 		if 'infields' in inputs and inputs['infields'] is not None:
 			infields = inputs['infields']
@@ -773,7 +798,8 @@ class FileOut(DINGOflow):
 		if 's2r' in inputs and inputs['s2r'] is not None:
 			subs.inputs.s2r = inputs['s2r']
 		
-		sink = pe.Node(name='sink', interface=nio.DataSink(infields=infields))
+		sink = nodetype(name='sink', interface=nio.DataSink(infields=infields),
+			**sinkargs)
 		sink.inputs.parameterization = False
 		
 		for field in infields:
