@@ -14,7 +14,7 @@ from nipype.workflows.dmri.fsl import tbss
 
 from traits.api import Trait
 
-#from nipype import config, logging
+from nipype import config, logging
 #config.enable_debug_mode()
 #logging.update_logging(config)
 	
@@ -351,6 +351,8 @@ class TBSS_reg_NXN(DINGOflow):
 		else:
 			n_procs = 1
 		
+		#update cfg to keep unnecessary outputs, or most of the function nodes
+		#will be empty and rerun each execution
 		cfg = dict(execution={'remove_unnecessary_outputs':False})
 		config.update_config(cfg)
 		#In order to iterate over something not set in advance, workflow must be
@@ -539,6 +541,8 @@ class TBSS_reg_NXN(DINGOflow):
 		"""
 		from DINGO.fsl import TBSS_reg_NXN
 		import os
+		import gzip
+		import pickle
 		
 		if (target is not None) and \
 		(target_id is not None) and \
@@ -557,18 +561,38 @@ class TBSS_reg_NXN(DINGOflow):
 			if (n_procs is None) or (not isinstance(n_procs, int)):
 				n_procs=1
 			
-			results = tbss2n.run(plugin='MultiProc', plugin_args={'n_procs': n_procs})
-			print(results)
-			try:
-				print(results.outputnode.linear_matrix)
-			except:
-				print(results.linear_matrix)
-			mat_list = results.outputs.outputnode.linear_matrix
-			fieldcoeff_list = results.outputs.outputnode.fieldcoeff
-			mean_median_list = results.outputs.outputnode.mean_median
+			#workflow.run() returns a graph whose nodes have no output
+			#but it has the directory where the result_nodename.pklz is located
+			#inputnode and outputnode won't be there, get data directly
+			graph = tbss2n.run(
+				plugin='MultiProc', 
+				plugin_args={'n_procs': n_procs})
+			node_list = list(graph)
 			
-			return mat_list, fieldcoeff_list, mean_median_list
-		
+			node_data = {
+				'flirt'		: 'out_matrix_file',
+				'fnirt'		: 'fieldcoeff_file',
+				'meanmedian': 'out_stat'
+			}
+			
+			def read_result(name, data_dict, node):
+				result_filename = os.path.join(
+					node._output_dir,
+					''.join(('result_', name, '.pklz'))
+				)
+				with gzip.open(result_filename, 'rb') as f:
+					data = pickle.load(f)
+				return getattr(data.outputs, data_dict[name])
+				
+			for node in node_list:
+				if node.name == 'flirt':
+					mat_list = read_result('flirt', node_data, node)
+				elif node.name == 'fnirt':
+					fieldcoeff_list = read_result('fnirt', node_data, node)
+				elif node.name == 'meanmedian':
+					mm_list = read_result('meanmedian', node_data, node)
+			
+			return mat_list, fieldcoeff_list, mm_list
 		
 		
 class TBSS_postreg(DINGOflow):
@@ -581,38 +605,33 @@ class TBSS_postreg(DINGOflow):
 		'mm_list'		:	['TBSS_reg_NXN','mean_median_list']
 	}
 	
-	#Join is still required for best target
-	#going from list[files] to list[list[files]]
 	def __init__(self, name='TBSS_postreg',\
 	inputs=dict(target='best',estimate_skeleton=True,suffix='warp'), **kwargs):
 		
 		if 'target' not in inputs:
 			inputs.update(target='best')
 			#other possibility is 'FMRIB58_FA_1mm.nii.gz'
-		
-		#super to set _joinsource
-		super(TBSS_postreg, self).__init__(name=name, **kwargs)
-			
-		if inputs['target']=='best':
-			inputnode = pe.JoinNode(
-				name='inputnode',
-				interface=IdentityInterface(
-					fields=['id_list','fa_list','field_list','mm_list']),
-				joinsource=self.config_inputs,
-				joinfield=['field_list','mm_list'])
-		else:
-			inputnode = pe.Node(
-				name='inputnode',
-				interface=IdentityInterface(
-					fields=['id_list','fa_list','field_list','mm_list']))
-		
 		if 'estimate_skeleton' not in inputs:
 			inputs.update(estimate_skeleton=True)
-			
 		if 'suffix' not in inputs:
-			inputs.update(suffix='warp')
+			inputs.update(suffix='inMNI_warp.nii.gz')
+		
+		super(TBSS_postreg, self).__init__(name=name, **kwargs)
 			
-				
+		inputnode = pe.Node(
+			name='inputnode',
+			interface=IdentityInterface(
+				fields=['id_list','fa_list','field_list','mm_list']))
+		if 'id_list' in inputs and inputs['id_list'] is not None:
+			inputnode.inputs.id_list = inputs['id_list']
+		if 'fa_list' in inputs and inputs['fa_list'] is not None:
+			inputnode.inputs.fa_list = inputs['fa_list']
+		if 'field_list' in inputs and inputs['field_list'] is not None:
+			inputnode.inputs.field_list = inputs['field_list']
+		if 'mm_list' in inputs and inputs['mm_list'] is not None:
+			inputnode.inputs.fa_list = inputs['mm_list']
+
+			
 		tbss3 = self.create_tbss_3_postreg(**inputs)
 		
 		self.connect(inputnode, 'id_list', tbss3, 'inputnode.id_list')
@@ -621,7 +640,38 @@ class TBSS_postreg(DINGOflow):
 		self.connect(inputnode, 'mm_list', 
 					 tbss3, 'inputnode.means_medians_lists')
 					
+	def find_best(id_list, list_numlists):
+		"""take synced id_list and list of lists with means, medians, return id and
+		mean_median that are smallest"""
+		#TODO implement
+		#check lengths
+		nids = len(id_list)
+		nnumlists = len(list_numlists)
+		if nids != nnumlists:
+			msg = ('N_ids: %d != N_lists: %d. Verify data and workflow' % 
+				(nids, nnumlists))
+			raise IndexError(msg)
+		else:
+			idmeans = []
+			idmedians = []
+			for i in range(0, nids):
+				nnums = len(list_numlists[i])
+				if nids != nnums:
+					msg = ('Warning: N_nums: %d for ID: %s is not N_ids: %d' %
+						(nnums, id_list[i], nids))
+					print(msg)
+				idmean = sum(list_numlists[i][0]) / len(list_numlists[i][0])
+				idmeans.append(idmean)
+				idmedian = sum(list_numlists[i][1]) / len(list_numlists[i][0])
+				idmedians.append(idmedian)
+				
+			best_index = idmeans.index(min(idmeans))
+			best_id = id_list[best_index]
+			best_mean = idmeans[best_index]
+			best_median = idmeans[best_index]
 
+		return best_index, best_id, best_mean, best_median
+	
 	def create_find_best(self, name="find_best"):
 		"""Find best target for FA warps, to minimize mean deformation
 		
@@ -657,7 +707,7 @@ class TBSS_postreg(DINGOflow):
 			interface=Function(
 				input_names=['id_list','list_numlists'],
 				output_names=['best_index','best_id','best_mean','best_median'],
-				function=find_best))
+				function=TBSS_postreg.find_best))
 		
 		selectfa = pe.Node(
 			name='selectfa',
@@ -779,13 +829,39 @@ class TBSS_postreg(DINGOflow):
 		applywarp = pe.MapNode(
 			name='applywarp',
 			interface=fsl.ApplyWarp(),
-			iterfield=['in_file', 'field_file'])
+			iterfield=['in_file', 'field_file', 'out_file'])
 			
 		if fsl.no_fsl():
 			warn('NO FSL found')
 		else:
 			applywarp.inputs.ref_file = fsl.Info.standard_image(
 				"FMRIB58_FA_1mm.nii.gz")
+		
+		# Merge the FA files into a 4D file
+		mergefa = pe.Node(
+			name='mergefa',
+			interface=fsl.Merge(dimension='t'))
+			
+		# Take the mean over the fourth dimension
+		meanfa = pe.Node(
+			name='meanfa',
+			interface=fsl.ImageMaths(
+				op_string="-Tmean",
+				suffix="_mean"))
+				
+		# Get a group mask
+		groupmask = pe.Node(
+			name='groupmask',
+			interface=fsl.ImageMaths(
+				op_string="-max 0 -Tmin -bin",
+				out_data_type="char",
+				suffix="_mask"))
+
+		maskgroup = pe.Node(
+			name='maskgroup',
+			interface=fsl.ImageMaths(
+				op_string="-mas",
+				suffix="_masked"))
 			
 		if target == 'best':
 			#Find best target that limits mean deformation, insert before applywarp
@@ -803,8 +879,15 @@ class TBSS_postreg(DINGOflow):
 			rename2target.inputs.sep = '_'
 			rename2target.inputs.arg1 = 'to'
 			if suffix is None:
-				suffix = 'warp'
+				suffix = 'inMNI_warp.nii.gz'
 			rename2target.inputs.arg3 = suffix
+			
+			def best2merged(best_id):
+				return '_'.join(
+					('best', 
+					best_id, 
+					'inMNI', 
+					'warp_merged.nii.gz'))
 				
 			tbss3.connect([
 				(inputnode, fb, 
@@ -817,6 +900,9 @@ class TBSS_postreg(DINGOflow):
 				(inputnode, applywarp, 
 					[('fa_list','in_file')]),
 				(fb, rename2target, [('outputnode.best_id','arg2')]),
+				(fb, mergefa, [(('outputnode.best_id', 
+								best2merged), 
+								'merged_file')]),
 				(fb, applywarp, 
 					[('outputnode.2best_fields_list','field_file'),
 					('outputnode.best_fa2MNI_mat','postmat')]),
@@ -830,49 +916,15 @@ class TBSS_postreg(DINGOflow):
 					("field_list", "field_file")])
 				])
 
-			
-		# Merge the FA files into a 4D file
-		mergefa = pe.Node(
-			name='mergefa',
-			interface=fsl.Merge(dimension='t'))
-			
-		# Get a group mask
-		groupmask = pe.Node(
-			name='groupmask',
-			interface=fsl.ImageMaths(
-				op_string="-max 0 -Tmin -bin",
-				out_data_type="char",
-				suffix="_mask"))
-
-		maskgroup = pe.Node(
-			name='maskgroup',
-			interface=fsl.ImageMaths(
-				op_string="-mas",
-				suffix="_masked"))
-			
 		# Create outputnode
 		outputnode = pe.Node(
 			name='outputnode',
 			interface=IdentityInterface(
-				fields=['xfmdfa_list',#may not work
+				fields=[
 					'groupmask_file',
 					'skeleton_file',
 					'meanfa_file',
 					'mergefa_file']))
-					
-		#join warped files
-		#JoinNode in a nested workflow is bugged in Nipype 0.10.0, neurodebian's pkg
-		# for Ubuntu 14.04
-		#updating to nipype 1.0.0 (with the 'fix') lead to an error for JoinNodes
-		#that were in the top level workflow
-		xfmfajoin = pe.JoinNode(
-			name='xfmfajoin',
-			interface=IdentityInterface(
-				fields=['xfmdfa_list']),
-			joinsource='applywarp',
-			joinfield=['xfmdfa_list'])
-		tbss3.connect(applywarp, 'out_file', xfmfajoin, 'xfmdfa_list')
-		tbss3.connect(xfmfajoin, 'xfmdfa_list', outputnode, 'xfmdfa_list')
 			
 		tbss3.connect([
 			(applywarp, mergefa, [("out_file", "in_files")]),
@@ -882,13 +934,6 @@ class TBSS_postreg(DINGOflow):
 			])
 			
 		if estimate_skeleton:
-			# Take the mean over the fourth dimension
-			meanfa = pe.Node(
-				name='meanfa',
-				interface=fsl.ImageMaths(
-					op_string="-Tmean",
-					suffix="_mean"))
-
 			# Use the mean FA volume to generate a tract skeleton
 			makeskeleton = pe.Node(
 			name='makeskeleton',
@@ -930,7 +975,9 @@ class TBSS_postreg(DINGOflow):
 				(binmaskstd, maskgroup2, [("out_file", "in_file2")])
 				])
 
-			outputnode.inputs.skeleton_file = fsl.Info.standard_image("FMRIB58_FA-skeleton_1mm.nii.gz")
+			outputnode.inputs.skeleton_file = \
+			fsl.Info.standard_image("FMRIB58_FA-skeleton_1mm.nii.gz")
+			
 			tbss3.connect([
 				(binmaskstd, outputnode, [('out_file', 'groupmask_file')]),
 				(maskstd, outputnode, [('out_file', 'meanfa_file')]),
@@ -938,6 +985,7 @@ class TBSS_postreg(DINGOflow):
 				])
 				
 		return tbss3
+	
 
 def create_reorient(name='fsl_reorient', **kwargs):
 	reorient = pe.Node(

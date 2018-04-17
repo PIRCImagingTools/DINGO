@@ -663,19 +663,20 @@ class FileIn_SConfig(DINGOflow):
 		
 		#get values from config
 		myrepl = dict()
-		if isinstance(repl, (str,unicode)):
-			myrepl.update({repl:config['paths'][repl]})
-		elif isinstance(repl, (list,tuple)):
-			for e in repl:
-				myrepl.update({e:config['paths'][e]})
-		elif isinstance(repl, dict):
-			myrepl = repl
-			
-		#value substitution of placeholders
-		for e in repl: #repl must be in most to least dependent order
-			for mk,mv in myrepl.iteritems():
-				if e in mv:
-					myrepl.update({mk:mv.replace(e,myrepl[e])})
+		if repl is not None:
+			if isinstance(repl, (str,unicode)):
+				myrepl.update({repl:config['paths'][repl]})
+			elif isinstance(repl, (list,tuple)):
+				for e in repl:
+					myrepl.update({e:config['paths'][e]})
+			elif isinstance(repl, dict):
+				myrepl = repl
+				
+			#value substitution of placeholders
+			for e in repl: #repl must be in most to least dependent order
+				for mk,mv in myrepl.iteritems():
+					if e in mv:
+						myrepl.update({mk:mv.replace(e,myrepl[e])})
 								
 		#create field template dict
 		field_template = dict()

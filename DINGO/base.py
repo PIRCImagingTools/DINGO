@@ -445,7 +445,8 @@ class DINGOflow(pe.Workflow, DINGObase):
 	_inputnode = None
 	_outputnode = None
 	
-	def __init__(self, connection_spec=None, inputs_name=None, **kwargs):
+	def __init__(self, connection_spec=None, inputs_name=None, inputs=None,
+	**kwargs):
 		pe.Workflow.__init__(self, **kwargs)
 		DINGObase.__init__(self,
 			connection_spec=connection_spec,
@@ -457,7 +458,8 @@ class DINGOnode(pe.Node, DINGObase):
 	 the parameterized iterables folders.
 	 """
 	
-	def __init__(self, connection_spec=None, inputs_name=None, **kwargs):
+	def __init__(self, connection_spec=None, inputs_name=None, inputs=None,
+	**kwargs):
 		pe.Node.__init__(self, **kwargs)
 		DINGObase.__init__(self, 
 			connection_spec=connection_spec,

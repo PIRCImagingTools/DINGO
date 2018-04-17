@@ -361,9 +361,9 @@ def find_best(id_list, list_numlists):
 				msg = ('Warning: N_nums: %d for ID: %s is not N_ids: %d' %
 					(nnums, id_list[i], nids))
 				print(msg)
-			idmean = sum(list_numlists[i][0]) / len(list_num_lists[i][0])
+			idmean = sum(list_numlists[i][0]) / len(list_numlists[i][0])
 			idmeans.append(idmean)
-			idmedian = sum(list_numlists[i][1]) / len(list_num_lists[i][0])
+			idmedian = sum(list_numlists[i][1]) / len(list_numlists[i][0])
 			idmedians.append(idmedian)
 			
 		best_index = idmeans.index(min(idmeans))
