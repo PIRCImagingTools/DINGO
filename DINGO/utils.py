@@ -344,8 +344,6 @@ def tobool(s):
 def find_best(id_list, list_numlists):
 	"""take synced id_list and list of lists with means, medians, return id and
 	mean_median that are smallest"""
-	#TODO implement
-	#check lengths
 	nids = len(id_list)
 	nnumlists = len(list_numlists)
 	if nids != nnumlists:
@@ -355,21 +353,21 @@ def find_best(id_list, list_numlists):
 	else:
 		idmeans = []
 		idmedians = []
-		for i in range(0, nids):
-			nnums = len(list_numlists[i])
+		for o in range(0, nids):
+			nnums = len(list_numlists[o])
 			if nids != nnums:
 				msg = ('Warning: N_nums: %d for ID: %s is not N_ids: %d' %
-					(nnums, id_list[i], nids))
+					(nnums, id_list[o], nids))
 				print(msg)
-			idmean = sum(list_numlists[i][0]) / len(list_numlists[i][0])
-			idmeans.append(idmean)
-			idmedian = sum(list_numlists[i][1]) / len(list_numlists[i][0])
-			idmedians.append(idmedian)
+			meangen = (list_numlists[o][i][0] for i in range(0, nids))
+			idmeans.append( sum(meangen) / nids)
+			mediangen = (list_numlists[o][i][1] for i in range(0, nids))
+			idmedians.append( sum(mediangen) / nids)
 			
 		best_index = idmeans.index(min(idmeans))
 		best_id = id_list[best_index]
 		best_mean = idmeans[best_index]
-		best_median = idmeans[best_index]
+		best_median = idmedians[best_index]
 
 	return best_index, best_id, best_mean, best_median
 	

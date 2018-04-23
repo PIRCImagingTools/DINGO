@@ -606,7 +606,9 @@ class TBSS_postreg(DINGOflow):
 	}
 	
 	def __init__(self, name='TBSS_postreg',\
-	inputs=dict(target='best',estimate_skeleton=True,suffix='warp'), **kwargs):
+	inputs=dict(target='best', mask_best=True, estimate_skeleton=True, 
+	suffix='warp'), 
+	**kwargs):
 		
 		if 'target' not in inputs:
 			inputs.update(target='best')
@@ -643,8 +645,6 @@ class TBSS_postreg(DINGOflow):
 	def find_best(id_list, list_numlists):
 		"""take synced id_list and list of lists with means, medians, return id and
 		mean_median that are smallest"""
-		#TODO implement
-		#check lengths
 		nids = len(id_list)
 		nnumlists = len(list_numlists)
 		if nids != nnumlists:
@@ -654,25 +654,25 @@ class TBSS_postreg(DINGOflow):
 		else:
 			idmeans = []
 			idmedians = []
-			for i in range(0, nids):
-				nnums = len(list_numlists[i])
+			for o in range(0, nids):
+				nnums = len(list_numlists[o])
 				if nids != nnums:
 					msg = ('Warning: N_nums: %d for ID: %s is not N_ids: %d' %
-						(nnums, id_list[i], nids))
+						(nnums, id_list[o], nids))
 					print(msg)
-				idmean = sum(list_numlists[i][0]) / len(list_numlists[i][0])
-				idmeans.append(idmean)
-				idmedian = sum(list_numlists[i][1]) / len(list_numlists[i][0])
-				idmedians.append(idmedian)
+				meangen = (list_numlists[o][i][0] for i in range(0, nids))
+				idmeans.append( sum(meangen) / nids)
+				mediangen = (list_numlists[o][i][1] for i in range(0, nids))
+				idmedians.append( sum(mediangen) / nids)
 				
 			best_index = idmeans.index(min(idmeans))
 			best_id = id_list[best_index]
 			best_mean = idmeans[best_index]
-			best_median = idmeans[best_index]
+			best_median = idmedians[best_index]
 
 		return best_index, best_id, best_mean, best_median
 	
-	def create_find_best(self, name="find_best"):
+	def create_find_best(self, name="find_best", mask=True):
 		"""Find best target for FA warps, to minimize mean deformation
 		
 		Inputs
@@ -728,13 +728,21 @@ class TBSS_postreg(DINGOflow):
 			])
 		
 		#register best to MNI152
-		bestmask = pe.Node(
-			name='bestmask',
-			interface=fsl.ImageMaths(op_string='-bin'))
-			
 		best2MNI = pe.Node(
 			name='best2MNI',
 			interface=fsl.FLIRT(dof=12))
+		#Sometimes poor results for flirt when using the -inweight flag, 
+		#Perhaps particularly for low resolution images?
+		#If mask is true (default), will use it
+		#Add mask = False to inputs to do the registration without
+		if mask:
+			bestmask = pe.Node(
+				name='bestmask',
+				interface=fsl.ImageMaths(op_string='-bin'))
+			fb.connect([
+				(selectfa, bestmask, [('out','in_file')]),
+				(bestmask, best2MNI, [('out_file','in_weight')])
+			])
 			
 		if fsl.no_fsl():
 			warn('NO FSL found')
@@ -754,9 +762,7 @@ class TBSS_postreg(DINGOflow):
 					'2best_fields_list']))
 				
 		fb.connect([
-			(selectfa, bestmask, [('out','in_file')]),
 			(selectfa, best2MNI, [('out','in_file')]),
-			(bestmask, best2MNI, [('out_file','in_weight')]),
 			(best2MNI, outputnode,
 				[('out_file','best_fa2MNI'),
 				('out_matrix_file','best_fa2MNI_mat')]),
@@ -768,7 +774,7 @@ class TBSS_postreg(DINGOflow):
 		
 
 	def create_tbss_3_postreg(self, name='tbss_3_postreg',\
-	estimate_skeleton=True, suffix=None, target='best',\
+	estimate_skeleton=True, suffix=None, target='best', mask_best=True,\
 	id_list=None, fa_list=None, field_list=None, mm_list=None):
 		"""find best target from fa_list, then apply warps
 		
@@ -865,7 +871,7 @@ class TBSS_postreg(DINGOflow):
 			
 		if target == 'best':
 			#Find best target that limits mean deformation, insert before applywarp
-			fb = self.create_find_best(name='find_best')
+			fb = self.create_find_best(name='find_best', mask=mask_best)
 			
 			rename2target = pe.MapNode(
 				name='rename2target',

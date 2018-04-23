@@ -251,11 +251,11 @@ class DSI_TRK(DINGOflow):
 				output_names=['real_region_tract_input'],
 				function=self.replace_regions))
 		
+		cfg = dict(execution={'remove_unnecessary_outputs':False})
+		config.update_config(cfg)
 		#DSI Studio will only accept 5 ROIs or 5 ROAs. A warning would normally 
 		#be shown that only the first five listed will be used, but merging the 
 		#ROAs is viable.
-		cfg = dict(execution={'remove_unnecessary_outputs':False})
-		config.update_config(cfg)
 		merge_roas = self.create_merge_roas(name='merge_roas')
 
 		trknode = TRKnode(
@@ -297,6 +297,8 @@ class DSI_TRK(DINGOflow):
 							if re.search(pattern, realregion):
 								region_files.append(realregion)
 								break
+					if len(region_files) != len(regionname_list):
+						raise Exception('Incorrect number of regions found')
 					tract_input.update({reg_type : region_files})
 		return tract_input
 								
