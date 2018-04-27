@@ -19,7 +19,6 @@ class DINGO(pe.Workflow):
 	workflow_to_module = {
 		'SplitIDs'					:	'DINGO.wf',
 		'SplitIDs_iterate'			:	'DINGO.wf',
-		'IterateIDs'				:	'DINGO.wf',
 		'FileIn'					:	'DINGO.wf',
 		'FileIn_SConfig'			:	'DINGO.wf',
 		'FileOut'					:	'DINGO.wf',
@@ -41,20 +40,7 @@ class DINGO(pe.Workflow):
 		'DSI_REC'					:	'DINGO.DSI_Studio',
 		'DSI_TRK'					:	'DINGO.DSI_Studio',
 		'DSI_ANA'					:	'DINGO.DSI_Studio',
-		'DSI_EXP'					:	'DINGO.DSI_Studio',
-		'create_reorient'			:	'DINGO.fsl',
-		'create_eddyc'				:	'DINGO.fsl',
-		'create_bet'				:	'DINGO.fsl',
-		'create_dtifit'				:	'DINGO.fsl',
-		'create_genFA'				:	'DINGO.fsl',
-		'create_flirt'				:	'DINGO.fsl',
-		'create_fnirt'				:	'DINGO.fsl',
-		'create_ind_nonlinreg'		:	'DINGO.fsl',
-		'create_nonlinreg'			:	'DINGO.fsl',
-		'create_invwarp_all2best'	:	'DINGO.fsl',
-		'create_warp_regions'		:	'DINGO.fsl',
-		'create_applywarp'			:	'DINGO.fsl',
-		'create_tbss_registration'	:	'DINGO.fsl'
+		'DSI_EXP'					:	'DINGO.DSI_Studio'
 	}
 
 	workflow_connections = dict()

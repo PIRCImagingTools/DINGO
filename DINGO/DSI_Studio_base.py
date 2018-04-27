@@ -604,7 +604,7 @@ class DSIStudioFiberInputSpec(DSIStudioInputSpec):
 		desc="output tract file name, format may be txt, trk, or nii",
 		position=3)
 		
-	tract_name = traits.Str(desc='suffix to append to source filename')
+	tract_name = traits.Str(desc='prefix to append to source filename')
 		
 	endpt = traits.Bool(
 		argstr="--end_point=%s",
@@ -1252,12 +1252,13 @@ class DSIStudioTrack(DSIStudioFiberCommand):
 				os.path.abspath(getattr(self.inputs, 'source')))
 			tract_name = getattr(self.inputs, 'tract_name')
 			if isdefined(tract_name):
-				sfx = ''.join(('_',tract_name))
+				pfx = ''.join((tract_name,'_'))
 			else:
-				sfx = '_track'
+				pfx = ''
 			fname = []
-			fname.extend((infilename,
-				sfx,
+			fname.extend((
+				pfx,
+				infilename,
 				DSIInfo.ot_to_ext(self.inputs.output_type)))
 			return ''.join(fname)
 		else:
@@ -1316,20 +1317,21 @@ class DSIStudioAnalysis(DSIStudioFiberCommand):
 			sourceval = getattr(self.inputs, 'source')
 			
 			if isdefined(tract_name):
-				sfx = ''.join(('_',tract_name))
+				pfx = ''.join((tract_name,'_'))
 			else:
-				sfx = '_track'
+				pfx = ''
 				
 			if isdefined(tractval):
 				_, infilename, _ = split_filename(os.path.abspath(tractval))
-				sfx = ''
+				pfx = ''
 			else:
 				_, infilename, _ = split_filename(os.path.abspath(sourceval))
 
 			fname = []
-			fname.extend((infilename,
-						  sfx,
-						  DSIInfo.ot_to_ext(self.inputs.output_type)))
+			fname.extend((
+				pfx,
+				infilename,
+				DSIInfo.ot_to_ext(self.inputs.output_type)))
 			return ''.join(fname)
 		else:
 			return super(DSIStudioFiberCommand, self)._gen_filename(name)
