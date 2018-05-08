@@ -101,7 +101,7 @@ class DICE(DINGOflow):
 		create_bn = pe.Node(
 			name='create_bn',
 			interface=Function(
-				input_names=['sep','subfolder','nii',
+				input_names=['sep','subfolder','tract_name',
 				'basedir','subid','scanid','uid'],
 				output_names=['file'],
 				function=DICE.create_basename))
@@ -115,6 +115,7 @@ class DICE(DINGOflow):
 				('nii_list_B', 'tract_list'),
 				('tract_names', 'tract_name')]),
 			(inputnode, create_bn, [
+				('tract_names', 'tract_name'),
 				('sep', 'sep'),
 				('subfolder', 'subfolder'),
 				('base_dir', 'basedir'),
@@ -125,8 +126,6 @@ class DICE(DINGOflow):
 				('tract', 'nii_A')]),
 			(getB, dicenode, [
 				('tract', 'nii_B')]),
-			(getB, create_bn, [
-				('tract', 'nii')]),
 			(create_bn, dicenode, [
 				('file', 'output_bn')])
 		])
@@ -144,7 +143,7 @@ class DICE(DINGOflow):
 		Will raise if tract not matched, or more than one match.
 		"""
 		import re
-		pattern = ''.join(('(?<=[\\\\_\/])(?P<tract>',tract_name,')(?=\.trk)'))
+		pattern = ''.join(('(?<=[\\\\_\/])(?P<tract>',tract_name,')'))
 		comp = re.compile(pattern)
 		searchall = [re.search(comp, t) for t in tract_list]
 		tractsearch = filter(lambda x: x is not None, searchall)
@@ -158,14 +157,14 @@ class DICE(DINGOflow):
 			% tract_name)
 		return tract
 	
-	def create_basename(nii=None, 
+	def create_basename(tract_name=None, 
 	basedir=None, subid=None, scanid=None, uid=None, subfolder='', sep='_'):
 		"""Takes a file along with basedir, subid, scanid, uid, subfolder 
 		strings and returns a new filename.
 		
 		Parameters
 		------
-		nii			:	Str
+		tract_name	:	Str
 		basedir		:	Str
 		subid		:	Str - subfolder to basedir and leads new filename
 		scanid		:	Str - subfolder to subid, after subid in filename
@@ -176,11 +175,10 @@ class DICE(DINGOflow):
 		Returns
 		-------
 		basename	:	Str
-			basename = '_'.join((subid, scanid, uid, tract, 'DICE'))
+			basename = '_'.join((subid, scanid, uid, 'DICE', tract_name))
 			os.path.join(basedir, subid, scanid, subfolder, basename)
 		"""
 		import os
-		import re
 		from nipype.interfaces.base import isdefined
 		
 		if not isdefined(subfolder):
@@ -194,15 +192,8 @@ class DICE(DINGOflow):
 		
 		if not isdefined(sep):
 			sep = '_'
-		if nii and basedir and subid and scanid and uid:
-			pattern = '(?<=[\\\\_\/])(?P<tract>\w*)(?=\.trk)'
-			thissearch = re.search(pattern, nii)
-			if thissearch:
-				tract = thissearch.group('tract')
-				basename = sep.join((subid, scanid, uid, 'DICE', tract))
-			else:
-				print('Could not find tract name in nii: %s' % nii)
-				basename = sep.join((subid, scanid, uid, 'DICE'))
+		if tract_name and basedir and subid and scanid and uid:
+			basename = sep.join((subid, scanid, uid, 'DICE', tract_name))
 				
 			return os.path.join(path, basename)
 				
