@@ -527,11 +527,11 @@ class DSIStudioFiberInputSpec(DSIStudioInputSpec):
 				"shiftx","shiftnx","shifty","shiftny","shiftz","shiftnz")),
 		sep=",",
 		desc="action codes to modify ends regions, list for each end")
-	ter = File(exists=True, 
+	ter = InputMultiPath(File(exists=True), 
 		argstr="--ter=%s",
 		desc="terminates any track that enters this region, txt, analyze, "
 			"or nifti")
-	ter_ar = traits.Str( 
+	ter_ar = traits.List(traits.Str(),
 		requires=["ter_atlas"],
 		desc="region in atlas, terminates any track that enters")
 	ter_actions = traits.List(
@@ -580,12 +580,12 @@ class DSIStudioFiberInputSpec(DSIStudioInputSpec):
 		requires=['ends_ar'],
 		sep=",",
 		desc="atlas name(s) found in dsistudio/build/atlas")
-	ter_atlas = traits.Enum(
+	ter_atlas = traits.List(traits.Enum(
 		"aal", "ATAG_basal_ganglia", "brodmann", "Cerebellum-SUIT",
 		"FreeSurferDKT", "Gordan_rsfMRI333", "HarvardOxfordCort",
 		"HarvardOxfordSub","HCP-MMP1","JHU-WhiteMatter-labels-1mm",
 		"MNI", "OASIS_TRT_20", "sri24_tissues","sri24_tzo116plus",
-		"talairach","tractography",
+		"talairach","tractography"),
 		requires=['ter_ar'],
 		sep=",",
 		desc="atlas name(s) found in dsistudio/build/atlas")
@@ -701,6 +701,21 @@ class DSIStudioFiberInputSpec(DSIStudioInputSpec):
 		argstr="--ref=%s",
 		desc="output track coordinate based on a reference image, "
 			"e.g. T1w or T2w")
+	cluster = traits.Bool(
+		argstr="--cluster=%d,%d,%d,%s",
+		requires=["cluster_method_id","cluster_count","cluster_res",
+			"cluster_output_fname"],
+		desc="whether to run track clustering after fiber tracking")
+	cluster_method_id = traits.Enum(0,1,2,
+		desc="0:single-linkage, 1:k-means, 2:EM")
+	cluster_count = traits.Int(0,
+		desc="Total number of clusters assigned in k-means or EM. "
+			"In single-linkage, the maximum number of clusters allowed to avoid"
+			"over-segmentation.")
+	cluster_res = traits.Int(0,
+		desc="Mini meter resolution for merging clusters in single-linkage")
+	cluster_output_fname = traits.Str(
+		desc="Text file name for cluster label output (no spaces)")
 
 
 
@@ -1050,7 +1065,9 @@ class DSIStudioFiberCommand(DSIStudioCommand):
 			for i in range(0,lenvalue):
 				if i == 0:
 					roin = ''
-				elif (name == "rois" or name == "roas") and i > 4:
+				elif (name == "rois" or 
+					  name == "roas" or 
+					  name == "ter") and i > 4:
 					print("Cannot have more than 5 %s, first 5 used.\n"
 						"%s not included" % 
 						(name, ', '.join(value[x] for x in range(i,lenvalue))))
@@ -1102,6 +1119,13 @@ class DSIStudioFiberCommand(DSIStudioCommand):
 			else:
 				raise IndexError("N inputs for connectivity, connectivity_"
 				"type, connectivity_value must be equal")
+		
+		elif name == "cluster":
+			return argstr % (
+				getattr(self.inputs, "cluster_method_id"),
+				getattr(self.inputs, "cluster_count"),
+				getattr(self.inputs, "cluster_res"),
+				getattr(self.inputs, "cluster_output_fname"))
 		
 		else:
 			#print('Super: ' + argstr) #debug
@@ -1175,6 +1199,10 @@ class DSIStudioTrackInputSpec(DSIStudioFiberInputSpec):
 		argstr="--threshold_index=%s",
 		requires=["fa_threshold"], 
 		desc="assign threshold to another index")
+	otsu_threshold = traits.Float(0.6,
+		usedefault=True,
+		argstr="--otsu_threshold=%.4f",
+		desc="Otsu's threshold ratio")
 	initial_dir = traits.Enum(0,1,2, 
 		argstr="--initial_dir=%d",
 		desc="initial propagation direction, 0:primary fiber (default),"

@@ -42,10 +42,6 @@ class DINGO(pe.Workflow):
 		'DSI_ANA'					:	'DINGO.DSI_Studio',
 		'DSI_EXP'					:	'DINGO.DSI_Studio'
 	}
-
-	workflow_connections = dict()
-	workflow_params = dict()
-	name2step = dict()
 	
 	def __init__(self, workflow_to_module=None, configpath=None, name=None,\
 	**kwargs):
@@ -222,6 +218,7 @@ class DINGO(pe.Workflow):
 		self.subflows[subwfname] = subwfobj
 		self.input_connections[subwfname] = {'input':['src','output']}
 		"""
+		self.workflow_connections = dict()
 		for destkey, destobj in self.subflows.iteritems():
 			try:
 				#make sure repeat objs are not using the same dict
@@ -319,6 +316,7 @@ class DINGO(pe.Workflow):
 		self.subflows = dict()
 		self.input_params = dict()
 		self.input_connections = dict()
+		self.name2step = dict()
 		
 		method = input_fields['method']
 		

@@ -293,10 +293,15 @@ class DSI_TRK(DINGOflow):
 					for regionname in regionname_list:
 						#match pattern preceded by '\' or '_' or '/'
 						pattern = ''.join(('(?<=[\\\\_\/])',regionname))
+						found = False
 						for realregion in regions:#realregion is a filepath
 							if re.search(pattern, realregion):
 								region_files.append(realregion)
+								found = True
 								break
+						if not found:
+							raise Exception('%s not found in region file list'
+								% regionname)
 					if len(region_files) != len(regionname_list):
 						raise Exception('Incorrect number of regions found')
 					tract_input.update({reg_type : region_files})
