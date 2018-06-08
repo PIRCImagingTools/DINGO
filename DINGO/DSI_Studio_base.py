@@ -10,13 +10,13 @@ from DINGO.utils import list_to_str
 
 import pdb
 
-#copied from nipype.interfaces.base.core 
-#with additional imports for debugging purposes
+#copied from nipype.interfaces.base.core for debugging. DSI Studio closing 
+#with returncode 1 for every operation.
 def run_command(runtime, output=None, timeout=0.01):
-    """Run a command, read stdout and stderr, prefix with timestamp.
+    '''Run a command, read stdout and stderr, prefix with timestamp.
 
     The returned runtime contains a merged stdout+stderr log with timestamps
-    """
+    '''
     from nipype.utils.filemanip import (read_stream, 
 										canonicalize_env as _canonicalize_env)
     from nipype.interfaces.base.support import Stream
@@ -151,6 +151,20 @@ def run_command(runtime, output=None, timeout=0.01):
     return runtime
 
 class DSIInfo(object):
+	#atlas list
+	atlases = (
+		'aal', 'ATAG_basal_ganglia', 'brodmann', 'Cerebellum-SUIT',
+		'FreeSurferDKT', 'Gordan_rsfMRI333', 'HarvardOxfordCort',
+		'HarvardOxfordSub','HCP-MMP1','JHU-WhiteMatter-labels-1mm',
+		'MNI', 'OASIS_TRT_20', 'sri24_tissues','sri24_tzo116plus',
+		'talairach','tractography')
+	
+	#region modification actions
+	region_actions = (
+		'smoothing','erosion','dilation','defragment','negate',
+		'flipx','flipy','flipz',
+		'shiftx','shiftnx','shifty','shiftny','shiftz','shiftnz')
+		
 	#file extensions for output types
 	ftypes = {
 		'SRC':		'.src.gz',
@@ -199,31 +213,32 @@ class DSIInfo(object):
 		'hardi':	('mddr','b_value','regularization')}
 				
 	#reconstruction method input ids for method id
-	#NOT LINKED TO rec_nparams, rec_param_types
+	#NOT DIRECTLY LINKED TO rec_param_ids
 	#should include rec_param_ids, but also others, order doesn't matter
 	rec_method_id_inputs = {
-		'dsi':		('check_btable','hanning_filter_width','deconvolution',
-					'decomposition'),
+		'dsi':		('check_btable','hanning_filter_width',
+					'half_sphere','scheme_balance'),
 		'dti':		('check_btable','output_dif','output_tensor'),
 		'frqbi':	('check_btable','interp_kernel_width','smooth_kernel_width',
-					'odf_order','record_odf','num_fiber','deconvolution',
-					'decomposition'),
+					'odf_order','record_odf','num_fiber','half_sphere',
+					'scheme_balance'),
 		'shqbi':	('check_btable','harmonic_order','regularization',
-					'odf_order','record_odf','num_fiber','deconvolution',
-					'decomposition'),
+					'odf_order','record_odf','num_fiber','half_sphere',
+					'scheme_balance'),
 		'gqi':		('check_btable','mddr','r2_weighted','output_rdi',
-					'odf_order','record_odf','num_fiber','deconvolution',
-					'decomposition'),
+					'odf_order','record_odf','num_fiber','half_sphere',
+					'scheme_balance'),
 		'qsdr':		('check_btable','mddr','r2_weighted',
 					'output_resolution','output_mapping','output_jac',
-					'output_rdi','odf_order','record_odf','other_image',
-					'csf_cal','interpolation','regist_method','num_fiber'),
+					'output_rdi','odf_order','record_odf','csf_cal',
+					'interpolation','regist_method','num_fiber','half_sphere',
+					'scheme_balance'),
 		'hardi':	('check_btable','mddr','regularization','b_value',
-					'num_fiber')}
+					'num_fiber','half_sphere','scheme_balance')}
 
 	@classmethod
 	def ot_to_ext(cls, output_type):
-		"""Get file extension for given output type
+		'''Get file extension for given output type
 
 		Parameters
 		----------
@@ -234,7 +249,7 @@ class DSIInfo(object):
 		-------
 		extension : str
 			The file extension for the output type
-		"""
+		'''
 
 		try:
 			return cls.ftypes[output_type]
@@ -244,7 +259,7 @@ class DSIInfo(object):
 
 	@classmethod
 	def a_to_ot(cls, action_type):
-		"""Get DSI studio output extension per action type
+		'''Get DSI studio output extension per action type
 		
 		Parameter
 		---------
@@ -255,7 +270,7 @@ class DSIInfo(object):
 		-------
 		extension : str
 			The file extension for the action type
-		"""
+		'''
 
 		try:
 			return cls.act_out[action_type]
@@ -265,7 +280,7 @@ class DSIInfo(object):
 			
 	@classmethod
 	def rec_mid_to_mn(cls, method_id):
-		"""Get DSI Studio reconstruction method number from id
+		'''Get DSI Studio reconstruction method number from id
 		
 		Parameter
 		---------
@@ -275,7 +290,7 @@ class DSIInfo(object):
 		Returns
 		-------
 		method_n : Int
-		"""
+		'''
 		try:
 			return cls.rec_method_id_n[method_id]
 		except KeyError:
@@ -284,7 +299,7 @@ class DSIInfo(object):
 			
 	@classmethod
 	def rec_mid_to_np(cls, method_id):
-		"""Get number of params per reconstruction method
+		'''Get number of params per reconstruction method
 		
 		Parameter
 		---------
@@ -294,7 +309,7 @@ class DSIInfo(object):
 		Returns
 		-------
 		Int
-		"""
+		'''
 		try:
 			return len(cls.rec_param_ids[method_id])
 		except KeyError:
@@ -303,7 +318,7 @@ class DSIInfo(object):
 			
 	@classmethod
 	def rec_mid_to_ptype(cls, method_id):
-		"""Get param types per tracking method
+		'''Get param types per tracking method
 		
 		Parameter
 		---------
@@ -313,7 +328,7 @@ class DSIInfo(object):
 		Returns
 		-------
 		type
-		"""
+		'''
 		try:
 			return cls.rec_param_types[method_id]
 		except KeyError:
@@ -322,7 +337,7 @@ class DSIInfo(object):
 			
 	@classmethod
 	def rec_mid_to_pids(cls, method_id):
-		"""Get param input ids per reconstruction method
+		'''Get param input ids per reconstruction method
 		
 		Parameter
 		----------
@@ -331,7 +346,7 @@ class DSIInfo(object):
 		Return
 		------
 		Tuple(Str)
-		"""
+		'''
 		try:
 			return cls.rec_param_ids[method_id]
 		except KeyError:
@@ -340,7 +355,7 @@ class DSIInfo(object):
 			
 	@classmethod
 	def rec_mid_to_req(cls, method_id):
-		"""Get required inputs per reconstruction method"""
+		'''Get required inputs per reconstruction method'''
 		try:
 			return cls.rec_method_id_inputs[method_id]
 		except KeyError:
@@ -349,38 +364,38 @@ class DSIInfo(object):
 
 
 class DSIStudioInputSpec(CommandLineInputSpec):
-	"""Base input specification for DSI Studio commands."""
+	'''Base input specification for DSI Studio commands.'''
 
-	action = traits.Enum("trk","ana","src","rec","atl","exp","cnt","vis","ren",
-		argstr="--action=%s",
+	action = traits.Enum('trk','ana','src','rec','atl','exp','cnt','vis','ren',
+		argstr='--action=%s',
 		mandatory=True,
-		desc="Command action type to execute",
+		desc='Command action type to execute',
 		position=1)
 	source = traits.Either(
 		File(exists=True),
 		Directory(exists=True),
 		mandatory=True,
-		argstr="--source=%s",
-		desc="Input file to process",
+		argstr='--source=%s',
+		desc='Input file to process',
 		position=2)
 	debuglog = File(
-		argstr="> %s",
-		desc="Log file path/name")
+		argstr='> %s',
+		desc='Log file path/name')
 	indict = traits.Dict(
-		desc="Dict of keys for inputspec, with their values, will overwrite all"
-			" conflicts")
+		desc='Dict of keys for inputspec, with their values, will overwrite all'
+			' conflicts')
 
 
 
 class DSIStudioOutputSpec(TraitedSpec):
-	debuglog = File(desc="path/name of log file (if generated)")
+	debuglog = File(desc='path/name of log file (if generated)')
 	
 
 
 class DSIStudioCommand(CommandLine):
-	"""Base support for DSI Studio commands.
-	"""
-	_cmd = "dsi_studio"
+	'''Base support for DSI Studio commands.
+	'''
+	_cmd = 'dsi_studio'
 	_output_type = None
 	_action = None
 	terminal_output = 'file'
@@ -393,7 +408,7 @@ class DSIStudioCommand(CommandLine):
 		self.inputs.on_trait_change(self._action_update, 'action')
 
 		if self._action is None:#should be specified in subclass
-			raise Exception("Missing action command")
+			raise Exception('Missing action command')
 
 		if self._output_type is None:
 			self._output_type = DSIInfo.a_to_ot(self._action)
@@ -420,16 +435,17 @@ class DSIStudioCommand(CommandLine):
 		self._action = self.inputs.action
 		
 	def _update_from_indict(self):
-		"""Check indict for values to add to inputs"""
+		'''Check indict for values to add to inputs'''
 		if isdefined(self.inputs.indict):
 			for key, value in self.inputs.indict.iteritems():
 				if key in self.inputs.__dict__:
 					setattr(self.inputs, key, value)
-					#print("Input: '%s' set to Value: %s" % (key, value))
+					#print('Input: '%s' set to Value: %s' % (key, value))
 					#Type checking is handled by traits InputSpec
 
-	def _gen_fname(self, basename, cwd=None, suffix=None, change_ext=True, ext=None):
-		"""Generate a filename based on input.
+	def _gen_fname(self, 
+	basename, cwd=None, suffix=None, change_ext=True, ext=None):
+		'''Generate a filename based on input.
 		
 		Parameters
 		----------
@@ -442,186 +458,153 @@ class DSIStudioCommand(CommandLine):
 		Returns
 		-------
 		fname : str (new filename based on input)
-		"""
+		'''
 
-		if basename == "":
-			raise ValueError("Unable to generate filename for command %s." % (self.cmd))
+		if basename == '':
+			raise ValueError('Unable to generate filename for command %s.' % 
+				(self.cmd))
 		if cwd is None:
 			cwd = os.getcwd()
 		if ext is None:
 			ext = DSIInfo.ot_to_ext(self.inputs.output_type)
 		if change_ext:
 			if suffix:
-				suffix = "".join((suffix, ext))
+				suffix = ''.join((suffix, ext))
 			else:
 				suffix = ext
 		if suffix is None:
-			suffix = ""
+			suffix = ''
 		fname = fname_presuffix(basename, suffix=suffix, use_ext=False,
 								newpath=cwd)
 		return fname
 		
 	#def _check_mandatory_inputs(self):
-		#"""Call super, since executed before command output being used for debugging"""
+		#'''Call super, since executed before command output being used for 
+		#debugging.
+		#'''
 		#pdb.set_trace()
 		#super(DSIStudioCommand, self)._check_mandatory_inputs()
 		
 				  
 
 class DSIStudioFiberInputSpec(DSIStudioInputSpec):
-	"""Provides region and post-processing input
+	'''Provides region and post-processing input
 	specification used with DSI Studio trk and ana actions.
-	"""
+	'''
 	#ROI Parameters
 	seed = File(exists=True,
-#DSI Studio has built in accepted values that are not file paths,
+#DSI Studio has built in accepted DSvalues that are not file paths,
 #but AtlasName:RegionName
 #can't check for atlas ids this way, or lose exists check, so split, but not xor
-#		traits.Str(requires=["atlas"]),
-		argstr="--seed=%s",
-		desc="specify seeding file, txt, analyze, or nifti, unspecified default"
-			" is whole brain")
-	seed_ar = traits.Str(
-		requires=["seed_atlas"],
-		desc='seed region in atlas')
-	seed_actions = traits.List(traits.List(traits.Enum(
-				"smoothing","erosion","dilation","defragment","negate",
-				"flipx","flipy","flipz",
-				"shiftx","shiftnx","shifty","shiftny","shiftz","shiftnz")),
-		sep=",",
-		desc="action codes to modify seed region")
+#		traits.Str(requires=['atlas']),
+		argstr='--seed=%s',
+		desc='specify seeding file, txt, analyze, or nifti, unspecified default'
+			' is whole brain')
+	seed_actions = traits.List(traits.List(
+		traits.Enum(*DSIInfo.region_actions)),
+		sep=',',
+		desc='action codes to modify seed region')
 	rois = InputMultiPath(File(exists=True), 
-		argstr="--roi%s=%s",
-		desc="roi through which tracts must pass, txt, analyze, nifti")
-	rois_ar = traits.List(traits.Str(),
-		requires=["rois_atlas"],
-		desc="region in atlas through which tracts must pass")
-	rois_actions = traits.List(traits.List(traits.Enum(
-				"smoothing","erosion","dilation","defragment","negate",
-				"flipx","flipy","flipz",
-				"shiftx","shiftnx","shifty","shiftny","shiftz","shiftnz")),
-		sep=",",
-		desc="action codes to modify rois, list for each roi")
+		argstr='--roi%s=%s',
+		desc='roi through which tracts must pass, txt, analyze, nifti')
+	rois_actions = traits.List(traits.List(
+		traits.Enum(*DSIInfo.region_actions)),
+		sep=',',
+		desc='action codes to modify rois, list for each roi')
 	roas = InputMultiPath(File(exists=True),  
-		argstr="--roa%s=%s",
-		desc="roa files which tracts must avoid, txt, analyze, nifti")
-	roas_ar = traits.List(traits.Str(), 
-		requires=["roas_atlas"],
-		desc="region in atlas which tracts must avoid")
-	roas_actions = traits.List(traits.List(traits.Enum(
-				"smoothing","erosion","dilation","defragment","negate",
-				"flipx","flipy","flipz",
-				"shiftx","shiftnx","shifty","shiftny","shiftz","shiftnz")),
-		sep=",",
-		desc="action codes to modify roas, list for each roa")
+		argstr='--roa%s=%s',
+		desc='roa files which tracts must avoid, txt, analyze, nifti')
+	roas_actions = traits.List(traits.List(
+		traits.Enum(*DSIInfo.region_actions)),
+		sep=',',
+		desc='action codes to modify roas, list for each roa')
 	ends = InputMultiPath(File(exists=True), 
-		argstr="--end%s=%s",
-		desc="filter out tracks that do not end in this region, txt, analyze, "
-			"or nifti")
-	ends_ar = traits.List(traits.Str(), 
-		requires=["ends_atlas"],
-		desc="region in atlas that will filter out tracks that do not end here")
-	ends_actions = traits.List(traits.List(traits.Enum(
-				"smoothing","erosion","dilation","defragment","negate",
-				"flipx","flipy","flipz",
-				"shiftx","shiftnx","shifty","shiftny","shiftz","shiftnz")),
-		sep=",",
-		desc="action codes to modify ends regions, list for each end")
+		argstr='--end%s=%s',
+		desc='filter out tracks that do not end in this region, txt, analyze, '
+			'or nifti')
+	ends_actions = traits.List(traits.List(
+		traits.Enum(*DSIInfo.region_actions)),
+		sep=',',
+		desc='action codes to modify ends regions, list for each end')
 	ter = InputMultiPath(File(exists=True), 
-		argstr="--ter=%s",
-		desc="terminates any track that enters this region, txt, analyze, "
-			"or nifti")
-	ter_ar = traits.List(traits.Str(),
-		requires=["ter_atlas"],
-		desc="region in atlas, terminates any track that enters")
-	ter_actions = traits.List(
-		traits.List(traits.Enum(
-				"smoothing","erosion","dilation","defragment","negate",
-				"flipx","flipy","flipz",
-				"shiftx","shiftnx","shifty","shiftny","shiftz","shiftnz")),
-		sep=",",
-		desc="action codes to modify terminative region")
+		argstr='--ter=%s',
+		desc='terminates any track that enters this region, txt, analyze, '
+			'or nifti')
+	ter_actions = traits.List(traits.List(
+		traits.Enum(*DSIInfo.region_actions)),
+		sep=',',
+		desc='action codes to modify terminative region')
 	t1t2 = File(exists=True,
-				argstr="--t1t2=%s",
-				desc="specify t1w or t2w images as roi reference image")
-	seed_atlas = traits.Enum(
-		"aal", "ATAG_basal_ganglia", "brodmann", "Cerebellum-SUIT",
-		"FreeSurferDKT", "Gordan_rsfMRI333", "HarvardOxfordCort",
-		"HarvardOxfordSub","HCP-MMP1","JHU-WhiteMatter-labels-1mm",
-		"MNI", "OASIS_TRT_20", "sri24_tissues","sri24_tzo116plus",
-		"talairach","tractography",
+				argstr='--t1t2=%s',
+				desc='specify t1w or t2w images as roi reference image')
+	seed_atlas = traits.Enum(*DSIInfo.atlases,
 		requires=['seed_ar'],
-		sep=",",
-		desc="atlas name(s) found in dsistudio/build/atlas")
-	rois_atlas = traits.List(traits.Enum(
-		"aal", "ATAG_basal_ganglia", "brodmann", "Cerebellum-SUIT",
-		"FreeSurferDKT", "Gordan_rsfMRI333", "HarvardOxfordCort",
-		"HarvardOxfordSub","HCP-MMP1","JHU-WhiteMatter-labels-1mm",
-		"MNI", "OASIS_TRT_20", "sri24_tissues","sri24_tzo116plus",
-		"talairach","tractography"),
+		sep=',',
+		desc='atlas name(s) found in dsistudio/build/atlas')
+	rois_atlas = traits.List(traits.Enum(*DSIInfo.atlases),
 		requires=['rois_ar'],
-		sep=",",
-		desc="atlas name(s) found in dsistudio/build/atlas")
-	roas_atlas = traits.List(traits.Enum(
-		"aal", "ATAG_basal_ganglia", "brodmann", "Cerebellum-SUIT",
-		"FreeSurferDKT", "Gordan_rsfMRI333", "HarvardOxfordCort",
-		"HarvardOxfordSub","HCP-MMP1","JHU-WhiteMatter-labels-1mm",
-		"MNI", "OASIS_TRT_20", "sri24_tissues","sri24_tzo116plus",
-		"talairach","tractography"),
+		sep=',',
+		desc='atlas name(s) found in dsistudio/build/atlas')
+	roas_atlas = traits.List(traits.Enum(*DSIInfo.atlases),
 		requires=['roas_ar'],
-		sep=",",
-		desc="atlas name(s) found in dsistudio/build/atlas")
-	ends_atlas = traits.List(traits.Enum(
-		"aal", "ATAG_basal_ganglia", "brodmann", "Cerebellum-SUIT",
-		"FreeSurferDKT", "Gordan_rsfMRI333", "HarvardOxfordCort",
-		"HarvardOxfordSub","HCP-MMP1","JHU-WhiteMatter-labels-1mm",
-		"MNI", "OASIS_TRT_20", "sri24_tissues","sri24_tzo116plus",
-		"talairach","tractography"),
+		sep=',',
+		desc='atlas name(s) found in dsistudio/build/atlas')
+	ends_atlas = traits.List(traits.Enum(*DSIInfo.atlases),
 		requires=['ends_ar'],
-		sep=",",
-		desc="atlas name(s) found in dsistudio/build/atlas")
-	ter_atlas = traits.List(traits.Enum(
-		"aal", "ATAG_basal_ganglia", "brodmann", "Cerebellum-SUIT",
-		"FreeSurferDKT", "Gordan_rsfMRI333", "HarvardOxfordCort",
-		"HarvardOxfordSub","HCP-MMP1","JHU-WhiteMatter-labels-1mm",
-		"MNI", "OASIS_TRT_20", "sri24_tissues","sri24_tzo116plus",
-		"talairach","tractography"),
+		sep=',',
+		desc='atlas name(s) found in dsistudio/build/atlas')
+	ter_atlas = traits.List(traits.Enum(*DSIInfo.atlases),
 		requires=['ter_ar'],
-		sep=",",
-		desc="atlas name(s) found in dsistudio/build/atlas")
+		sep=',',
+		desc='atlas name(s) found in dsistudio/build/atlas')
+	seed_ar = traits.Str(
+		requires=['seed_atlas'],
+		desc='seed region in atlas')
+	rois_ar = traits.List(traits.Str(),
+		requires=['rois_atlas'],
+		desc='region in atlas through which tracts must pass')
+	roas_ar = traits.List(traits.Str(), 
+		requires=['roas_atlas'],
+		desc='region in atlas which tracts must avoid')
+	ends_ar = traits.List(traits.Str(), 
+		requires=['ends_atlas'],
+		desc='region in atlas that will filter out tracks that do not end here')
+	ter_ar = traits.List(traits.Str(),
+		requires=['ter_atlas'],
+		desc='region in atlas, terminates any track that enters')
 	
 	#Post-Process Parameters
 	delete_repeat = traits.Enum(0,1, 
-		argstr="--delete_repeat=%d",
-		desc="0 or 1, 1 removes repeat tracks with distance < 1 mm")
+		argstr='--delete_repeat=%d',
+		desc='0 or 1, 1 removes repeat tracks with distance < 1 mm')
 		
 	output = traits.Either(
 		File(genfile=True),
 		traits.Enum('no_file'),
 		genfile=True,
-		argstr="--output=%s",
+		argstr='--output=%s',
 		hash_files=False,
-		desc="output tract file name, format may be txt, trk, or nii",
+		desc='output tract file name, format may be txt, trk, or nii',
 		position=3)
 		
 	tract_name = traits.Str(desc='prefix to append to source filename')
 		
 	endpt = traits.Bool(
-		argstr="--end_point=%s",
+		argstr='--end_point=%s',
 		requires=['endpt_format'],
-		desc="whether to output endpoints file")
+		desc='whether to output endpoints file')
 		
 	endpt_format = traits.Enum('txt','mat',
 		usedefault=True,
-		desc="endpoint file format, 'txt' or 'mat'")
+		desc='endpoint file format, "txt" or "mat"')
 	
 	#separate for later use, inner trait doesn't seem to have values property
 	_export_values = ('stat','tdi','tdi2','tdi_color','tdi_end',
 		'fa','gfa','qa','nqa','md','ad','rd','report')
 	export = traits.List(traits.Enum(*_export_values),
-		argstr="--export=%s", 
+		argstr='--export=%s', 
 		sep=',',
-		desc="export information related to fiber tracts")
+		desc='export information related to fiber tracts')
 		
 	stat = traits.Bool(desc='export statistics along tract or in region')
 	tdi = traits.Bool(desc='export tract density image')
@@ -644,21 +627,21 @@ class DSIStudioFiberInputSpec(DSIStudioInputSpec):
 	report = traits.Bool(desc='export tract reports with specified profile '
 		'style and bandwidth',
 		requires=['report_val','report_pstyle','report_bandwidth'])
-	report_val = traits.Enum("fa","gfa","qa","nqa","md","ad","rd",
-		argstr="%s",
-		sep=":",
-		desc="type of value for tract report")
+	report_val = traits.Enum('fa','gfa','qa','nqa','md','ad','rd',
+		argstr='%s',
+		sep=':',
+		desc='type of value for tract report')
 	report_pstyle = traits.Enum(0,1,2,3,4, 
-		argstr="%d",
-		sep=":",
-		requires=["export"],
-		desc="profile style for tract report 0:x, 1:y, 2:z, 3:along tracts, "
-			"4:tract mean")
+		argstr='%d',
+		sep=':',
+		requires=['export'],
+		desc='profile style for tract report 0:x, 1:y, 2:z, 3:along tracts, '
+			'4:tract mean')
 	report_bandwidth = traits.Int(
-		argstr="%d",
-		sep=":",
-		requires=["export"],
-		desc="bandwidth for tract report")
+		argstr='%d',
+		sep=':',
+		requires=['export'],
+		desc='bandwidth for tract report')
 	report_fa = traits.Bool(desc='export tract report on fa values')
 	report_gfa = traits.Bool(desc='export tract report on gfa values')
 	report_qa = traits.Bool(desc='export tract report on qa values')
@@ -668,106 +651,113 @@ class DSIStudioFiberInputSpec(DSIStudioInputSpec):
 	report_rd = traits.Bool(desc='export tract report on rd values')
 		
 	connectivity = InputMultiPath(File(exists=True), 
-		argstr="--connectivity=%s",
-		sep=",",
-		desc="atlas id(s), or path to MNI space roi file")
-	connectivity_atlas = traits.List(traits.Enum(
-			"aal", "ATAG_basal_ganglia", "brodmann", "Cerebellum-SUIT",
-			"FreeSurferDKT", "Gordan_rsfMRI333", "HarvardOxfordCort",
-			"HarvardOxfordSub","HCP-MMP1","JHU-WhiteMatter-labels-1mm",
-			"MNI", "OASIS_TRT_20", "sri24_tissues","sri24_tzo116plus",
-			"talairach","tractography"),
-		desc="atlas region id(s)")
-	connectivity_type = traits.List(traits.Enum("end","pass"),
-		argstr="--connectivity_type=%s",
-		sep=",",
-		desc="method to count the tracts, default end")
+		argstr='--connectivity=%s',
+		sep=',',
+		desc='atlas id(s), or path to MNI space roi file')
+	connectivity_atlas = traits.List(traits.Enum(*DSIInfo.atlases),
+		desc='atlas region id(s)')
+	connectivity_type = traits.List(traits.Enum('end','pass'),
+		argstr='--connectivity_type=%s',
+		sep=',',
+		desc='method to count the tracts, default end')
 	connectivity_value = traits.List(traits.Str(),
-		argstr="--connectivity_value=%s",
-		sep=",",
-		desc="method to calculate connectivity matrix, default count - n tracks"
-			" pass/end in region, ncount - n tracks norm by median length, "
-			"mean_length - outputs mean length of tracks, trk - outputs trk "
-			"file each matrix entry, other values by reconstruction method, "
-			"e.g. 'fa','qa','adc', etc.")
+		argstr='--connectivity_value=%s',
+		sep=',',
+		desc='method to calculate connectivity matrix, default count - n tracks'
+			' pass/end in region, ncount - n tracks norm by median length, '
+			'mean_length - outputs mean length of tracks, trk - outputs trk '
+			'file each matrix entry, other values by reconstruction method, '
+			'e.g. "fa","qa","adc", etc.')
 	connectivity_threshold = traits.Float(0.001,
-		argstr="--connectivity_threshold=%.3f",
-		desc="threshold for calculating binarized graph measures and "
-			"connectivity values, def 0.001, i.e. if the max connectivity count"
-			" is 1000 tracks in the connectivity matrix, then at least "
-			"1000 x 0.001 = 1 track is needed to pass the threshold, "
-			"otherwise values will be 0")
+		argstr='--connectivity_threshold=%.3f',
+		desc='threshold for calculating binarized graph measures and '
+			'connectivity values, def 0.001, i.e. if the max connectivity count'
+			' is 1000 tracks in the connectivity matrix, then at least '
+			'1000 x 0.001 = 1 track is needed to pass the threshold, '
+			'otherwise values will be 0')
 	ref = File(exists=True,
-		argstr="--ref=%s",
-		desc="output track coordinate based on a reference image, "
-			"e.g. T1w or T2w")
+		argstr='--ref=%s',
+		desc='output track coordinate based on a reference image, '
+			'e.g. T1w or T2w')
 	cluster = traits.Bool(
-		argstr="--cluster=%d,%d,%d,%s",
-		requires=["cluster_method_id","cluster_count","cluster_res",
-			"cluster_output_fname"],
-		desc="whether to run track clustering after fiber tracking")
+		argstr='--cluster=%d,%d,%d,%s',
+		requires=['cluster_method_id','cluster_count','cluster_res',
+			'cluster_output_fname'],
+		desc='whether to run track clustering after fiber tracking')
 	cluster_method_id = traits.Enum(0,1,2,
-		desc="0:single-linkage, 1:k-means, 2:EM")
+		desc='0:single-linkage, 1:k-means, 2:EM')
 	cluster_count = traits.Int(0,
-		desc="Total number of clusters assigned in k-means or EM. "
-			"In single-linkage, the maximum number of clusters allowed to avoid"
-			"over-segmentation.")
+		desc='Total number of clusters assigned in k-means or EM. '
+			'In single-linkage, the maximum number of clusters allowed to avoid'
+			'over-segmentation.')
 	cluster_res = traits.Int(0,
-		desc="Mini meter resolution for merging clusters in single-linkage")
-	cluster_output_fname = traits.Str(
-		desc="Text file name for cluster label output (no spaces)")
+		desc='Mini meter resolution for merging clusters in single-linkage')
+	cluster_output_fname = traits.Str('cluster_labels.txt',
+		desc='Text file name for cluster label output (no spaces)')
 
 
 
 class DSIStudioFiberOutputSpec(DSIStudioOutputSpec):
-	"""Output specification for fiber tracking, trk, ana"""
-	output = File(desc="path/name of fiber track file (if generated)")
-	endpt = File(desc="path/name of fiber track end points file "
-					  "(if generated)")
-	stat_file = File(desc="path/name of fiber track stats file (if generated)")
-	tdi_file = File(desc="path/name of fiber track tract density image file "
-					    "(if generated)")
-	tdi2_file = File(desc="path/name of fiber track tract density image file "
-						 "in subvoxel diffusion space (if generated)")
-	tdi_color_file = File(desc="path/name of fiber track tract color density "
-							  "image file (if generated)")
-	tdi_end_file = File(desc="path/name of fiber track tract density image "
-							"endpoints file (if generated)")
-	tdi2_end_file = File(desc="path/name of fiber track tract density image "
-							 "endpoints in subvoxel diffusion space file "
-							 "(if generated")
-	fa_file = File(desc="path/name of along tract fa values file (if generated)")
-	gfa_file = File(desc="path/name of along tract gfa values file (if generated)")
-	qa_file = File(desc="path/name of along tract qa values file (if generated)")
-	nqa_file = File(desc="path/name of along tract nqa values file (if generated)")
-	md_file = File(desc="path/name of along tract md values file (if generated)")
-	ad_file = File(desc="path/name of along tract ad values file (if generated)")
-	rd_file = File(desc="path/name of along tract rd values file (if generated)")
-	report_fa_file = File(desc="path/name of tract report fa values file "
-						  "(if generated)")
-	report_gfa_file = File(desc="path/name of tract report gfa values file "
-						  "(if generated)")
-	report_qa_file = File(desc="path/name of tract report qa values file "
-						  "(if generated)")
-	report_nqa_file = File(desc="path/name of tract report nqa values file "
-						  "(if generated)")
-	report_md_file = File(desc="path/name of tract report md values file "
-						  "(if generated)")
-	report_ad_file = File(desc="path/name of tract report ad values file "
-						  "(if generated)")
-	report_rd_file = File(desc="path/name of tract report rd values file "
-						  "(if generated)")
+	'''Output specification for fiber tracking, trk, ana'''
+	output = File(
+		desc='path/name of fiber track file (if generated)')
+	endpt = File(
+		desc='path/name of fiber track end points file (if generated)')
+	stat_file = File(
+		desc='path/name of fiber track stats file (if generated)')
+	tdi_file = File(
+		desc='path/name of fiber track tract density image file (if generated)')
+	tdi2_file = File(
+		desc='path/name of fiber track tract density image file in subvoxel '
+			'diffusion space (if generated)')
+	tdi_color_file = File(
+		desc='path/name of fiber track tract color density image file '
+			'(if generated)')
+	tdi_end_file = File(
+		desc='path/name of fiber track tract density image endpoints file '
+			'(if generated)')
+	tdi2_end_file = File(
+		desc='path/name of fiber track tract density image endpoints in '
+			'subvoxel diffusion space file (if generated')
+	fa_file = File(
+		desc='path/name of along tract fa values file (if generated)')
+	gfa_file = File(
+		desc='path/name of along tract gfa values file (if generated)')
+	qa_file = File(
+		desc='path/name of along tract qa values file (if generated)')
+	nqa_file = File(
+		desc='path/name of along tract nqa values file (if generated)')
+	md_file = File(
+		desc='path/name of along tract md values file (if generated)')
+	ad_file = File(
+		desc='path/name of along tract ad values file (if generated)')
+	rd_file = File(
+		desc='path/name of along tract rd values file (if generated)')
+	report_fa_file = File(
+		desc='path/name of tract report fa values file (if generated)')
+	report_gfa_file = File(
+		desc='path/name of tract report gfa values file (if generated)')
+	report_qa_file = File(
+		desc='path/name of tract report qa values file (if generated)')
+	report_nqa_file = File(
+		desc='path/name of tract report nqa values file (if generated)')
+	report_md_file = File(
+		desc='path/name of tract report md values file (if generated)')
+	report_ad_file = File(
+		desc='path/name of tract report ad values file (if generated)')
+	report_rd_file = File(
+		desc='path/name of tract report rd values file (if generated)')
 
 
 
 class DSIStudioFiberCommand(DSIStudioCommand):
-	"""Not used directly, provides region and post-processing commands for
+	'''Not used directly, provides region and post-processing commands for
 	DSI Studio trk and ana actions.
-	"""
+	'''
 	input_spec = DSIStudioFiberInputSpec
 	
 	def _regions_update(self):
-		"""Update region category ('rois','roas',etc.) with atlas regions"""
+		'''Update region category ('rois','roas',etc.) with atlas regions'''
 		regions = ('rois','roas','ends','seed','ter')
 		for name in regions:
 			value = getattr(self.inputs, name)
@@ -821,19 +811,19 @@ class DSIStudioFiberCommand(DSIStudioCommand):
 							if value[lenvalue-lenna+i] != update:
 								value.append(update)
 								setattr(self.inputs, name, value)
-								print("Appended atlas: %s to %s" % 
+								print('Appended atlas: %s to %s' % 
 									(atlas,name))
 						else:
 							value.append(update)
 							setattr(self.inputs, name, value)
-							print("Appended atlas: %s to %s" % (atlas,name))
+							print('Appended atlas: %s to %s' % (atlas,name))
 				else:
-					raise AttributeError("N entries in %s must equal "
-						"N entries in %s" %
+					raise AttributeError('N entries in %s must equal '
+						'N entries in %s' %
 						(varnamear, varnameatlas))
 						
 	def _report_update(self):
-		"""Update report, report_val from related boolean traits"""
+		'''Update report, report_val from related boolean traits'''
 		name = 'report'
 		secname = 'report_val'
 		secfield = 'values'
@@ -860,7 +850,7 @@ class DSIStudioFiberCommand(DSIStudioCommand):
 	
 						
 	def _export_update(self):
-		"""Update export from related traits"""
+		'''Update export from related traits'''
 		name = 'export'
 		values = getattr(self.inputs, name)
 		if not isdefined(values):
@@ -886,7 +876,7 @@ class DSIStudioFiberCommand(DSIStudioCommand):
 	
 						
 	def _check_mandatory_inputs(self):
-		"""correct values, then call super"""
+		'''correct values, then call super'''
 		self._update_from_indict()
 		self._regions_update()
 		self._export_update()
@@ -895,7 +885,7 @@ class DSIStudioFiberCommand(DSIStudioCommand):
 			
 			
 	def _add_atlas_regions(self, name, value):
-		"""helper function for _format_arg,
+		'''helper function for _format_arg,
 		will add atlas regions to atlas file paths
 		
 		Parameters
@@ -906,17 +896,17 @@ class DSIStudioFiberCommand(DSIStudioCommand):
 		Returns
 		-------
 		newval : list(str) (atlas with appended :regionname, or path to other)
-		"""
+		'''
 				
 		lenv = len(value)
 
 		varnamearlist = []
-		varnamearlist.extend((name,"_ar"))
+		varnamearlist.extend((name,'_ar'))
 		varnamear = ''.join(varnamearlist)
 		namear = getattr(self.inputs, varnamear)#matching atlas regions
 		
 		varnameatlaslist = []
-		varnameatlaslist.extend((name,"_atlas"))
+		varnameatlaslist.extend((name,'_atlas'))
 		varnameatlas = ''.join(varnameatlaslist)
 		nameatlas = getattr(self.inputs, varnameatlas)#matching atlas
 
@@ -929,19 +919,19 @@ class DSIStudioFiberCommand(DSIStudioCommand):
 			lennar = len(namear)
 			lenna = len(nameatlas)
 			if lennar != lenna:
-				raise AttributeError("len( %s ) must equal len( %s )" %
+				raise AttributeError('len( %s ) must equal len( %s )' %
 					(varnamear, varnameatlas))
 			for i in range(0,lennar):
 				atlas = newvalue[lenv-lennar+i]
 				ar = namear[i]
 				newvallist = []
-				newvallist.extend((atlas,":",ar))
+				newvallist.extend((atlas,':',ar))
 				newvalue[lenv-lennar+i] = ''.join(newvallist)
 			return newvalue
 		
 		
 	def _add_region_actions(self, name, value):
-		"""helper function for _format_arg, 
+		'''helper function for _format_arg, 
 		will add region action inputs to input value
 		
 		Parameters
@@ -959,11 +949,12 @@ class DSIStudioFiberCommand(DSIStudioCommand):
 		trk.inputs.roi=['ROI1.nii','ROI2.nii']
 		trk.inputs.roi_actions=[['dilation'],['dilation','smoothing']]
 		trk.inputs.cmdline
-		'dsi_studio --action=trk --roi=ROI1.nii,dilation --roi2=ROI2.nii,dilation,smoothing'
-		"""
+		'dsi_studio --action=trk --roi=ROI1.nii,dilation \
+		--roi2=ROI2.nii,dilation,smoothing'
+		'''
 		
 		varnameactionslist = []
-		varnameactionslist.extend((name,"_actions"))
+		varnameactionslist.extend((name,'_actions'))
 		varnameactions = ''.join(varnameactionslist)
 		actions = getattr(self.inputs, varnameactions)#matching action values
 		actions_ts = self.inputs.trait(varnameactions)#action values traitspec
@@ -974,8 +965,8 @@ class DSIStudioFiberCommand(DSIStudioCommand):
 		if isdefined(actions) and \
 		lenact != lenval:
 			print('name=%s, value=%s, actions=%s' % (name,value,actions))
-			raise AttributeError("N Entries in %s action list does not match "
-								 "N Regions (Files + Atlas Regions)" % name)
+			raise AttributeError('N Entries in %s action list does not match '
+								 'N Regions (Files + Atlas Regions)' % name)
 		
 		if not isdefined(actions):#if there are no region actions
 			return value#return input
@@ -1000,7 +991,7 @@ class DSIStudioFiberCommand(DSIStudioCommand):
 					
 		
 	def _format_arg(self, name, trait_spec, value):
-		"""alternative helper function for _parse_inputs, 
+		'''alternative helper function for _parse_inputs, 
 		format rois, roas, ends, seed, ter, export, atlas argstrs
 		will not change input, only how it's interpreted
 		
@@ -1013,16 +1004,17 @@ class DSIStudioFiberCommand(DSIStudioCommand):
 		Returns
 		-------
 		argstr with value replacing %type in input argstr
-		"""
+		'''
 
 		argstr = trait_spec.argstr
 		sep = trait_spec.sep if trait_spec.sep is not None else ' '
+		returnstr = None
 
-		if name == "rois" or \
-			name == "roas" or \
-			name == "ends" or \
-			name == "seed" or \
-			name =="ter":
+		if name == 'rois' or \
+			name == 'roas' or \
+			name == 'ends' or \
+			name == 'seed' or \
+			name =='ter':
 		#--roi=1 --roi2=2 --roi3=3, same pattern for all regions
 			arglist = []
 			if not isdefined(value):
@@ -1033,28 +1025,6 @@ class DSIStudioFiberCommand(DSIStudioCommand):
 			if not isinstance(value, list):
 				value = [value]
 			lenvalue = len(value)
-
-			#Get values for name_ar
-			varnamearlist = []#atlas regions
-			varnamearlist.extend((name,'_ar'))
-			varnamear = ''.join(varnamearlist)
-			nameatlasregions = getattr(self.inputs, varnamear)
-			if not isdefined(nameatlasregions):
-				nameatlasregions = []
-			lennar = len(nameatlasregions)
-			
-			#Get values for name_atlas
-			varnameatlaslist = []
-			varnameatlaslist.extend((name,'_atlas'))
-			varnameatlas = ''.join(varnameatlaslist)
-			nameatlas = getattr(self.inputs, varnameatlas)
-			#if not isdefined(nameatlas):
-				#--roiX=region,actions (--roi%s=%s)
-				#nameatlas = []
-			#else:
-				#--roiX=atlas:region,actions (--roi%s=%s:%s)
-				#argstrfixed = argstr.replace('=', '=%s:')
-			lenna = len(nameatlas)
 			
 			#add atlas regions if available, can't add before bcz it
 			#wouldn't validate as a file
@@ -1065,16 +1035,16 @@ class DSIStudioFiberCommand(DSIStudioCommand):
 			for i in range(0,lenvalue):
 				if i == 0:
 					roin = ''
-				elif (name == "rois" or 
-					  name == "roas" or 
-					  name == "ter") and i > 4:
-					print("Cannot have more than 5 %s, first 5 used.\n"
-						"%s not included" % 
+				elif (name == 'rois' or 
+					  name == 'roas' or 
+					  name == 'ter') and i > 4:
+					print('Cannot have more than 5 %s, first 5 used.\n'
+						'%s not included' % 
 						(name, ', '.join(value[x] for x in range(i,lenvalue))))
 					break
-				elif name == "ends" and i > 1:
-					print("Cannot have more than 2 ends, first 2 used.\n"
-						"%s not included" % 
+				elif name == 'ends' and i > 1:
+					print('Cannot have more than 2 ends, first 2 used.\n'
+						'%s not included' % 
 						(name, ', '.join(value[x] for x in range(i,lenvalue))))
 					break
 				else:
@@ -1082,60 +1052,63 @@ class DSIStudioFiberCommand(DSIStudioCommand):
 					
 				arglist.append(argstr % (roin, valuewactions[i]))
 				
-			return sep.join(arglist)
+			returnstr = sep.join(arglist)
 			
-		elif name == "export": 
+		elif name == 'export': 
 			for e in value:
-				if e == "report":
+				if e == 'report':
 					if isdefined(self.inputs.report_val) and \
 					isdefined(self.inputs.report_pstyle) and \
 					isdefined(self.inputs.report_bandwidth):
 						newe = []
-						newe.extend((e,":",
-							self.inputs.report_val,":",
-							str(self.inputs.report_pstyle),":",
+						newe.extend((e,':',
+							self.inputs.report_val,':',
+							str(self.inputs.report_pstyle),':',
 							str(self.inputs.report_bandwidth)))
 						i = value.index(e)
-						value[i] = "".join(str(newe))
+						value[i] = ''.join(str(newe))
 					else:
-						raise AttributeError('Export report requested, but not all '
+						raise AttributeError(
+							'Export report requested, but not all '
 							'required fields: ("report_val", "report_pstyle", '
 							'"report_bandwidth") have been set')
-			return argstr % sep.join(str(e) for e in value)
+			returnstr = argstr % sep.join(str(e) for e in value)
 			
-		elif name == "connectivity":
+		elif name == 'connectivity':
 			if not isdefined(value):
 				value = []
 				
-			conntype = getattr(self.inputs, "connectivity_type")
-			connvalue = getattr(self.inputs, "connectivity_value")
-			connatlas = getattr(self.inputs, "connectivity_atlas")
+			conntype = getattr(self.inputs, 'connectivity_type')
+			connvalue = getattr(self.inputs, 'connectivity_value')
+			connatlas = getattr(self.inputs, 'connectivity_atlas')
 			if isdefined(connatlas):
 				value.extend(connatlas)
 			lenvalue = len(value)
 			if lenvalue==len(conntype) and lenvalue==len(connvalue):
 				return super(DSIStudioFiberCommand, 
-				self._format_arg(name, trait_spec, value))
+				self)._format_arg(name, trait_spec, value)
 			else:
-				raise IndexError("N inputs for connectivity, connectivity_"
-				"type, connectivity_value must be equal")
+				raise IndexError('N inputs for connectivity, connectivity_'
+				'type, connectivity_value must be equal')
 		
-		elif name == "cluster":
-			return argstr % (
-				getattr(self.inputs, "cluster_method_id"),
-				getattr(self.inputs, "cluster_count"),
-				getattr(self.inputs, "cluster_res"),
-				getattr(self.inputs, "cluster_output_fname"))
+		elif name == 'cluster':
+			returnstr = argstr % (
+				getattr(self.inputs, 'cluster_method_id'),
+				getattr(self.inputs, 'cluster_count'),
+				getattr(self.inputs, 'cluster_res'),
+				getattr(self.inputs, 'cluster_output_fname'))
 		
 		else:
 			#print('Super: ' + argstr) #debug
 			return super(DSIStudioFiberCommand, 
 			self)._format_arg(name, trait_spec, value)
+			
+		return returnstr
 
 	def _parse_inputs(self, skip=None):
-		deftoskip = ("report_val",
-					"report_pstyle",
-					"report_bandwidth")
+		deftoskip = ('report_val',
+					'report_pstyle',
+					'report_bandwidth')
 		if skip is None:
 			toskip = deftoskip
 		else:
@@ -1174,81 +1147,79 @@ class DSIStudioFiberCommand(DSIStudioCommand):
 
 
 class DSIStudioTrackInputSpec(DSIStudioFiberInputSpec):
-	"""Input specification for DSI Studio fiber tracking"""
+	'''Input specification for DSI Studio fiber tracking'''
 
-	output_type = traits.Enum("TRK", "TXT", "NIFTI",
+	output_type = traits.Enum('TRK', 'TXT', 'NIFTI',
 		usedefault=True,
-		desc="DSI Studio trk action output type")
+		desc='DSI Studio trk action output type')
 	method = traits.Enum(0,1, 
 		usedefault=True,
-		argstr="--method=%d",
-		desc="0:streamline (default), 1:rk4")
+		argstr='--method=%d',
+		desc='0:streamline (default), 1:rk4')
 	fiber_count = traits.Int(5000, 
-		usedefault=True,
-		argstr="--fiber_count=%d",
-		desc="number of fiber tracks to find, end criterion")
+		argstr='--fiber_count=%d',
+		desc='number of fiber tracks to find, end criterion')
 	seed_count = traits.Int(10000000, 
-		usedefault=True,
-		argstr="--seed_count=%d",
-		desc="max number of seeds, end criterion")
+		argstr='--seed_count=%d',
+		desc='max number of seeds, end criterion')
 	fa_threshold = traits.Float(0.1, 
-		usedefault=True,
-		argstr="--fa_threshold=%.4f",
-		desc="fa theshold or qa threshold depending on rec method")
+		argstr='--fa_threshold=%.4f',
+		desc='fa theshold or qa threshold depending on rec method')
 	threshold_index = traits.Str(
-		argstr="--threshold_index=%s",
-		requires=["fa_threshold"], 
-		desc="assign threshold to another index")
+		argstr='--threshold_index=%s',
+		requires=['fa_threshold'], 
+		desc='assign threshold to another index')
 	otsu_threshold = traits.Float(0.6,
-		usedefault=True,
-		argstr="--otsu_threshold=%.4f",
-		desc="Otsu's threshold ratio")
+		argstr='--otsu_threshold=%.4f',
+		desc='Otsu threshold ratio, default 0.6, will not apply if fa '
+			 'threshold specified')
 	initial_dir = traits.Enum(0,1,2, 
-		argstr="--initial_dir=%d",
-		desc="initial propagation direction, 0:primary fiber (default),"
-			"1:random, 2:all fiber orientations")
+		argstr='--initial_dir=%d',
+		desc='initial propagation direction, 0:primary fiber (default),'
+			'1:random, 2:all fiber orientations')
 	seed_plan = traits.Enum(0,1, 
-		argstr="--seed_plan=%d",
-		desc="seeding strategy, 0:subvoxel random(default), 1:voxelwise center")
+		argstr='--seed_plan=%d',
+		desc='seeding strategy, 0:subvoxel random(default), 1:voxelwise center')
 	interpolation = traits.Enum(0,1,2, 
-		argstr="--interpolation=%d",
-		desc="interpolation method, 0:trilinear, 1:gaussian radial, "
-			"2:nearest neighbor")
+		argstr='--interpolation=%d',
+		desc='interpolation method, 0:trilinear, 1:gaussian radial, '
+			'2:nearest neighbor')
 	thread_count = traits.Int(2, 
-		argstr="--thread_count=%d",
-		desc="Assign number of threads to use")
+		argstr='--thread_count=%d',
+		desc='Assign number of threads to use')
 	random_seed = traits.Enum(0,1, 
-		argstr="--random_seed=%d",
-		desc="whether a timer is used to generate seed points, default is off")
+		argstr='--random_seed=%d',
+		desc='whether a timer is used to generate seed points, default is off')
 	step_size = traits.Float(1.00, 
 		usedefault=True, 
-		argstr="--step_size=%.2f", 
-		desc="moving distance in each tracking interval, "
-			"default is half the spatial resolution, mm")
+		argstr='--step_size=%.2f', 
+		desc='moving distance in each tracking interval, default 1 mm')
 	turning_angle = traits.Int(60, 
-		usedefault=True,
-		argstr="--turning_angle=%d", 
-		desc="degrees incoming tract dir may differ from outgoing in voxel")
+		argstr='--turning_angle=%d', 
+		desc='degrees incoming tract dir may differ from outgoing in voxel')
 	#listed on website, but didn't seem to be in code, and I don't know
 	#what it's supposed to do - leaving out should get default regardless
-	#interpo_angle = traits.Int(60, argstr="--interpo_angle=%d", desc="")
+	#interpo_angle = traits.Int(60, argstr='--interpo_angle=%d', desc='')
 	smoothing = traits.Float(0.00, 
 		usedefault=True, 
-		argstr="--smoothing=%.2f", 
-		desc="fiber track momentum")
+		argstr='--smoothing=%.2f', 
+		desc='fiber track momentum, default disabled')
 	min_length = traits.Int(30, 
 		usedefault=True, 
-		argstr="--min_length=%d", 
-		desc="tracks below mm length deleted")
+		argstr='--min_length=%d', 
+		desc='tracks below mm length deleted, default 30')
 	max_length = traits.Int(300, 
 		usedefault=True, 
-		argstr="--max_length=%d", 
-		desc="tracks above mm length deleted")
+		argstr='--max_length=%d', 
+		desc='tracks above mm length deleted, default 300')
+	parameter_id = traits.Str(
+		argstr='--parameter_id=%s',
+		desc='set all parameters together with string found in GUI method text')
 
 		
 
 class DSIStudioTrack(DSIStudioFiberCommand):
-	"""DSI Studio fiber tracking action support
+	'''DSI Studio fiber tracking action support
 
 	Example
 	-------
@@ -1265,16 +1236,18 @@ class DSIStudioTrack(DSIStudioFiberCommand):
 	trk.cmdline
 
 	Would output:
-	dsi_studio --action=trk --source=my.fib.gz --output=my.trk.gz --roi=myR1.nii.gz --roi2=myR2.nii.gz --roa=myR3.nii.gz --fa_threshold=0.1 --fiber_count=1000 --seed_count=100000 --method=0 --thread_count=2
-	"""
+	dsi_studio --action=trk --source=my.fib.gz --output=my.trk.gz \
+	--roi=myR1.nii.gz --roi2=myR2.nii.gz --roa=myR3.nii.gz --fa_threshold=0.1 \
+	--fiber_count=1000 --seed_count=100000 --method=0 --thread_count=2
+	'''
 
-	_action = "trk"
-	_output_type = "TRK"
+	_action = 'trk'
+	_output_type = 'TRK'
 	input_spec = DSIStudioTrackInputSpec
 	output_spec = DSIStudioFiberOutputSpec
 	
 	def _gen_filename(self, name):
-		"""Executed if self.inputs.name is undefined, but genfile=True"""
+		'''Executed if self.inputs.name is undefined, but genfile=True'''
 		if name == 'output':
 			_, infilename, _ = split_filename(
 				os.path.abspath(getattr(self.inputs, 'source')))
@@ -1296,28 +1269,23 @@ class DSIStudioTrack(DSIStudioFiberCommand):
 
 class DSIStudioAnalysisInputSpec(DSIStudioFiberInputSpec):
 
-	output_type = traits.Enum("NIFTI", "TRK", "TXT",
+	output_type = traits.Enum('NIFTI', 'TRK', 'TXT',
 		usedefault=True,
-		desc="DSI Studio ana action output type")
+		desc='DSI Studio ana action output type')
 	#if more than 1 roi is given, or tract is specified, DSIstudio will
 	#do tract analysis, else region analysis
 	tract = File(exists=True, 
-		argstr="--tract=%s",
-		desc="assign tract file for analysis")
-	atlas = traits.List(traits.Enum(
-		"aal", "ATAG_basal_ganglia", "brodmann", "Cerebellum-SUIT",
-		"FreeSurferDKT", "Gordan_rsfMRI333", "HarvardOxfordCort",
-		"HarvardOxfordSub","HCP-MMP1","JHU-WhiteMatter-labels-1mm",
-		"MNI", "OASIS_TRT_20", "sri24_tissues","sri24_tzo116plus",
-		"talairach","tractography"),
-		argstr="--atlas=%s",
-		sep=",",
-		desc="atlas name(s) found in dsistudio/build/atlas")
+		argstr='--tract=%s',
+		desc='assign tract file for analysis')
+	atlas = traits.List(traits.Enum(*DSIInfo.atlases),
+		argstr='--atlas=%s',
+		sep=',',
+		desc='atlas name(s) found in dsistudio/build/atlas')
 
 
 
 class DSIStudioAnalysis(DSIStudioFiberCommand):
-	"""DSI Studio analysis action support
+	'''DSI Studio analysis action support
 
 	Example
 	-------
@@ -1331,14 +1299,14 @@ class DSIStudioAnalysis(DSIStudioFiberCommand):
 	Would output:
 	'dsi_studio --action=ana --source=my.fib.gz --tract=myTract.trk.gz \
 	--output=myTract.txt --export=stat'
-	"""
-	_action = "ana"
-	_output_type = "TXT"
+	'''
+	_action = 'ana'
+	_output_type = 'TXT'
 	input_spec = DSIStudioAnalysisInputSpec
 	output_spec = DSIStudioFiberOutputSpec
 	
 	def _gen_filename(self, name):
-		"""Executed if self.inputs.name is undefined, but genfile=True"""
+		'''Executed if self.inputs.name is undefined, but genfile=True'''
 		if name == 'output':
 			tractval = getattr(self.inputs, 'tract')
 			tract_name = getattr(self.inputs, 'tract_name')
@@ -1369,40 +1337,40 @@ class DSIStudioAnalysis(DSIStudioFiberCommand):
 class DSIStudioSourceInputSpec(DSIStudioInputSpec):
 	
 	output = File(genfile=True,
-		argstr="--output=%s",
+		argstr='--output=%s',
 		hash_files=False,
-		desc="assign the output src file path and name",
+		desc='assign the output src file path and name',
 		position=3)
-	output_type = traits.Enum("SRC",
+	output_type = traits.Enum('SRC',
 		usedefault=True,
-		desc="DSI Studio src action output type")
+		desc='DSI Studio src action output type')
 	b_table = File(exists=True,
-		argstr="--b_table=%s",
-		xor=["bval","bvec"],
-		desc="assign the replacement b-table")
+		argstr='--b_table=%s',
+		xor=['bval','bvec'],
+		desc='assign the replacement b-table')
 	bval = File(exists=True,
-		argstr="--bval=%s",
-		xor=["b_table"],
-		desc="assign the b value text file")
+		argstr='--bval=%s',
+		xor=['b_table'],
+		desc='assign the b value text file')
 	bvec = File(exists=True,
-		argstr="--bvec=%s",
-		xor=["b_table"],
-		desc="assign the b vector text file")
+		argstr='--bvec=%s',
+		xor=['b_table'],
+		desc='assign the b vector text file')
 	recursive = traits.Enum(0,1,
-		argstr="--recursive=%d",
-		desc="whether to search files in subdirectories")
+		argstr='--recursive=%d',
+		desc='whether to search files in subdirectories')
 
 
 
 class DSIStudioSourceOutputSpec(DSIStudioOutputSpec):
 	
 	output = File(exists=False,
-		desc="DSI Studio src file")
+		desc='DSI Studio src file')
 
 
 
 class DSIStudioSource(DSIStudioCommand):
-	"""DSI Studio SRC action support
+	'''DSI Studio SRC action support
 	
 	Example
 	-------
@@ -1415,14 +1383,14 @@ class DSIStudioSource(DSIStudioCommand):
 	src.cmdline
 	'dsistudio --action=src --source=mydti.nii.gz --output=mydti.src.gz \
 	--bval=mybval.bval --bvec=mybvec.bvec
-	"""
-	_action = "src"
-	_output_type = "SRC"
+	'''
+	_action = 'src'
+	_output_type = 'SRC'
 	input_spec = DSIStudioSourceInputSpec
 	output_spec = DSIStudioSourceOutputSpec
 
 	def _gen_filename(self, name):
-		if name == "output":
+		if name == 'output':
 			out = self.inputs.output
 			if not isdefined(out) and isdefined(self.inputs.source):
 				out = self._gen_fname(self.inputs.source, change_ext=True)
@@ -1436,7 +1404,7 @@ class DSIStudioSource(DSIStudioCommand):
 		return outputs
 		
 	def _check_mandatory_inputs(self):
-		"""Update other inputs from inputs.indict then call super"""
+		'''Update other inputs from inputs.indict then call super'''
 		self._update_from_indict()
 		super(DSIStudioSource, self)._check_mandatory_inputs()
 
@@ -1444,236 +1412,200 @@ class DSIStudioSource(DSIStudioCommand):
 
 class DSIStudioReconstructInputSpec(DSIStudioInputSpec):
 	
-	thread_count = traits.Int(2, 
-		argstr="--thread_count=%d",
-		desc="Number of threads to use for reconstruction")
+	thread_count = traits.Int(1, 
+		argstr='--thread_count=%d',
+		desc='Number of threads to use for reconstruction')
 	mask = File(exists=True, 
-		argstr="--mask=%s",
-		desc="assign a nifti format mask")
-	output_type = traits.Enum("FIB", 
+		argstr='--mask=%s',
+		desc='assign a nifti format mask')
+	output_type = traits.Enum('FIB', 
 		usedefault=True,
-		desc="DSI Studio rec action output type")
-	method_dsi = traits.Bool(
-		xor=["method_dti","method_frqbi","method_shqbi","method_gqi",
-			"method_hardi","method_qsdr"],
-		requires=list(DSIInfo.rec_mid_to_req('dsi')),
-		desc="assign DSI method for reconstruction")
-	method_dti = traits.Bool(
-		xor=["method_dsi","method_frqbi","method_shqbi","method_gqi",
-			"method_hardi","method_qsdr"],
-		requires=list(DSIInfo.rec_mid_to_req('dti')),
-		desc="assign DTI method for reconstruction")
-	method_frqbi = traits.Bool(
-		xor=["method_dti","method_dsi","method_shqbi","method_gqi",
-			"method_hardi","method_qsdr"],
-		requires=list(DSIInfo.rec_mid_to_req('frqbi')),
-		desc="assign Funk-Radon QBI method for reconstruction")
-	method_shqbi = traits.Bool(
-		xor=["method_dti","method_frqbi","method_dsi","method_gqi",
-			"method_hardi","method_qsdr"],
-		requires=list(DSIInfo.rec_mid_to_req('shqbi')),
-		desc="assign Spherical Harmonic QBI method for reconstruction")
-	method_gqi = traits.Bool(
-		xor=["method_dti","method_frqbi","method_shqbi","method_dsi",
-			"method_hardi","method_qsdr"],
-		requires=list(DSIInfo.rec_mid_to_req('gqi')),
-		desc="assign GQI method for reconstruction")
-	method_hardi = traits.Bool(
-		xor=["method_dti","method_frqbi","method_shqbi","method_gqi",
-			"method_dsi","method_qsdr"],
-		requires=list(DSIInfo.rec_mid_to_req('hardi')),
-		desc="Convert to HARDI")
-	method_qsdr = traits.Bool(
-		xor=["method_dti","method_frqbi","method_shqbi","method_gqi",
-			"method_hardi","method_dsi"],
-		requires=list(DSIInfo.rec_mid_to_req('qsdr')),
-		desc="assign QSDR method for reconstruction")
+		desc='DSI Studio rec action output type')
 							
 	method = traits.Enum('dti','dsi','frqbi','shqbi','gqi','hardi','qsdr',
 		mandatory=True, 
-		argstr="--method=%d",
-		desc="Reconstruction method, DSI:0, DTI:1, Funk-Randon QBI:2, "
-			"Spherical Harmonic QBI:3, GQI:4, Convert to HARDI:6, QSDR:7")
+		argstr='--method=%d',
+		desc='Reconstruction method, DSI:0, DTI:1, Funk-Randon QBI:2, '
+			'Spherical Harmonic QBI:3, GQI:4, Convert to HARDI:6, QSDR:7')
 
 	#params includes some floats, some ints depending on method, but dsi studio
 	#actually reads them all as floats, so should be fine here
 	param = traits.List(traits.Float(),
-		argstr="--param%s=%s",
-		desc="Reconstruction parameters, different meaning and types for "
-			"different methods")
-	#param0 = traits.Float(desc="param 0 for method")
-	#param1 = traits.Float(desc="param 1 for method")
-	#param2 = traits.Float(desc="param 2 for method")
-	#param3 = traits.Float(desc="param 3 for method")
-	#param4 = traits.Float(desc="param 4 for method")
+		argstr='--param%s=%s',
+		desc='Reconstruction parameters, different meaning and types for '
+			'different methods')
 	
 	affine = File(exists=True, 
-		argstr="--affine=%s",
-		desc="text file containing a transformation matrix. e.g. the following "
-		"shifts in x and y by 10 voxels: \n1 0 0 -10 \n 0 1 0 -10 \n 0 0 1 0")
+		argstr='--affine=%s',
+		desc='text file containing a transformation matrix. e.g. the following '
+		'shifts in x and y by 10 voxels: \n1 0 0 -10 \n 0 1 0 -10 \n 0 0 1 0')
 	flip = traits.Int(
-		argstr="--flip=%d", 
-		desc="flip image volume and b-table. 0:flip x, 1:flip y, 2:flip z, "
-			"3:flip xy, 4:flip yz, 5: flip xz. \n"
-			"e.g. 301 performs flip xy, flip x, flip y")
+		argstr='--flip=%d', 
+		desc='flip image volume and b-table. 0:flip x, 1:flip y, 2:flip z, '
+			'3:flip xy, 4:flip yz, 5: flip xz. \n'
+			'e.g. 301 performs flip xy, flip x, flip y')
 	motion_corr = traits.Enum(0,1, 
 		usedefault=True,
-		argstr="--motion_correction=%d",
-		desc="whether to apply motion and eddy correction, only DTI dataset")
+		argstr='--motion_correction=%d',
+		desc='whether to apply motion and eddy correction, only DTI dataset')
 	check_btable = traits.Enum(1,0, 
 		usedefault=True,
-		argstr="--check_btable=%d",
-		desc="whether to do b-table flipping, default yes")
+		argstr='--check_btable=%d',
+		desc='whether to do b-table flipping, default yes')
 	hanning_filter_width = traits.Int(16,
 		usedefault=True,
-		desc="DSI - Hanning filter width")
+		desc='DSI - Hanning filter width')
 	output_dif = traits.Enum(1,0, 
 		usedefault=True,
-		argstr="--output_dif=%d",
-		desc="DTI - output diffusivity, default 1")
+		argstr='--output_dif=%d',
+		desc='DTI - output diffusivity, default 1')
 	output_tensor = traits.Enum(0,1, 
 		usedefault=True,
-		argstr="--output_tensor=%d",
-		desc="DTI - output whole tensor, default 0")
+		argstr='--output_tensor=%d',
+		desc='DTI - output whole tensor, default 0')
 	smooth_kernel_width = traits.Int(15,
 		usedefault=True,
-		desc="FRQBI - width of gaussian smoothing kernel")
+		desc='FRQBI - width of gaussian smoothing kernel')
 	interp_kernel_width = traits.Int(5,
 		usedefault=True,
-		desc="FRQBI - width of interpolation kernel")
+		desc='FRQBI - width of interpolation kernel')
 	odf_order = traits.Enum(8,4,5,6,10,12,16,20, 
 		usedefault=True,
-		argstr="--odf_order=%d",
-		desc="FRQBI,SHQBI,GQI,QSDR - tesselation number of the odf, default 8")
+		argstr='--odf_order=%d',
+		desc='FRQBI,SHQBI,GQI,QSDR - tesselation number of the odf, default 8')
 	record_odf = traits.Enum(0,1, 
 		usedefault=True,
-		argstr="--record_odf=%d",
-		desc="FRQBI,SHQBI,GQI,QSDR - whether to output ODF for connectometry "
-			"analysis")
+		argstr='--record_odf=%d',
+		desc='FRQBI,SHQBI,GQI,QSDR - whether to output ODF for connectometry '
+			'analysis')
 	regularization = traits.Float(0.006,
-		desc="FRQBI,SHQBI,GQI,QSDR - regularization parameter")
+		desc='FRQBI,SHQBI,GQI,QSDR - regularization parameter')
 	harmonic_order = traits.Int(8,
 		usedefault=True,
-		desc="SHQBI - order of spherical harmonics")
+		desc='SHQBI - order of spherical harmonics')
 	mddr = traits.Float(1.25,
 		usedefault=True,
-		desc="GQI - ratio of the mean diffusion distance")
+		desc='GQI - ratio of the mean diffusion distance')
 	r2_weighted = traits.Enum(0,1, 
 		usedefault=True,
-		argstr="--r2_weighted=%d",
-		desc="GQI - whether to apply r2 weighted reconstruction")
+		argstr='--r2_weighted=%d',
+		desc='GQI - whether to apply r2 weighted reconstruction')
 	output_rdi = traits.Enum(1,0, 
 		usedefault=True,
-		argstr="--output_rdi=%d",
-		desc="GQI,QSDR - output restricted diffusion imaging, default 1")
+		argstr='--output_rdi=%d',
+		desc='GQI,QSDR - output restricted diffusion imaging, default 1')
 	csf_cal = traits.Enum(1,0, 
 		usedefault=True,
-		argstr="--csf_calibration=%d",
-		desc="GQI,QSDR - enable CSF calibration, default 1")
+		argstr='--csf_calibration=%d',
+		desc='GQI,QSDR - enable CSF calibration, default 1')
 	b_value = traits.Int(3000,
 		usedefault=True,
-		desc="HARDI - b-value")
+		desc='HARDI - b-value')
 	output_resolution = traits.Float(2,
 		usedefault=True,
-		desc="QSDR - output resolution in mm")
+		desc='QSDR - output resolution in mm')
 	#--other_image=t1w,/directory/my_t1w.nii.gz;t2w,/directory/my_t1w.nii.gz
 	other_image = traits.Bool(
-		argstr="--other_image=%s,%s",
-		sep=";",
-		requires=["other_image_type","other_image_file"],
-		desc="QSDR - whether to wrap other image volumes")
-	other_image_type = traits.List(traits.Enum("t1w","t2w"),
-		requires=["other_image","other_image_file"],
-		desc="QSDR - t1w or t2w (maybe others, but unsure,unimplemented)")
+		argstr='--other_image=%s,%s',
+		sep=';',
+		requires=['other_image_type','other_image_file'],
+		desc='QSDR - whether to wrap other image volumes')
+	other_image_type = traits.List(traits.Enum('t1w','t2w'),
+		requires=['other_image','other_image_file'],
+		desc='QSDR - t1w or t2w (maybe others, but unsure,unimplemented)')
 	other_image_file = InputMultiPath(File(exists=True), 
-		requires=["other_image","other_image_type"],
-		desc="QSDR - filepath for image to be wrapped")
+		requires=['other_image','other_image_type'],
+		desc='QSDR - filepath for image to be wrapped')
 	output_mapping = traits.Enum(0,1, 
 		usedefault=True,
-		argstr="--output_mapping=%d",
-		desc="QSDR - output mapping for each voxel, default 0")
+		argstr='--output_mapping=%d',
+		desc='QSDR - output mapping for each voxel, default 0')
 	output_jac = traits.Enum(0,1, 
 		usedefault=True,
-		argstr="--output_jac=%d",
-		desc="QSDR - output jacobian determinant, default 0")
+		argstr='--output_jac=%d',
+		desc='QSDR - output jacobian determinant, default 0')
 	interpolation = traits.Enum(0,1,2, 
 		usedefault=True,
-		argstr="--interpolation=%d",#says interpo_method in docs, but not code
-		desc="QSDR - interpolation method, 0:trilinear (default), "
-			"1:gaussian radial basis, 2:tricubic")
+		argstr='--interpolation=%d',#says interpo_method in docs, but not code
+		desc='QSDR - interpolation method, 0:trilinear (default), '
+			'1:gaussian radial basis, 2:tricubic')
 	num_fiber = traits.Int(5, 
 		usedefault=True,
-		argstr="--num_fiber=%d",
-		desc="FRQBI,SHQBI,GQI,QSDR - max count of resolving fibers per voxel, "
-			"default 5")
+		argstr='--num_fiber=%d',
+		desc='FRQBI,SHQBI,GQI,QSDR - max count of resolving fibers per voxel, '
+			'default 5')
+	scheme_balance = traits.Enum(0,1,
+		usedefault=True,
+		argstr='--scheme_balance=%d',
+		desc='0:disable scheme balance, 1:enable scheme balance')
+	half_sphere = traits.Enum(0,1,
+		usedefault=True,
+		argstr='--half_sphere=%d',
+		desc='whether data acquired with half sphere DSI')
 	deconvolution = traits.Enum(0,1, 
-		usedefault=True,
-		argstr="--deconvolution=%d",
-		desc="whether to apply deconvolution, requires regularization")
+		argstr='--deconvolution=%d --param2=%.4f',
+		desc='whether to apply deconvolution, requires regularization')
 	decomposition = traits.Enum(0,1, 
-		usedefault=True,
-		argstr="--decomposition=%d",
-		desc="whether to apply decomposition, requires decomp_frac, m_value")
+		argstr='--decomposition=%d --param3=%.4f --param4=%d',
+		desc='whether to apply decomposition, requires decomp_frac, m_value')
 	decomp_frac = traits.Float(0.05,
-		usedefault=True,
-		requires=["decomposition"],
-		desc="decomposition fraction")
+		requires=['decomposition'],
+		desc='decomposition fraction')
 	m_value = traits.Int(10,
-		usedefault=True,
-		requires=["decomposition"],
-		desc="decomposition m value")
+		requires=['decomposition'],
+		desc='decomposition m value')
 	regist_method = traits.Enum(0,1,2,3,4, 
 		usedefault=True,
-		argstr="--reg_method=%d",
-		desc="QSDR - registration method 0:SPM 7-9-7, 1:SPM 14-18-14, "
-			"2:SPM 21-27-21, 3:CDM, 4:T1W-CDM")
+		argstr='--reg_method=%d',
+		desc='QSDR - registration method 0:SPM 7-9-7, 1:SPM 14-18-14, '
+			'2:SPM 21-27-21, 3:CDM, 4:T1W-CDM')
 	t1w = File(exists=True, 
-		argstr="--t1w=%s", 
-		requires=["regist_method"],
-		desc="QSDR - assign a t1w file for registration method 4")
+		argstr='--t1w=%s', 
+		requires=['regist_method'],
+		desc='QSDR - assign a t1w file for registration method 4')
 	template = File(exists=True,
-		argstr="--template=%s",
-		desc="QSDR - assign a template file for spatial normalization")
+		argstr='--template=%s',
+		desc='QSDR - assign a template file for spatial normalization')
 
 
 
 class DSIStudioReconstructOutputSpec(DSIStudioOutputSpec):
-	"""DSI Studio reconstruct output specification"""
-	fiber_file = File(exists=True, desc="Fiber tracking file")
-	#filename depends on reconstruction method, and automatic detections by
-	#DSIStudio, unsure how to tell nipype workflow about all of it
+	'''DSI Studio reconstruct output specification'''
+	fiber_file = File(exists=True, desc='Fiber tracking file')
+#filename depends on reconstruction method, and automatic detections by
+#DSIStudio, may have to modify expected output with runtime.stdout
 #Decoding the file extension
-#The FIB file generated during the reconstruction will include several extension. 
+#The FIB file generated during the reconstruction will include several extension
 #Here is a list of the explanation
 #odf8: An 8-fold ODF tessellation was used
 #f5: For each voxel, a maximum of 5 fiber directions were resolved
 #rec: ODF information was output in the FIB file
 #csfc: quantitative diffusion MRI was conducted using CSF location as the free 
-#water calibration
+	#water calibration
 #hs: A half sphere scheme was used to acquired DSI
 #reg0i2: the spatial normalization was conducted using 
 #(reg0: 7-9-7 reg1: 14-18-14 reg2: 21-27-21) and the images were interpolated 
 #using (i0: trilinear interpolation, I1: Guassian radial basis i2: cubic spine)
 #bal: The diffusion scheme was resampled to ensure balance in the 3D space
-#fx, fy, fz: The b-table was automatically flipped by DSI Studio in x-, y-, or 
-#z- direction. 012 means the order of the x-y-z coordinates is the same, 
-#whereas 102 indicates x-y flip, 210 x-z flip, and 021 y-z- flip. 
+	#fx, fy, fz: The b-table was automatically flipped by DSI Studio in 
+	#x-, y-, or z- direction. 012 means the order of the x-y-z coordinates is 
+	#the same, whereas 102 indicates x-y flip, 210 x-z flip, and 021 y-z- flip. 
 #rdi: The restricted diffusioin imaging metrics were calculated 
 #de: deconvolution was used to sharpen the ODF
 #dec: decomposition was used to sharpen the ODF
 #dti: The images were reconstructed using diffusion tensor imaging
 #gqi: The images were reconstructed using generalized q-sampling imaging
 #qsdr: The images were reconstructed using q-space diffeomorphic reconstruction
-#R72: The goodness-of-fit between the subject's data and the template has a R-squared value of 0.72
+#R72: The goodness-of-fit between the subject's data and the template has a 
+	#R-squared value of 0.72
 
 ###TODO Capture from stdout
 
 class DSIStudioReconstruct(DSIStudioCommand):
-	"""DSI Studio reconstruct action support
-	TESTING
-	"""
-	_action = "rec"
-	_output_type = "FIB"
+	'''DSI Studio reconstruct action support
+	'''
+	_action = 'rec'
+	_output_type = 'FIB'
 	input_spec = DSIStudioReconstructInputSpec
 	output_spec = DSIStudioReconstructOutputSpec
 	#terminal_output = 'stream'
@@ -1682,51 +1614,22 @@ class DSIStudioReconstruct(DSIStudioCommand):
 		super(DSIStudioReconstruct, self).__init__(**inputs)
 		
 		self.inputs.on_trait_change(self._method_update, 'method')
-		self.inputs.on_trait_change(self._param_update, 'param')
 		
-	def _deconv_update(self):
-		dcnv = 'deconvolution'
-		dcnvval = getattr(self.inputs, dcnv)
-		dcnvspec = self.inputs.trait(dcnv)
-		paramspec = self.inputs.trait('param')
-		paramval = getattr(self.inputs, 'param')
-		subparams = ('regularization',)
-		if not isdefined(dcnvval) or dcnvval == 0:
-			setattr(dcnvspec, 'requires', None)
-			for e in subparams:
-				if paramspec.requires is not None and e in paramspec.requires:
-					paramspec.requires.remove(e)
-		elif dcnvval == 1:
-			setattr(dcnvspec, 'requires', list(subparams))
-			if paramspec.requires is None:
-				paramspec.requires = []
-			paramspec.requires.extend(subparams)
-		
-	def _decomp_update(self):
-		dcmp = 'decomposition'
-		dcmpval = getattr(self.inputs, dcmp)
-		dcmpspec = self.inputs.trait(dcmp)
-		paramspec = self.inputs.trait('param')
-		paramval = getattr(self.inputs, 'param')
-		subparams = ('decomp_frac', 'm_value')
-		if not isdefined(dcmpval) or dcmpval == 0:
-			setattr(dcmpspec, 'requires', None)
-			for e in subparams:
-				if paramspec.requires is not None and e in paramspec.requires:
-					paramspec.requires.remove(e)
-		elif dcmpval == 1:
-			setattr(dcmpspec, 'requires', list(subparams))
-			if paramspec.requires is None:
-				paramspec.requires = []
-			paramspec.requires.extend(subparams)
+	def _subparam_update(self, name, subparams):
+		val = getattr(self.inputs, name)
+		spec = self.inputs.trait(name)
+		if not isdefined(val) or val == 0:
+			setattr(spec, 'requires', None)
+		elif val == 1:
+			setattr(spec, 'requires', list(subparams))
 				
 	def _param_update(self):
 		name = 'param'
 		value = getattr(self.inputs, name)
 		spec = self.inputs.trait(name)		
 		
-		self._deconv_update()
-		self._decomp_update()	
+		self._subparam_update('deconvolution', ('regularization',))
+		self._subparam_update('decomposition', ('decomp_frac', 'm_value'))	
 		
 		mval = getattr(self.inputs, 'method')
 		if isdefined(mval):
@@ -1738,25 +1641,20 @@ class DSIStudioReconstruct(DSIStudioCommand):
 				requires = []
 			if nparams > 0:
 				setattr(spec, 'mandatory', True)
-				requires.extend(paramsources)
-				setattr(spec, 'requires', requires)
+				setattr(spec, 'requires', paramsources)
 				paramlist = []
 				for e in requires:
 					paramval =  getattr(self.inputs, e)
 					if isdefined(paramval):
 						paramlist.append(paramval)
-					else:
-						raise TypeError('Input: %s is <undefined>, required '
-							'parameter for Method: %s' %
-							(e, mval))
+
 				setattr(self.inputs, name, paramlist)
 			else:
 				setattr(spec, 'mandatory', None)
 				setattr(spec, 'requires', None)
-				#Defaults are actually to not be in spec.__dict__, but None
+				#Defaults are actually to not be a spec attribute, but None
 				#should/seems to work the same
 				setattr(self.inputs, name, _Undefined())
-		
 	
 	def _method_update(self):
 		name = 'method'
@@ -1769,32 +1667,11 @@ class DSIStudioReconstruct(DSIStudioCommand):
 			setattr(spec, 'requires', None)
 		
 		self._param_update()
-		
-		##if method defined, set method_value to True, other methods to False
-		#if isdefined(value):
-			#idname = []
-			#idname.extend(('method_',value))
-			#varidname = ''.join(idname)
-			#fix = self.inputs.trait(varidname)
-			#for x in fix.xor:
-				#setattr(self.inputs, x, _Undefined())
-			#setattr(self.inputs, varidname, True)
-		#else:
-			##sfx is 'dsi', 'dti' etc.
-			#for sfx in DSIInfo.rec_method_id_n.iterkeys():
-				#idname =[]
-				#idname.extend(('method_',sfx))
-				#varidname = ''.join(idname)
-				#sfxvalue = getattr(self.inputs, varidname)
-				#if isdefined(sfxvalue) and sfxvalue == True:
-					#newval = sfx
-					#setattr(self.inputs, 'method', newval)
-		
 			
 	def _check_mandatory_inputs(self):
-		"""using this to insert/update necessary values, then call super
+		'''using this to insert/update necessary values, then call super
 		_check_mandatory_inputs called before any cmd is run
-		"""
+		'''
 		self._update_from_indict()
 		self._method_update()
 
@@ -1802,7 +1679,7 @@ class DSIStudioReconstruct(DSIStudioCommand):
 		super(DSIStudioReconstruct, self)._check_mandatory_inputs()
 
 	def _format_arg(self, name, trait_spec, value):
-		"""alternative helper function for _parse_inputs, 
+		'''alternative helper function for _parse_inputs, 
 		only include specific argstrs for the reconstruction method,
 		format method specific argstrs, params, other_image_...,
 		
@@ -1811,45 +1688,50 @@ class DSIStudioReconstruct(DSIStudioCommand):
 		name : str (input spec variable)
 		trait_spec : trait_spec (self.inputs.name.traits())
 		value: various (self.inputs.name)
-		"""
+		'''
 
 		argstr = trait_spec.argstr
 		#print argstr #debug
-		sep = trait_spec.sep if trait_spec.sep is not None else " "
+		sep = trait_spec.sep if trait_spec.sep is not None else ' '
 		arglist = []
+		returnstr = None
 		
-		if name == "method":
+		if name == 'method':
 			#method id to n
-			return argstr % DSIInfo.rec_mid_to_mn(value)
+			returnstr =  argstr % DSIInfo.rec_mid_to_mn(value)
 			
-		if name == "param":
+		elif name == 'param':
 			#method should be defined, parsed in alphabetical order
 			recmid = getattr(self.inputs, 'method')
 			expparamtypes = DSIInfo.rec_mid_to_ptype(recmid)
-			if recmid == "DTI":
+			expnparams = len(expparamtypes)
+			if recmid == 'DTI':
 				pass #no params
 			
 			if len(value) == expnparams:
 				for e in value:
 					e_idx = value.index(e)
-					if isinstance(e, DSIInfo.rec_mid_to_ptype(
-						recmid)[e_idx]):
-						#numbered from 0
-						arglist.append(argstr % (e_idx,e))
-					else:
-						raise AttributeError("Param type: %s != Expected "
-							"Param type: %s for Param: %s, in Method: %s" %
-							(type(e),expparamtypes[e_idx],e,
-							recmid))
-				return sep.join(arglist)
+					arglist.append(argstr % (e_idx,e))
+
+				returnstr = sep.join(arglist)
 			else:
-				raise AttributeError("N input params: '%d' != "
-									"Expected N params: '%d' for Method: %s" %
+				raise AttributeError('N input params: "%d" != '
+									'Expected N params: "%d" for Method: %s' %
 									(len(value),expnparams,recmid))
+		
+		elif name == 'deconvolution':
+			if value == 1:
+				regularization = getattr(self.inputs, 'regularization')
+				returnstr = argstr % (value, regularization)
+			
+		elif name == 'decomposition' and value == 1:
+			decomp_frac = getattr(self.inputs, 'decomp_frac')
+			m_value = getattr(self.inputs, 'm_value')
+			returnstr = argstr % (value, decomp_frac, m_value)
 									
 		#qsdr t1w,t2w image wrapping, check number of inputs match and put 
 		#values in other_image argstr
-		elif name == "other_image" and value:
+		elif name == 'other_image' and value:
 			oit = self.inputs.other_image_type
 			oif = self.inputs.other_image_file
 			_, argstrend = argstr.split('=')
@@ -1860,16 +1742,18 @@ class DSIStudioReconstruct(DSIStudioCommand):
 					#in case there are more than 2 options in future
 					elif oit.index(t) < len(oit):
 						arglist.append(argstrend % (t, oif[oit.index(t)]))
-				return sep.join(arglist)
+				returnstr = sep.join(arglist)
 			else:
-				raise AttributeError("N other image types != N other image "
-									"files")
+				raise AttributeError('N other image types != N other image '
+									'files')
 		else:
 			return super(DSIStudioReconstruct, self)._format_arg(
 			name, trait_spec, value)
+		
+		return returnstr
 
 	def _parse_inputs(self, skip=None):
-		#super._parse_inputs any var with an argstr will be parsed if not in skip
+		#super._parse_inputs any var with an argstr will be parsed if not a skip
 		recmid = getattr(self.inputs, 'method')
 		incp=set(DSIInfo.rec_method_id_inputs[recmid])
 		allp = set().union(*DSIInfo.rec_method_id_inputs.itervalues())
@@ -1898,16 +1782,16 @@ class DSIStudioReconstruct(DSIStudioCommand):
 		return outputs
 		
 	def aggregate_outputs(self, runtime=None, needed_outputs=None):
-		"""DSIStudio reconstruct will write the output to the input directory
+		'''DSIStudio reconstruct will write the output to the input directory
 		with a variable filename, but puts this information in stdout. Copy and 
 		fix.
-		"""
+		'''
 		return super(DSIStudioReconstruct, self).aggregate_outputs(
 			runtime=runtime, needed_outputs=needed_outputs)
 	
 	#copied from nipype.interfaces.base.core.CommandLine for debugging
 	def _run_interface(self, runtime, correct_return_codes=(0,)):
-		"""Execute command via subprocess
+		'''Execute command via subprocess
 
 		Parameters
 		----------
@@ -1918,7 +1802,7 @@ class DSIStudioReconstruct(DSIStudioCommand):
 		runtime : updated runtime information
 			adds stdout, stderr, merged, cmdline, dependencies, command_path
 
-		"""
+		'''
 		import shlex
 		from nipype.utils.filemanip import which, get_dependencies
 
@@ -1955,77 +1839,69 @@ class DSIStudioReconstruct(DSIStudioCommand):
 
 class DSIStudioAtlasInputSpec(DSIStudioInputSpec):
 	order = traits.Enum(0,1,2,3,
-						argstr="--order=%d",
-						desc="normalization order, higher gives better acc. "
-							"but requires more time, default 0")
+		argstr='--order=%d',
+		desc='normalization order, higher gives better acc. but requires more '
+			'time, default 0')
 	thread_count = traits.Int(4,
-							argstr="--thread_count=%d",
-							desc="number of threads to use in image "
-								"normalization, default 4")
-	atlas = traits.List(
-		traits.Enum("aal", "ATAG_basal_ganglia", "brodmann", "Cerebellum-SUIT",
-					"FreeSurferDKT", "Gordan_rsfMRI333", "HarvardOxfordCort",
-					"HarvardOxfordSub","HCP-MMP1","JHU-WhiteMatter-labels-1mm",
-					"MNI", "OASIS_TRT_20", "sri24_tissues","sri24_tzo116plus",
-					"talairach","tractography"),
-		argstr="--atlas=%s", 
-		sep=",")
-	output = traits.Enum("single", "multiple",
-						argstr="--output=%s",
-						desc="whether to create one or multiple nifti files")
-	output_type = traits.Enum("NIFTI",
-							usedefault=True,
-							desc="DSI Studio atlas action output type")
+		argstr='--thread_count=%d',
+		desc='number of threads to use in image normalization, default 4')
+	atlas = traits.List(traits.Enum(*DSIInfo.atlases),
+		argstr='--atlas=%s', 
+		sep=',')
+	output = traits.Enum('single', 'multiple',
+		argstr='--output=%s',
+		desc='whether to create one or multiple nifti files')
+	output_type = traits.Enum('NIFTI',
+		usedefault=True,
+		desc='DSI Studio atlas action output type')
 
 
 
 class DSIStudioAtlasOutputSpec(DSIStudioOutputSpec):
-	output = OutputMultiPath(
-				File(desc="path/name of transformed atlas nifti file(s) "
-							"(if generated)"))
+	output = OutputMultiPath(File(exists=True),
+		desc='path/name of transformed atlas nifti file(s) '
+			 '(if generated)')
 
 
 
 class DSIStudioAtlas(DSIStudioCommand):
-	"""DSI Studio atlas action support
-	TESTING
-	"""
-	_action = "atl"
-	_output_type = "NIFTI"
+	'''DSI Studio atlas action support
+	'''
+	_action = 'atl'
+	_output_type = 'NIFTI'
 	input_spec = DSIStudioAtlasInputSpec
 
 	def _check_mandatory_inputs(self):
-		"""Update other inputs from inputs.indict then call super"""
+		'''Update other inputs from inputs.indict then call super'''
 		self._update_from_indict()
 		super(DSIStudioAtlas, self)._check_mandatory_inputs()
 
+
+
 class DSIStudioExportInputSpec(DSIStudioInputSpec):
-	export = traits.List(
-				traits.Str(),
-				argstr="--export=%s",
-				name_source=["source"],
-				name_template="%s",#overload extension, don't add _generated
-				desc="name of export target, includes fa0,fa1,gfa,dir0,dir1,"
-					"dirs,image0,4dnii, maybe others")
-	output_type = traits.Enum("NIFTI",
-							usedefault=True,
-							desc="DSI Studio Export output type")
+	export = traits.List(traits.Str(),
+		argstr='--export=%s',
+		name_source=['source'],
+		name_template='%s',#overload extension, don't add _generated
+		desc='name of export target, includes fa0,fa1,gfa,dir0,dir1,'
+			 'dirs,image0,4dnii, maybe others')
+	output_type = traits.Enum('NIFTI',
+		usedefault=True,
+		desc='DSI Studio Export output type')
 
 
 
 class DSIStudioExportOutputSpec(DSIStudioOutputSpec):
-	export = OutputMultiPath(
-				File(exists=True),
-				desc="matrix information output as nifti files")
+	export = OutputMultiPath(File(exists=True),
+		desc='matrix information output as nifti files')
 
 
 
 class DSIStudioExport(DSIStudioCommand):
-	"""DSI Studio export action support for exporting matrix information
-	TESTING
-	"""
-	_action = "exp"
-	_output_type = "NIFTI"
+	'''DSI Studio export action support for exporting matrix information
+	'''
+	_action = 'exp'
+	_output_type = 'NIFTI'
 	input_spec = DSIStudioExportInputSpec
 	output_spec = DSIStudioExportOutputSpec
 
@@ -2039,11 +1915,11 @@ class DSIStudioExport(DSIStudioCommand):
 				e,#DSI Studio adds export target to ext
 				DSIInfo.ot_to_ext(self.inputs.output_type)))
 		for e in rvunjoined:
-			retval.append("".join(e))
+			retval.append(''.join(e))
 		return retval
 		
 	def _check_mandatory_inputs(self):
-		"""Update other inputs from inputs.indict then call super"""
+		'''Update other inputs from inputs.indict then call super'''
 		self._update_from_indict()
 		super(DSIStudioExport, self)._check_mandatory_inputs()
 
