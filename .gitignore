@@ -105,3 +105,6 @@ ENV/
 
 #crash log
 crash-*
+
+#Geany project settings
+*.geany
