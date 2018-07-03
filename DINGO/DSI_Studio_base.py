@@ -10,146 +10,6 @@ from DINGO.utils import list_to_str
 
 import pdb
 
-#copied from nipype.interfaces.base.core for debugging. DSI Studio closing 
-#with returncode 1 for every operation.
-def run_command(runtime, output=None, timeout=0.01):
-    '''Run a command, read stdout and stderr, prefix with timestamp.
-
-    The returned runtime contains a merged stdout+stderr log with timestamps
-    '''
-    from nipype.utils.filemanip import (read_stream, 
-										canonicalize_env as _canonicalize_env)
-    from nipype.interfaces.base.support import Stream
-    from nipype import logging
-    import subprocess as sp
-    import select
-    import errno
-    import gc
-    iflogger = logging.getLogger('interface')
-
-	#Start of original
-    # Init variables
-    cmdline = runtime.cmdline
-    env = _canonicalize_env(runtime.environ)
-
-    errfile = None
-    outfile = None
-    stdout = sp.PIPE
-    stderr = sp.PIPE
-
-    if output == 'file':
-        outfile = os.path.join(runtime.cwd, 'output.nipype')
-        stdout = open(outfile, 'wb')  # t=='text'===default
-        stderr = sp.STDOUT
-    elif output == 'file_split':
-        outfile = os.path.join(runtime.cwd, 'stdout.nipype')
-        stdout = open(outfile, 'wb')
-        errfile = os.path.join(runtime.cwd, 'stderr.nipype')
-        stderr = open(errfile, 'wb')
-    elif output == 'file_stdout':
-        outfile = os.path.join(runtime.cwd, 'stdout.nipype')
-        stdout = open(outfile, 'wb')
-    elif output == 'file_stderr':
-        errfile = os.path.join(runtime.cwd, 'stderr.nipype')
-        stderr = open(errfile, 'wb')
-
-    proc = sp.Popen(
-        cmdline,
-        stdout=stdout,
-        stderr=stderr,
-        shell=True,
-        cwd=runtime.cwd,
-        env=env,
-        close_fds=True,
-    )
-
-    result = {
-        'stdout': [],
-        'stderr': [],
-        'merged': [],
-    }
-    #pdb.set_trace()#start of execution
-    if output == 'stream':
-        streams = [
-            Stream('stdout', proc.stdout),
-            Stream('stderr', proc.stderr)
-        ]
-
-        def _process(drain=0):
-            try:
-                res = select.select(streams, [], [], timeout)
-            except select.error as e:
-                iflogger.info(e)
-                if e[0] == errno.EINTR:
-                    return
-                else:
-                    raise
-            else:
-                for stream in res[0]:
-                    stream.read(drain)
-		
-        while proc.returncode is None:
-            proc.poll()
-            _process()
-
-        _process(drain=1)
-
-        # collect results, merge and return
-        result = {}
-        temp = []
-        for stream in streams:
-            rows = stream._rows
-            temp += rows
-            result[stream._name] = [r[2] for r in rows]
-        temp.sort()
-        result['merged'] = [r[1] for r in temp]
-
-    if output.startswith('file'):
-        proc.wait()
-        if outfile is not None:
-            stdout.flush()
-            stdout.close()
-            with open(outfile, 'rb') as ofh:
-                stdoutstr = ofh.read()
-            result['stdout'] = read_stream(stdoutstr, logger=iflogger)
-            del stdoutstr
-
-        if errfile is not None:
-            stderr.flush()
-            stderr.close()
-            with open(errfile, 'rb') as efh:
-                stderrstr = efh.read()
-            result['stderr'] = read_stream(stderrstr, logger=iflogger)
-            del stderrstr
-
-        if output == 'file':
-            result['merged'] = result['stdout']
-            result['stdout'] = []
-    else:
-        stdout, stderr = proc.communicate()
-        if output == 'allatonce':  # Discard stdout and stderr otherwise
-            result['stdout'] = read_stream(stdout, logger=iflogger)
-            result['stderr'] = read_stream(stderr, logger=iflogger)
-
-    runtime.returncode = proc.returncode
-    try:
-        proc.terminate()  # Ensure we are done
-    except OSError as error:
-        # Python 2 raises when the process is already gone
-        if error.errno != errno.ESRCH:
-            raise
-
-    # Dereference & force GC for a cleanup
-    del proc
-    del stdout
-    del stderr
-    gc.collect()
-
-    runtime.stderr = '\n'.join(result['stderr'])
-    runtime.stdout = '\n'.join(result['stdout'])
-    runtime.merged = '\n'.join(result['merged'])
-    return runtime
-
 class DSIInfo(object):
 	#atlas list
 	atlases = (
@@ -1272,8 +1132,10 @@ class DSIStudioAnalysisInputSpec(DSIStudioFiberInputSpec):
 	output_type = traits.Enum('NIFTI', 'TRK', 'TXT',
 		usedefault=True,
 		desc='DSI Studio ana action output type')
-	#if more than 1 roi is given, or tract is specified, DSIstudio will
-	#do tract analysis, else region analysis
+	roi = InputMultiPath(File(exists=True),
+		argstr='roi=%s',
+		sep=';',
+		desc='Text, nifti, or atlas regions for region-based analysis')
 	tract = File(exists=True, 
 		argstr='--tract=%s',
 		desc='assign tract file for analysis')
@@ -1399,7 +1261,7 @@ class DSIStudioSource(DSIStudioCommand):
 			return super(DSIStudioSource, self)._gen_filename(name)
 			
 	def _list_outputs(self):
-		outputs = self._output_spec().get()
+		outputs = self._outputs().get()
 		outputs['output'] = self._gen_filename('output')
 		return outputs
 		
@@ -1573,7 +1435,7 @@ class DSIStudioReconstructOutputSpec(DSIStudioOutputSpec):
 	'''DSI Studio reconstruct output specification'''
 	fiber_file = File(exists=True, desc='Fiber tracking file')
 #filename depends on reconstruction method, and automatic detections by
-#DSIStudio, may have to modify expected output with runtime.stdout
+#DSIStudio, actual output file acquired from runtime
 #Decoding the file extension
 #The FIB file generated during the reconstruction will include several extension
 #Here is a list of the explanation
@@ -1599,7 +1461,7 @@ class DSIStudioReconstructOutputSpec(DSIStudioOutputSpec):
 #R72: The goodness-of-fit between the subject's data and the template has a 
 	#R-squared value of 0.72
 
-###TODO Capture from stdout
+
 
 class DSIStudioReconstruct(DSIStudioCommand):
 	'''DSI Studio reconstruct action support
@@ -1770,84 +1632,52 @@ class DSIStudioReconstruct(DSIStudioCommand):
 			toskip.extend(deftoskip)
 		return super(DSIStudioReconstruct, self)._parse_inputs(skip=toskip)
 		
-	def _list_outputs(self):
-		outputs = self._outputs().get()
-		#This is not quite correct, as described in outputspec
-		ext = []
-		ext.append(self.inputs.method)
-		ext.append(DSIInfo.ot_to_ext(self.inputs.output_type))
-		ext = ''.join(ext)
-		outputs['fiber_file'] = self._gen_fname(
-			self.inputs.source, change_ext=True, ext=ext)
-		return outputs
-		
 	def aggregate_outputs(self, runtime=None, needed_outputs=None):
 		'''DSIStudio reconstruct will write the output to the input directory
 		with a variable filename, but puts this information in stdout. Copy and 
 		fix.
 		'''
-		return super(DSIStudioReconstruct, self).aggregate_outputs(
-			runtime=runtime, needed_outputs=needed_outputs)
+		outputs = self._outputs()
+		#as long as terminal_output = 'file' ; stdout in runtime.merged
+		split_output = runtime.merged.split('\n')
+		if 'output data' in split_output and os.path.exists(split_output[-1]):
+			setattr(outputs, 'fiber_file', split_output[-1])
+			return outputs
+		raise('Fiber file not created/found properly.')
 	
-	#copied from nipype.interfaces.base.core.CommandLine for debugging
-	def _run_interface(self, runtime, correct_return_codes=(0,)):
-		'''Execute command via subprocess
-
-		Parameters
-		----------
-		runtime : passed by the run function
-
-		Returns
-		-------
-		runtime : updated runtime information
-			adds stdout, stderr, merged, cmdline, dependencies, command_path
-
-		'''
-		import shlex
-		from nipype.utils.filemanip import which, get_dependencies
-
-		out_environ = self._get_environ()
-		# Initialize runtime Bunch
-		runtime.stdout = None
-		runtime.stderr = None
-		runtime.cmdline = self.cmdline
-		runtime.environ.update(out_environ)
-
-		# which $cmd
-		executable_name = shlex.split(self._cmd_prefix + self.cmd)[0]
-		cmd_path = which(executable_name, env=runtime.environ)
-
-		if cmd_path is None:
-			raise IOError(
-				'No command "%s" found on host %s. Please check that the '
-				'corresponding package is installed.' % (executable_name,
-														 runtime.hostname))
-
-		runtime.command_path = cmd_path
-		runtime.dependencies = (get_dependencies(executable_name,
-												 runtime.environ)
-								if self._ldd else '<skipped>')
-		runtime = run_command(runtime, output=self.terminal_output)
-		
-		if runtime.returncode is None or \
-				runtime.returncode not in correct_return_codes:
-			self.raise_exception(runtime)
-
-		return runtime
-
 
 
 class DSIStudioAtlasInputSpec(DSIStudioInputSpec):
-	order = traits.Enum(0,1,2,3,
-		argstr='--order=%d',
-		desc='normalization order, higher gives better acc. but requires more '
-			'time, default 0')
-	thread_count = traits.Int(4,
-		argstr='--thread_count=%d',
-		desc='number of threads to use in image normalization, default 4')
+	#deprecated
+	#order = traits.Enum(0,1,2,3,
+						#argstr='--order=%d',
+						#desc='normalization order, higher gives better acc. '
+							#'but requires more time, default 0')
+	#thread_count = traits.Int(4,
+							#argstr='--thread_count=%d',
+							#desc='number of threads to use in image '
+								#'normalization, default 4')
+	cmd = traits.Enum('template','db','trk','roi',
+		argstr='--cmd=%s',
+		position=3,
+		desc='Specify operation to perform. template: average FIB files, '
+			'db: create connectometry database, '
+			'trk: convert QSDR space track to native space, '
+			'roi: convert atlas ROIs to subject space.')
+	template = File(exists=True,
+		argstr='--template=%s',
+		desc='used in cmd=db to specify template for creating connectometry db,'
+			 ' use default DSI Studio template if ignored')
+	index_name = traits.Enum('sdf','iso','fa','gfa','qa','nqa','md','ad','rd',
+		argstr='--index_name=%s',
+		desc='used in cmd=db to specify diffusion metric to extract, '
+			 'default sdf if ignored')
 	atlas = traits.List(traits.Enum(*DSIInfo.atlases),
 		argstr='--atlas=%s', 
-		sep=',')
+		sep=',',
+		desc='used in cmd=roi to specify the name of the atlas to convert')
+	tract = File(exists=True,
+		desc='used in cmd=trk to specify track file for conversion')
 	output = traits.Enum('single', 'multiple',
 		argstr='--output=%s',
 		desc='whether to create one or multiple nifti files')
@@ -1870,10 +1700,25 @@ class DSIStudioAtlas(DSIStudioCommand):
 	_action = 'atl'
 	_output_type = 'NIFTI'
 	input_spec = DSIStudioAtlasInputSpec
+	
+	def _cmd_requires_update(self):
+		cmdval = getattr(self.inputs, 'cmd')
+		cmdspec = self.inputs.trait('cmd')
+		
+		if isdefined(cmdval):
+			if cmdval == 'template':
+				setattr(cmdspec, 'requires', None)
+			if cmdval == 'db':
+				setattr(cmdspec, 'requires', ['template','index_name'])
+			if cmdval == 'trk':
+				setattr(cmdspec, 'requires', ['tract'])
+			if cmdval == 'roi':
+				setattr(cmdspec, 'requires', ['atlas'])
 
 	def _check_mandatory_inputs(self):
 		'''Update other inputs from inputs.indict then call super'''
 		self._update_from_indict()
+		self._cmd_requires_update()
 		super(DSIStudioAtlas, self)._check_mandatory_inputs()
 
 
