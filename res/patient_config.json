@@ -2,20 +2,22 @@
  "pid": "patient",
  "scanid": "scan",
  "sequenceid": "DTIFIXED",
+ "parent_dir": "/home/path/to/parent/of/patient/folders",
  "paths":
   {
-	"parent_dir": "/home/pirc/Desktop/DWI/CHD_tractography/CHP",
-	"dti_dir": "scanid",
-	"dti": "pid_scanid_sequenceid_suffix.nii.gz",
-	"bval": "pid_scanid_sequenceid_suffix.bval",
-	"bvec": "pid_scanid_sequenceid_suffix.bvec",
-	"t1_dir": "scanid/t1_dir",
-	"t1": "t1.nii.gz",
-	"t2_dir": "scanid/t2_dir",
-	"t2": "t2.nii.gz",
-	"regions": "scanid/Regions",
-	"tracts": "scanid/Tracts",
-	"src": "pid_scanid_sequenceid.src.gz",
-	"fib": "pid_scanid_sequenceid.fib.gz"
+	
+	"dti_dir":      "pid/scanid/dti_dir",
+	"dti":          "pid_scanid_sequenceid_suffix.nii.gz",
+	"bval":         "pid_scanid_sequenceid_suffix.bval",
+	"bvec":         "pid_scanid_sequenceid_suffix.bvec",
+	"t1":           "pid/scanid/t1_dir/t1.nii.gz",
+	"t2":           "pid/scanid/t2/t2.nii.gz",
+	"regions_man":  "pid/scanid/Regions/*.nii.gz",
+	"regions_auto": "pid/scanid/Regions/from_template/XXX/to_auto/*.nii.gz",
+	"tracts":       "pid/scanid/Tracts/*.trk.gz",
+	"src_man":      "pid/scanid/pid_scanid_sequenceid.src.gz",
+	"src_auto":     "pid/scanid/DSI_Studio/auto/pid_scanid_sequenceid_reoriented_edc.src.gz",
+	"fib_man":      "src_man.fy.dti.fib.gz",
+	"fib_auto":     "src_auto.*.fib.gz"
   }   
 }

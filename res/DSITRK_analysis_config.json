@@ -149,11 +149,11 @@
 		"outfields":		["REC"],
 		"field_template":
 		{
-			"REC":	"GenSRC/_included_ids_%s_%s_%s/DSI_SRC/%s_%s_%s_reoriented*.fib.gz"
+			"REC":	"%s/%s/DSI_Studio/auto/%s_%s_%s_reoriented*.fib.gz"
 		},
 		"template_args":
 		{
-			"REC":	[["sub_id","scan_id","uid","sub_id","scan_id","uid"]]
+			"REC":	[["sub_id","scan_id","sub_id","scan_id","uid"]]
 		}
 	  }
 	},
@@ -177,7 +177,10 @@
 		  "output_type": "TRK",
 		  "stat": true,
 		  "fa_threshold": 0.1,
-		  "turning_angle" : 60,
+		  "turning_angle" : 45,
+		  "fiber_count": 5000,
+		  "seed_count": 10000000,
+		  "thread_count": 3,
 		  "tracts":
 		  {
 			"Genu": 

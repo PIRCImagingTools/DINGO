@@ -127,7 +127,7 @@
 	["FileIn_mask", "FileIn_SConfig"],
 	["FileIn_SRC","FileIn"],
 	"REC_prep",
-	"DSI_REC"
+	["DSI_REC_checkb","DSI_REC"]
   ],
  "method" : 
   {
@@ -160,11 +160,11 @@
 		"outfields":	["SRC"],
 		"field_template":
 		{
-			"SRC":	"GenSRC/_included_ids_%s_%s_%s/DSI_SRC/%s_%s_%s_reoriented*.src.gz"
+			"SRC":	"%s/%s/DSI_Studio/auto/%s_%s_%s_reoriented*.src.gz"
 		},
 		"template_args":
 		{
-			"SRC":	[["sub_id","scan_id","uid","sub_id","scan_id","uid"]]
+			"SRC":	[["sub_id","scan_id","sub_id","scan_id","uid"]]
 		}
 	  },
 	  "connect":
@@ -179,7 +179,7 @@
 		"in_file": ["FileIn_mask","mask"]
 	  }
 	},
-	"DSI_REC":
+	"DSI_REC_checkb":
 	{
 	  "inputs":
 	  {

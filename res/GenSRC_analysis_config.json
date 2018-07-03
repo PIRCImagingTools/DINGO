@@ -175,7 +175,8 @@
 			"BET.@mask_file",
 			"EddyC.@eddy_corrected",
 			"DTIFIT.@FA",
-			"DTIFIT.@V1"
+			"DTIFIT.@V1",
+			"DSI_Studio.auto.@src"
 		]
 	  },
 	  "connect":
@@ -183,7 +184,8 @@
 		"BET_@mask_file":	["BET", "mask_file"],
 		"EddyC_@eddy_corrected":	["EddyC", "eddy_corrected"],
 		"DTIFIT_@FA":	["DTIFIT", "FA"],
-		"DTIFIT_@V1":	["DTIFIT", "V1"]
+		"DTIFIT_@V1":	["DTIFIT", "V1"],
+		"DSI_Studio_auto_@src":	["DSI_SRC", "output"]
 	  }
 	},
 	"EddyC":
