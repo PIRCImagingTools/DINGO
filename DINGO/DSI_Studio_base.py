@@ -3,7 +3,7 @@ from nipype.interfaces.base import (traits, File, Directory, InputMultiPath,
                                     CommandLine, CommandLineInputSpec, 
                                     TraitedSpec)
 import os
-from nipype.utils.filemanip import fname_presuffix, split_filename
+from nipype.utils.filemanip import split_filename
 from traits.trait_base import _Undefined
 from traits.api import Trait
 from DINGO.utils import list_to_str
@@ -305,7 +305,7 @@ class DSIStudioCommand(CommandLine):
                     #print('Input: '%s' set to Value: %s' % (key, value))
                     #Type checking is handled by traits InputSpec
 
-    def _gen_fname(self, 
+    def _gen_fname(self, \
     basename, cwd=None, suffix=None, change_ext=True, ext=None):
         '''Generate a filename based on input.
         
@@ -336,9 +336,7 @@ class DSIStudioCommand(CommandLine):
                 suffix = ext
         if suffix is None:
             suffix = ''
-        fname = fname_presuffix(basename, suffix=suffix, use_ext=False,
-                                newpath=cwd)
-        return fname
+        return os.path.join(os.path.abspath(cwd), ''.join((basename, suffix)))
         
     #def _check_mandatory_inputs(self):
         #'''Call super, since executed before command output being used for 
@@ -862,7 +860,7 @@ class DSIStudioFiberCommand(DSIStudioCommand):
                         sep, list_to_str(sep=sep,args=[elt for elt in acts]))))
                 newvalue.append(''.join(modval))
             return newvalue
-                    
+            
         
     def _format_arg(self, name, trait_spec, value):
         '''alternative helper function for _parse_inputs, 
@@ -1015,8 +1013,6 @@ class DSIStudioFiberCommand(DSIStudioCommand):
             getattr(self.inputs, inputkey):
                 outputs[key] = self.gen_fname(self._gen_filename('output'),
                 suffix=''.join(('.', inputkey)), change_ext=True, ext='.nii')
-                
-
         return outputs
 
 
@@ -1750,8 +1746,6 @@ class DSIStudioAtlas(DSIStudioCommand):
 class DSIStudioExportInputSpec(DSIStudioInputSpec):
     export = traits.List(traits.Str(),
         argstr='--export=%s',
-        name_source=['source'],
-        name_template='%s',#overload extension, don't add _generated
         desc='name of export target, includes fa0,fa1,gfa,dir0,dir1,'
              'dirs,image0,4dnii, maybe others')
     output_type = traits.Enum('NIFTI',
@@ -1774,18 +1768,14 @@ class DSIStudioExport(DSIStudioCommand):
     input_spec = DSIStudioExportInputSpec
     output_spec = DSIStudioExportOutputSpec
 
-    def _overload_extension(self, value, name):
-        ns = self.inputs.trait(name).name_source
-        source = getattr(self.inputs, ns[0])
-        retval = []
-        rvunjoined = []
-        for e in value:
-            rvunjoined.extend((source, 
-                e,#DSI Studio adds export target to ext
-                DSIInfo.ot_to_ext(self.inputs.output_type)))
-        for e in rvunjoined:
-            retval.append(''.join(e))
-        return retval
+    def _list_outputs(self):
+        outputs = self._outputs().get()
+        srcval = getattr(self.inputs, 'source')
+        path = os.path.dirname(srcval)
+        basename = os.path.basename(srcval)
+        outputs['export'] = self._gen_fname(basename, cwd=path, 
+            ext='.fa0.nii.gz', change_ext=True)
+        return outputs
         
     def _check_mandatory_inputs(self):
         '''Update other inputs from inputs.indict then call super'''
