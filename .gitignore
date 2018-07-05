@@ -102,3 +102,9 @@ ENV/
 
 # old files
 *~
+
+#crash log
+crash-*
+
+#Geany project settings
+*.geany
