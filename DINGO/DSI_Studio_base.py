@@ -1006,12 +1006,12 @@ class DSIStudioFiberCommand(DSIStudioCommand):
             elif inputkey in texts and \
             isdefined(getattr(self.inputs, inputkey)) and \
             getattr(self.inputs, inputkey):
-                outputs[key] = self.gen_fname(self._gen_filename('output'),
+                outputs[key] = self._gen_fname(self._gen_filename('output'),
                 suffix=''.join(('.', inputkey)), change_ext=True, ext='.txt')
             elif inputkey in imgs and \
             isdefined(getattr(self.inputs, inputkey)) and \
             getattr(self.inputs, inputkey):
-                outputs[key] = self.gen_fname(self._gen_filename('output'),
+                outputs[key] = self._gen_fname(self._gen_filename('output'),
                 suffix=''.join(('.', inputkey)), change_ext=True, ext='.nii')
         return outputs
 
