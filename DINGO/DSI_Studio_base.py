@@ -7,6 +7,7 @@ from nipype.utils.filemanip import fname_presuffix, split_filename
 from traits.trait_base import _Undefined
 from traits.api import Trait
 from DINGO.utils import list_to_str
+import time
 
 import pdb
 
@@ -240,6 +241,7 @@ class DSIStudioInputSpec(CommandLineInputSpec):
         position=2)
     debuglog = File(
         argstr='> %s',
+        position=-1,
         desc='Log file path/name')
     indict = traits.Dict(
         desc='Dict of keys for inputspec, with their values, will overwrite all'
@@ -345,7 +347,19 @@ class DSIStudioCommand(CommandLine):
         #pdb.set_trace()
         #super(DSIStudioCommand, self)._check_mandatory_inputs()
         
-                  
+    def _format_arg(self, name, trait_spec, value):
+        if name == 'debuglog':
+            argstr = trait_spec.argstr
+            if os.path.exists(value):
+                returnstr = argstr % value
+            else:
+                srcpath, _, _ = split_filename(getattr(self.inputs, 'source'))
+                returnstr = argstr % os.path.join(srcpath, value)
+        else:
+            return super(DSIStudioCommand, 
+                self)._format_arg(name, trait_spec, value)
+        return returnstr
+        
 
 class DSIStudioFiberInputSpec(DSIStudioInputSpec):
     '''Provides region and post-processing input
@@ -961,7 +975,7 @@ class DSIStudioFiberCommand(DSIStudioCommand):
         else:
             #print('Super: ' + argstr) #debug
             return super(DSIStudioFiberCommand, 
-            self)._format_arg(name, trait_spec, value)
+                self)._format_arg(name, trait_spec, value)
             
         return returnstr
 
@@ -1001,6 +1015,7 @@ class DSIStudioFiberCommand(DSIStudioCommand):
             getattr(self.inputs, inputkey):
                 outputs[key] = self.gen_fname(self._gen_filename('output'),
                 suffix=''.join(('.', inputkey)), change_ext=True, ext='.nii')
+                
 
         return outputs
 
@@ -1024,6 +1039,7 @@ class DSIStudioTrackInputSpec(DSIStudioFiberInputSpec):
         desc='max number of seeds, end criterion')
     fa_threshold = traits.Float(0.1, 
         argstr='--fa_threshold=%.4f',
+        position=4,
         desc='fa theshold or qa threshold depending on rec method')
     threshold_index = traits.Str(
         argstr='--threshold_index=%s',
@@ -1053,9 +1069,11 @@ class DSIStudioTrackInputSpec(DSIStudioFiberInputSpec):
     step_size = traits.Float(1.00, 
         usedefault=True, 
         argstr='--step_size=%.2f', 
+        position=8,
         desc='moving distance in each tracking interval, default 1 mm')
     turning_angle = traits.Int(60, 
         argstr='--turning_angle=%d', 
+        position=5,
         desc='degrees incoming tract dir may differ from outgoing in voxel')
     #listed on website, but didn't seem to be in code, and I don't know
     #what it's supposed to do - leaving out should get default regardless
@@ -1063,14 +1081,17 @@ class DSIStudioTrackInputSpec(DSIStudioFiberInputSpec):
     smoothing = traits.Float(0.00, 
         usedefault=True, 
         argstr='--smoothing=%.2f', 
+        position=9,
         desc='fiber track momentum, default disabled')
     min_length = traits.Int(30, 
         usedefault=True, 
         argstr='--min_length=%d', 
+        position=6,
         desc='tracks below mm length deleted, default 30')
     max_length = traits.Int(300, 
         usedefault=True, 
         argstr='--max_length=%d', 
+        position=7,
         desc='tracks above mm length deleted, default 300')
     parameter_id = traits.Str(
         argstr='--parameter_id=%s',
@@ -1109,19 +1130,20 @@ class DSIStudioTrack(DSIStudioFiberCommand):
     def _gen_filename(self, name):
         '''Executed if self.inputs.name is undefined, but genfile=True'''
         if name == 'output':
-            _, infilename, _ = split_filename(
-                os.path.abspath(getattr(self.inputs, 'source')))
+            path, infilename, _ = split_filename(
+                os.path.abspath(getattr(self.inputs, 'source')) )
             tract_name = getattr(self.inputs, 'tract_name')
             if isdefined(tract_name):
                 pfx = ''.join((tract_name,'_'))
             else:
-                pfx = ''
+                pfx = 'Track_{:04d}{:02d}{:02d}_{:02d}{:02d}{:02d}_'.format(
+                    *time.localtime(time.time()) )
             fname = []
             fname.extend((
                 pfx,
                 infilename,
-                DSIInfo.ot_to_ext(self.inputs.output_type)))
-            return ''.join(fname)
+                DSIInfo.ot_to_ext(self.inputs.output_type) ))
+            return os.path.join(path,''.join(fname))
         else:
             return super(DSIStudioFiberCommand, self)._gen_filename(name)
 
@@ -1177,20 +1199,21 @@ class DSIStudioAnalysis(DSIStudioFiberCommand):
             if isdefined(tract_name):
                 pfx = ''.join((tract_name,'_'))
             else:
-                pfx = ''
+                pfx = 'Track_{:04d}{:02d}{:02d}_{:02d}{:02d}{:02d}_'.format(
+                    *time.localtime(time.time()) )
                 
             if isdefined(tractval):
-                _, infilename, _ = split_filename(os.path.abspath(tractval))
+                path, infilename, _ = split_filename(os.path.abspath(tractval))
                 pfx = ''
             else:
-                _, infilename, _ = split_filename(os.path.abspath(sourceval))
+                path, infilename, _ = split_filename(os.path.abspath(sourceval))
 
             fname = []
             fname.extend((
                 pfx,
                 infilename,
                 DSIInfo.ot_to_ext(self.inputs.output_type)))
-            return ''.join(fname)
+            return os.path.join(path,''.join(fname))
         else:
             return super(DSIStudioFiberCommand, self)._gen_filename(name)
 
@@ -1262,6 +1285,7 @@ class DSIStudioSource(DSIStudioCommand):
             
     def _list_outputs(self):
         outputs = self._outputs().get()
+        
         outputs['output'] = self._gen_filename('output')
         return outputs
         
