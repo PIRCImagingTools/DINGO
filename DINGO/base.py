@@ -81,8 +81,20 @@ class DINGO(pe.Workflow):
             raise KeyError(msg)
     
     def keep_and_move_files(self):
-        cfg = dict(execution={'remove_unnecessary_outputs':False,
-                              'use_relative_paths':True})
+        cfg = dict(execution={'remove_unnecessary_outputs':False})
+        #                      'use_relative_paths':True})
+        #If 'use_relative_paths':False
+        #DataGrabber nodes successfully try base_directory/field_template_path
+        #or os.path.abspath(field_template_path)
+        
+        #If 'use_relative_paths':True
+        #DataGrabber nodes crash trying ../../../field_template_path
+        #i.e. ~/field_template_path
+
+        #Changing inputs to not include base_directory: same crash
+        #Cannot change base_directory to not include home_dir, as it must exist
+        #Changing field_template_path to include full path or below home:
+        #DataGrabber nodes crash trying os.path.abspath(new_field_template_path)
         config.update_config(cfg)
                             
     def check_input_field(self, cfg_bn, cfg, keyname, exptype):
