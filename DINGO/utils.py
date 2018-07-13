@@ -61,6 +61,22 @@ def list_to_str(sep=None, args=None):
     return sep.join(str(e) for e in flatten(args))
     
 def join_strs(sep=None, **kwargs):
+    """Interface between list_to_str and Nipype function nodes
+    
+    Parameters
+    ----------
+    sep     :   Str (separator for join, default '')
+    kwargs  :   Str (arguments will be joined by sep)
+    
+    Return
+    ------
+    Str (sep.join(kwargs.itervalues())
+    
+    Example
+    -------
+    join_strs(sep='_', arg0='foo', arg1='bar', arg2='baz')
+    'foo_bar_baz'
+    """
     from DINGO.utils import list_to_str
     if sep is None:
         sep=''
@@ -70,6 +86,22 @@ def join_strs(sep=None, **kwargs):
     return list_to_str(sep=sep, args=arglist)
     
 def DynImport(mod=None, obj=None):
+    """Import a given object from a given module
+    
+    Parameters
+    ----------
+    mod     :   Str (module name)
+    obj     :   Str (object name)
+    
+    Return
+    ------
+    imported module, imported object
+    
+    Example
+    -------
+    DynImport('DINGO.utils','list_to_str') equivalent to 
+    from DINGO.utils import list_to_str
+    """
     import importlib
     if mod is not None:
         imp_module = importlib.import_module(mod)
@@ -340,36 +372,6 @@ def tobool(s):
         return False
     else:
         raise ValueError("%s cannot be converted to bool" % (s))
-
-def find_best(id_list, list_numlists):
-    """take synced id_list and list of lists with means, medians, return id and
-    mean_median that are smallest"""
-    nids = len(id_list)
-    nnumlists = len(list_numlists)
-    if nids != nnumlists:
-        msg = ('N_ids: %d != N_lists: %d. Verify data and workflow' % 
-            (nids, nnumlists))
-        raise IndexError(msg)
-    else:
-        idmeans = []
-        idmedians = []
-        for o in range(0, nids):
-            nnums = len(list_numlists[o])
-            if nids != nnums:
-                msg = ('Warning: N_nums: %d for ID: %s is not N_ids: %d' %
-                    (nnums, id_list[o], nids))
-                print(msg)
-            meangen = (list_numlists[o][i][0] for i in range(0, nids))
-            idmeans.append( sum(meangen) / nids)
-            mediangen = (list_numlists[o][i][1] for i in range(0, nids))
-            idmedians.append( sum(mediangen) / nids)
-            
-        best_index = idmeans.index(min(idmeans))
-        best_id = id_list[best_index]
-        best_mean = idmeans[best_index]
-        best_median = idmedians[best_index]
-
-    return best_index, best_id, best_mean, best_median
     
     
 def add_id_subs(input_id=None, subs=None):

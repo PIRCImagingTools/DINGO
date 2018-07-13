@@ -1,13 +1,11 @@
 import os
-from nipype import config, logging
 from DINGO.utils import (read_config, split_chpid, join_strs)
 from DINGO.base import DINGO, DINGOflow, DINGOnode
-from nipype import IdentityInterface, SelectFiles, Function
+from nipype import IdentityInterface, Function
 import nipype.pipeline.engine as pe
 import nipype.interfaces.io as nio
 
-#config.enable_debug_mode()
-#logging.update_logging(config)
+
     
 class HelperFlow(DINGO):
     
@@ -771,6 +769,7 @@ class FileOut(DINGOflow):
                 output_names=['cont_string'],
                 function=self.container))
                 
+        #Could possibly replace with function in connect statement
         prefix = pe.Node(
             name='prefix',
             interface=Function(

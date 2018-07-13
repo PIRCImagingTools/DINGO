@@ -1,15 +1,14 @@
+import os
+import time
+from DINGO.utils import list_to_str
 from nipype.interfaces.base import (traits, File, Directory, InputMultiPath, 
                                     OutputMultiPath,isdefined, 
                                     CommandLine, CommandLineInputSpec, 
                                     TraitedSpec)
-import os
 from nipype.utils.filemanip import split_filename
 from traits.trait_base import _Undefined
-from traits.api import Trait
-from DINGO.utils import list_to_str
-import time
 
-import pdb
+
 
 class DSIInfo(object):
     #atlas list
@@ -338,12 +337,6 @@ class DSIStudioCommand(CommandLine):
             suffix = ''
         return os.path.join(os.path.abspath(cwd), ''.join((basename, suffix)))
         
-    #def _check_mandatory_inputs(self):
-        #'''Call super, since executed before command output being used for 
-        #debugging.
-        #'''
-        #pdb.set_trace()
-        #super(DSIStudioCommand, self)._check_mandatory_inputs()
         
     def _format_arg(self, name, trait_spec, value):
         if name == 'debuglog':

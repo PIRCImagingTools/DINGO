@@ -1,20 +1,14 @@
-from nipype import (config, logging, IdentityInterface, Function)
-from nipype.utils.misc import str2bool
-from tempfile import mkdtemp
-import nipype.pipeline.engine as pe
-import nipype.interfaces.io as nio
-from nipype.interfaces.utility import Merge
-from nipype.interfaces import fsl
 import os
-import logging
-from DINGO.utils import (update_dict, read_config)
-from DINGO.wf import HelperFlow
-from DINGO.DSI_Studio_base import (DSIStudioSource, DSIStudioReconstruct, 
-                                    DSIStudioTrack, DSIStudioAnalysis, 
-                                    DSIStudioExport)
 from DINGO.base import (DINGO, DINGOflow, DINGOnode)
-
-import pdb
+from DINGO.DSI_Studio_base import (DSIStudioSource, DSIStudioReconstruct, 
+                                   DSIStudioTrack, DSIStudioAnalysis, 
+                                   DSIStudioExport)
+from DINGO.utils import tobool
+from DINGO.wf import HelperFlow
+from nipype import (config, IdentityInterface, Function)
+from nipype.interfaces import fsl
+import nipype.pipeline.engine as pe
+from tempfile import mkdtemp
 
 
 class HelperDSI(HelperFlow):
@@ -150,7 +144,7 @@ class TRKnode(pe.Node):
         if self.parameterization:
             params_str = ['{}'.format(p) for p in self.parameterization]
             params_str = [TRKnode.tract_name_dir(p) for p in params_str]
-            if not str2bool(self.config['execution']['parameterize_dirs']):
+            if not tobool(self.config['execution']['parameterize_dirs']):
                 params_str = [_parameterization_dir(p) for p in params_str]
             outputdir = os.path.join(outputdir, *params_str)
             
@@ -233,20 +227,6 @@ class DSI_TRK(DINGOflow):
                 ('tract_names', inputs['tracts'].keys()),
                 ('tract_inputs', inputs['tracts'].values())]
             inputnode.synchronize = True
-        
-        ##Join tracts into list per subject
-        #outputjoinsource = []
-        #outputjoinsource.extend((name,'inputnode'))
-        
-        ##1)issue with output_dir, trying to use all tract_input fields
-        ##2)joinsource not working as intended, each tract is going to 
-        ##outputnode separately, so there's nothing to join
-        #outputnode = pe.JoinNode(
-            #name="outputnode",
-            #interface=IdentityInterface(
-                #fields=["tract_list"]),
-            #joinsource='.'.join(outputjoinsource),
-            #joinfield="tract_list")
             
         #Substitute region names for actual region files
         replace_regions = TRKnode(
@@ -280,8 +260,6 @@ class DSI_TRK(DINGOflow):
                 [('real_region_tract_input', 'inputnode.tract_input')]),
             (merge_roas, trknode, 
                 [('outputnode.mroas_tract_input','indict')])
-            #(trknode, outputnode, 
-                #[('output','tract_list')])
         ])
             
     def replace_regions(tract_input=None, regions=None):

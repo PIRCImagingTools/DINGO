@@ -1,12 +1,10 @@
-from nipype import config, logging
 import os
-from DINGO.utils import DynImport, read_config, tobool, reverse_lookup
+from DINGO.utils import DynImport, read_config, reverse_lookup
+from nipype import config
 import nipype.pipeline.engine as pe
 from nipype import IdentityInterface
 from pprint import pprint
 
-#config.enable_debug_mode()
-#logging.update_logging(config)
 
 class DINGO(pe.Workflow):
     """Create a workflow from a json config file
@@ -83,10 +81,9 @@ class DINGO(pe.Workflow):
             raise KeyError(msg)
     
     def keep_and_move_files(self):
-        self.config['execution'] = {
-            'use_relative_paths' : 'True',
-            'remove_unnecessary_outputs' : 'False'
-        }
+        cfg = dict(execution={'remove_unnecessary_outputs':False,
+                              'use_relative_paths':True})
+        config.update_config(cfg)
                             
     def check_input_field(self, cfg_bn, cfg, keyname, exptype):
         if keyname not in cfg:
@@ -381,34 +378,12 @@ class DINGO(pe.Workflow):
         self._connect_subwfs()
         
         
-class DINGOmeta(type):
-    def __new__(mcls, name, bases, attrs):
-        nipype_types = {
-            'Workflow'   :    pe.Workflow, 
-            'Node'       :    pe.Node, 
-            'JoinNode'   :    pe.JoinNode, 
-            'MapNode'    :    pe.MapNode
-        }
-        print('mcls: %s' % mcls)
-        print('name: %s' % name)
-        print(bases)
-        print('attrs: %s' % attrs)
-        if 'nipype_parent' in attrs.keys() and \
-        attrs['nipype_parent'] is not None and \
-        not any([v in bases for v in nipype_types.iteritems()]):
-            newbases = (nipype_types[attrs['nipype_parent']],)
-            return super(DINGOmeta, mcls).__new__(mcls, name, newbases, attrs)
-        else:
-            return super(DINGOmeta, mcls).__new__(mcls, name, bases, attrs)
-        
         
 class DINGObase(object):
-#    __metaclass__ = DINGOmeta
     config_inputs = 'config_inputs'
     connection_spec = {}
     
     def __init__(self, connection_spec=None, inputs_name=None, 
-#    nipype_parent=None, 
     **kwargs):
         
         if inputs_name is not None:
@@ -417,8 +392,6 @@ class DINGObase(object):
         if connection_spec is not None:
             self.connection_spec.update(connection_spec)
             
-#        if nipype_parent is not None:
-#            self.nipype_parent = nipype_parent
     
 
 class DINGOflow(pe.Workflow, DINGObase):

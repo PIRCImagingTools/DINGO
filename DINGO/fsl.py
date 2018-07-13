@@ -1,23 +1,14 @@
 import os
-
-from DINGO.utils import (DynImport, read_config, split_chpid, find_best,
-                        join_strs, add_id_subs, fileout_util)
 from DINGO.base import DINGO, DINGOflow, DINGOnode
+from DINGO.utils import (join_strs)
 
-from nipype import IdentityInterface, Function
-import nipype.pipeline.engine as pe
-import nipype.interfaces.io as nio
-from nipype.interfaces.base import traits, DynamicTraitedSpec, isdefined
-from nipype.interfaces.utility import Merge, Select
+from nipype import (IdentityInterface, Function, config)
+from nipype.interfaces.utility import Select
 from nipype.interfaces import fsl
+import nipype.pipeline.engine as pe
 from nipype.workflows.dmri.fsl import tbss
 
-from traits.api import Trait
-
-from nipype import config, logging
-#config.enable_debug_mode()
-#logging.update_logging(config)
-    
+#There's a lot of boilerplate here I'd like to obviate - decorator, metaclass?
 
 class HelperFSL(DINGO):
     
@@ -407,6 +398,7 @@ class TBSS_reg_NXN(DINGOflow):
         if mask_list is not None:
             inputnode.inputs.input_mask = mask_list
             
+        #Could possibly replace i2r nodes with function in connect statements
         i2r = pe.MapNode(
             name='i2r',
             interface=Function(
