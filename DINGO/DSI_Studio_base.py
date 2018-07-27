@@ -1,5 +1,6 @@
 import os
 import time
+from itertools import compress
 from DINGO.utils import list_to_str
 from nipype.interfaces.base import (traits, File, Directory, InputMultiPath, 
                                     OutputMultiPath,isdefined, 
@@ -24,6 +25,10 @@ class DSIInfo(object):
         'smoothing','erosion','dilation','defragment','negate',
         'flipx','flipy','flipz',
         'shiftx','shiftnx','shifty','shiftny','shiftz','shiftnz')
+    
+    #track, analysis export values
+    export_values = ('stat','tdi','tdi2','tdi_color','tdi_end',
+        'fa','gfa','qa','nqa','md','ad','rd','report')
         
     #file extensions for output types
     ftypes = {
@@ -463,10 +468,7 @@ class DSIStudioFiberInputSpec(DSIStudioInputSpec):
         usedefault=True,
         desc='endpoint file format, "txt" or "mat"')
     
-    #separate for later use, inner trait doesn't seem to have values property
-    _export_values = ('stat','tdi','tdi2','tdi_color','tdi_end',
-        'fa','gfa','qa','nqa','md','ad','rd','report')
-    export = traits.List(traits.Enum(*_export_values),
+    export = traits.List(traits.Str(),#cannot use Enum as report is dynamic
         argstr='--export=%s', 
         sep=',',
         desc='export information related to fiber tracts')
@@ -491,20 +493,18 @@ class DSIStudioFiberInputSpec(DSIStudioInputSpec):
     
     report = traits.Bool(desc='export tract reports with specified profile '
         'style and bandwidth',
-        requires=['report_val','report_pstyle','report_bandwidth'])
+        requires=['report_val','report_pstyle','report_bandwidth'],
+        sep=':')
     report_val = traits.Enum('fa','gfa','qa','nqa','md','ad','rd',
         argstr='%s',
-        sep=':',
         desc='type of value for tract report')
     report_pstyle = traits.Enum(0,1,2,3,4, 
         argstr='%d',
-        sep=':',
         requires=['export'],
         desc='profile style for tract report 0:x, 1:y, 2:z, 3:along tracts, '
             '4:tract mean')
     report_bandwidth = traits.Int(
         argstr='%d',
-        sep=':',
         requires=['export'],
         desc='bandwidth for tract report')
     report_fa = traits.Bool(desc='export tract report on fa values')
@@ -621,6 +621,13 @@ class DSIStudioFiberCommand(DSIStudioCommand):
     '''
     input_spec = DSIStudioFiberInputSpec
     
+    def __init__(self, **inputs):
+        super(DSIStudioFiberCommand, self).__init__(**inputs)
+        
+        self.inputs.on_trait_change(self._report_update, 'report+')
+        self.inputs.on_trait_change(self._export_update, 
+                                    list(DSIInfo.export_values))
+    
     def _regions_update(self):
         '''Update region category ('rois','roas',etc.) with atlas regions'''
         regions = ('rois','roas','ends','seed','ter')
@@ -691,51 +698,41 @@ class DSIStudioFiberCommand(DSIStudioCommand):
         '''Update report, report_val from related boolean traits'''
         name = 'report'
         secname = 'report_val'
-        secfield = 'values'
         thisbool = getattr(self.inputs, name)
-        default_traits = getattr(self.inputs.trait(secname),secfield)
-        newvalues = []
-        if default_traits is not None:
-            for e in default_traits:
-                subname = []
-                subname.extend((name,'_',e))
-                subname = ''.join(subname)
-                if isdefined(thisbool) and thisbool:
-                    subbool = getattr(self.inputs, subname)
-                    if isdefined(subbool) and subbool:
-                        newvalues.append(subname)
-                else:
-                    setattr(self.inputs, subname, _Undefined())
-            if len(newvalues) > 0:
+        default_values = self.inputs.trait(secname).get_validate()[1]
+        if default_values is not None:
+            subbools = [ getattr(self.inputs, '_'.join((name, e)) ) 
+                        for e in default_values ]
+            sbc = subbools.count(True)
+            if sbc > 1:
+                raise(StandardError('May only output one report, but %s True' % 
+                                    ['_'.join( (name,el) ) 
+                                    for el in tuple(compress(
+                                        default_values,subbools)) ] 
+                                    ))
+            elif sbc == 1:
                 setattr(self.inputs, name, True)
-                setattr(self.inputs, secname, newvalues)
-            else:
+                setattr(self.inputs, secname, 
+                    default_values[subbools.index(True)])
+            elif sbc == 0:
                 setattr(self.inputs, name, _Undefined())
                 setattr(self.inputs, secname, _Undefined())
-    
-                        
+
     def _export_update(self):
         '''Update export from related traits'''
         name = 'export'
         values = getattr(self.inputs, name)
         if not isdefined(values):
             values = []
-        default_traits = getattr(self.inputs, ''.join(('_',name,'_values')))
-        
-        self._report_update()
+        default_traits = DSIInfo.export_values
         
         newvalues = []
         for e in default_traits:
             subbool = getattr(self.inputs, e)
-            if isdefined(subbool):
-                if subbool:
-                    if e not in values:
-                        newvalues.append(e)
-                elif e in values:
-                    values.remove(e)
-        if len(newvalues) + len(values) > 0:
-            values.extend(newvalues)
-            setattr(self.inputs, name, values)
+            if isdefined(subbool) and subbool:
+                newvalues.append(e)
+        if len(newvalues) > 0:
+            setattr(self.inputs, name, newvalues)
         else:
             setattr(self.inputs, name, _Undefined())
     
@@ -743,8 +740,6 @@ class DSIStudioFiberCommand(DSIStudioCommand):
     def _check_mandatory_inputs(self):
         '''correct values, then call super'''
         self._update_from_indict()
-        self._regions_update()
-        self._export_update()
                     
         super(DSIStudioFiberCommand, self)._check_mandatory_inputs()
             
@@ -926,12 +921,13 @@ class DSIStudioFiberCommand(DSIStudioCommand):
                     isdefined(self.inputs.report_pstyle) and \
                     isdefined(self.inputs.report_bandwidth):
                         newe = []
-                        newe.extend((e,':',
-                            self.inputs.report_val,':',
-                            str(self.inputs.report_pstyle),':',
+                        newe.extend((e,
+                            self.inputs.report_val,
+                            str(self.inputs.report_pstyle),
                             str(self.inputs.report_bandwidth)))
                         i = value.index(e)
-                        value[i] = ''.join(str(newe))
+                        report_sep = self.inputs.trait('report').sep
+                        value[i] = report_sep.join(newe)
                     else:
                         raise AttributeError(
                             'Export report requested, but not all '
@@ -984,28 +980,48 @@ class DSIStudioFiberCommand(DSIStudioCommand):
         
     def _list_outputs(self):
         outputs = self._outputs().get()
-        texts = ('stat','fa','gfa','qa','nqa','md','ad','rd','report_fa',
-                'report_gfa','report_nqa','report_md','report_ad','report_rd')
+        base_texts = ('stat','fa','gfa','qa','nqa','md','ad','rd')
+        report_texts = ('report_fa','report_gfa','report_nqa',
+            'report_md','report_ad','report_rd')
         imgs = ('tdi','tdi2','tdi_color','tdi_end','tdi2_end')
         for key in outputs.iterkeys():
             inputkey = key.replace('_file','')
             if key == 'output':
                 outputs['output'] = self._gen_filename('output')
+            
             elif key == 'endpt' and \
             isdefined(getattr(self.inputs, 'endpt')) and \
             getattr(self.inputs, 'endpt'):
                 outputs['endpt'] = self._gen_fname(self._gen_filename('output'),
-                suffix='_endpt', change_ext=True, ext=self.inputs.endpt_format)
-            elif inputkey in texts and \
+                    suffix='_endpt', 
+                    change_ext=True, 
+                    ext=self.inputs.endpt_format)
+            
+            elif inputkey in base_texts and \
             isdefined(getattr(self.inputs, inputkey)) and \
             getattr(self.inputs, inputkey):
                 outputs[key] = self._gen_fname(self._gen_filename('output'),
-                suffix=''.join(('.', inputkey)), change_ext=True, ext='.txt')
+                    suffix=''.join(('.', inputkey)), 
+                    change_ext=True, 
+                    ext='.txt')
+            
+            elif inputkey in report_texts and \
+            isdefined(getattr(self.inputs, inputkey)) and \
+            getattr(self.inputs, inputkey):
+                rp = str(getattr(self.inputs, 'report_pstyle'))
+                rb = str(getattr(self.inputs, 'report_bandwidth'))
+                outputs[key] = self._gen_fname(self._gen_filename('output'),
+                    suffix='.'.join( ('',inputkey.replace('_','.'),rp,rb) ),
+                    change_ext=True,
+                    ext='.txt')
+            
             elif inputkey in imgs and \
             isdefined(getattr(self.inputs, inputkey)) and \
             getattr(self.inputs, inputkey):
                 outputs[key] = self._gen_fname(self._gen_filename('output'),
-                suffix=''.join(('.', inputkey)), change_ext=True, ext='.nii')
+                    suffix=''.join(('.', inputkey)), 
+                    change_ext=True, 
+                    ext='.nii')
         return outputs
 
 
