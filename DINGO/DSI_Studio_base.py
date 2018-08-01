@@ -9,7 +9,8 @@ from nipype.interfaces.base import (traits, File, Directory, InputMultiPath,
 from nipype.utils.filemanip import split_filename
 from traits.trait_base import _Undefined
 
-
+#on_trait_change functions not firing when updating from indict
+#_check_mandatory_inputs  updates are currently necessary
 
 class DSIInfo(object):
     #atlas list
@@ -27,8 +28,10 @@ class DSIInfo(object):
         'shiftx','shiftnx','shifty','shiftny','shiftz','shiftnz')
     
     #track, analysis export values
-    export_values = ('stat','tdi','tdi2','tdi_color','tdi_end',
-        'fa','gfa','qa','nqa','md','ad','rd','report')
+    export_values = ('export_stat','export_tdi','export_tdi2',
+        'export_tdi_color','export_tdi_end',
+        'export_fa','export_gfa','export_qa','export_nqa',
+        'export_md','export_ad','export_rd','report')
         
     #file extensions for output types
     ftypes = {
@@ -272,6 +275,7 @@ class DSIStudioCommand(CommandLine):
         super(DSIStudioCommand, self).__init__(**inputs)
         self.inputs.on_trait_change(self._output_update, 'output_type')
         self.inputs.on_trait_change(self._action_update, 'action')
+        self.inputs.on_trait_change(self._update_from_indict, 'indict')
 
         if self._action is None:#should be specified in subclass
             raise Exception('Missing action command')
@@ -473,26 +477,28 @@ class DSIStudioFiberInputSpec(DSIStudioInputSpec):
         sep=',',
         desc='export information related to fiber tracts')
         
-    stat = traits.Bool(desc='export statistics along tract or in region')
-    tdi = traits.Bool(desc='export tract density image')
-    tdi2 = traits.Bool(desc='export tract density image in subvoxel diffusion '
-        'space')
-    tdi_color = traits.Bool(desc='export tract color density image')
-    tdi_end = traits.Bool(desc='export tract density image endpoints')
-    tdi2_end = traits.Bool(desc='export tract density image endpoints in '
-        'subvoxel diffusion space')
-    fa = traits.Bool(desc='export along tract fractional anisotropy values')
-    gfa = traits.Bool(desc='export along tract generalized fractional '
-        'anisotropy values')
-    qa = traits.Bool(desc='export along tract quantitative anisotropy values')
-    nqa = traits.Bool(desc='export along tract normalized quantitative '
-        'anisotropy values')
-    md = traits.Bool(desc='export along tract mean diffusivity values')
-    ad = traits.Bool(desc='export along tract axial diffusivity values')
-    rd = traits.Bool(desc='export along tract radial diffusivity values')
+    export_stat = traits.Bool(desc='export statistics along tract or in region')
+    export_tdi = traits.Bool(desc='export tract density image')
+    export_tdi2 = traits.Bool(desc='export tract density image in subvoxel '
+                                   'diffusion space')
+    export_tdi_color = traits.Bool(desc='export tract color density image')
+    export_tdi_end = traits.Bool(desc='export tract density image endpoints')
+    export_tdi2_end = traits.Bool(desc='export tract density image endpoints in'
+                                       ' subvoxel diffusion space')
+    export_fa = traits.Bool(desc='export along tract fractional anisotropy '
+                                 'values')
+    export_gfa = traits.Bool(desc='export along tract generalized fractional '
+                                  'anisotropy values')
+    export_qa = traits.Bool(desc='export along tract quantitative anisotropy '
+                                 'values')
+    export_nqa = traits.Bool(desc='export along tract normalized quantitative '
+                                'anisotropy values')
+    export_md = traits.Bool(desc='export along tract mean diffusivity values')
+    export_ad = traits.Bool(desc='export along tract axial diffusivity values')
+    export_rd = traits.Bool(desc='export along tract radial diffusivity values')
     
-    report = traits.Bool(desc='export tract reports with specified profile '
-        'style and bandwidth',
+    report = traits.Bool(desc='export tract reports with specified '
+                                     'profile style and bandwidth',
         requires=['report_val','report_pstyle','report_bandwidth'],
         sep=':')
     report_val = traits.Enum('fa','gfa','qa','nqa','md','ad','rd',
@@ -623,10 +629,8 @@ class DSIStudioFiberCommand(DSIStudioCommand):
     
     def __init__(self, **inputs):
         super(DSIStudioFiberCommand, self).__init__(**inputs)
-        
         self.inputs.on_trait_change(self._report_update, 'report+')
-        self.inputs.on_trait_change(self._export_update, 
-                                    list(DSIInfo.export_values))
+        self.inputs.on_trait_change(self._export_update, 'export+,report')
     
     def _regions_update(self):
         '''Update region category ('rois','roas',etc.) with atlas regions'''
@@ -730,7 +734,7 @@ class DSIStudioFiberCommand(DSIStudioCommand):
         for e in default_traits:
             subbool = getattr(self.inputs, e)
             if isdefined(subbool) and subbool:
-                newvalues.append(e)
+                newvalues.append(e.replace('export_',''))
         if len(newvalues) > 0:
             setattr(self.inputs, name, newvalues)
         else:
@@ -740,6 +744,8 @@ class DSIStudioFiberCommand(DSIStudioCommand):
     def _check_mandatory_inputs(self):
         '''correct values, then call super'''
         self._update_from_indict()
+        self._report_update()
+        self._export_update()
                     
         super(DSIStudioFiberCommand, self)._check_mandatory_inputs()
             
@@ -980,10 +986,12 @@ class DSIStudioFiberCommand(DSIStudioCommand):
         
     def _list_outputs(self):
         outputs = self._outputs().get()
-        base_texts = ('stat','fa','gfa','qa','nqa','md','ad','rd')
+        base_texts = ('export_stat','export_fa','export_gfa','export_qa',
+            'export_nqa','export_md','export_ad','export_rd')
         report_texts = ('report_fa','report_gfa','report_nqa',
             'report_md','report_ad','report_rd')
-        imgs = ('tdi','tdi2','tdi_color','tdi_end','tdi2_end')
+        imgs = ('export_tdi','export_tdi2','export_tdi_color','export_tdi_end',
+            'export_tdi2_end')
         for key in outputs.iterkeys():
             inputkey = key.replace('_file','')
             if key == 'output':
@@ -1503,7 +1511,6 @@ class DSIStudioReconstruct(DSIStudioCommand):
     
     def __init__(self, **inputs):
         super(DSIStudioReconstruct, self).__init__(**inputs)
-        
         self.inputs.on_trait_change(self._method_update, 'method')
         
     def _subparam_update(self, name, subparams):
@@ -1729,6 +1736,10 @@ class DSIStudioAtlas(DSIStudioCommand):
     _action = 'atl'
     _output_type = 'NIFTI'
     input_spec = DSIStudioAtlasInputSpec
+    
+    def __init__(self, **inputs):
+        super(DSIStudioAtlas, self).__init__(**inputs)
+        self.inputs.on_trait_change(self._cmd_requires_update, 'cmd')
     
     def _cmd_requires_update(self):
         cmdval = getattr(self.inputs, 'cmd')
