@@ -41,7 +41,7 @@ class DINGO(pe.Workflow):
         'DSI_EXP'               :    'DINGO.DSI_Studio'
     }
     
-    def __init__(self, workflow_to_module=None, configpath=None, name=None,\
+    def __init__(self, configpath=None, workflow_to_module=None, name=None,\
     **kwargs):
         if name is None:
             name = 'DINGO'
