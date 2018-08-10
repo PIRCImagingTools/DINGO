@@ -183,7 +183,7 @@ class DSI_TRK(DINGOflow):
     from DSI_Studio import TRKnode
             
     _inputnode = 'inputnode'
-    _outputnode = 'outputnode'
+    _outputnode = 'trknode'
     
     connection_spec = {
         'fib_file'        :    ['DSI_REC','fiber_file'],
