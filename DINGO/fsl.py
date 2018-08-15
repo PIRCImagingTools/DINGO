@@ -309,7 +309,8 @@ class TBSS_reg_NXN(DINGOflow):
     }
     
     def __init__(self, name='TBSS_reg_NXN',\
-    inputs=dict(fa_list=None, mask_list=None, id_list=None, n_procs=None),\
+    inputs=dict(fa_list=None, mask_list=None, id_list=None, 
+                n_procs=None, memory_gb=None),\
     **kwargs):
         
         super(TBSS_reg_NXN, self).__init__(name=name, **kwargs)
@@ -330,6 +331,10 @@ class TBSS_reg_NXN(DINGOflow):
             n_procs = inputs['n_procs']
         else:
             n_procs = 1
+        if 'memory_gb' in inputs and inputs['memory_gb'] is not None:
+            memory_gb = inputs['memory_gb']
+        else:
+            memory_gb = 2
         
         #update cfg to keep unnecessary outputs, or most of the function nodes
         #will be empty and rerun each execution
@@ -342,13 +347,14 @@ class TBSS_reg_NXN(DINGOflow):
             name='tbss2',
             interface=Function(
                 input_names=[
-                    'n_procs',
+                    'n_procs', 'memory_gb',
                     'target_id','target',
                     'id_list','fa_list','mask_list'],
                 output_names=['mat_list','fieldcoeff_list','mean_median_list'],
                 function=TBSS_reg_NXN.tbss2_target),
             iterfield=['target','target_id'])
         tbss2.inputs.n_procs = n_procs
+        tbss2.inputs.memory_gb = memory_gb
             
         self.connect([
             (inputnode, tbss2, [('id_list','target_id'),
@@ -516,7 +522,7 @@ class TBSS_reg_NXN(DINGOflow):
         return tbss2
     
     
-    def tbss2_target(n_procs=None, \
+    def tbss2_target(n_procs=None, memory_gb=None,\
     target=None, target_id=None, id_list=None, fa_list=None, mask_list=None):
         """Wrap tbss2 workflow in mapnode(functionnode) to iterate over fa_files
         """
@@ -541,13 +547,16 @@ class TBSS_reg_NXN(DINGOflow):
             
             if (n_procs is None) or (not isinstance(n_procs, int)):
                 n_procs=1
+            if (memory_gb is None) or (not isinstance(memory_gb, int)):
+                memory_gb=2
             
             #workflow.run() returns a graph whose nodes have no output
             #but it has the directory where the result_nodename.pklz is located
             #inputnode and outputnode won't be there, get data directly
             graph = tbss2n.run(
                 plugin='MultiProc', 
-                plugin_args={'n_procs': n_procs})
+                plugin_args={'n_procs': n_procs,
+                             'memory_gb': memory_gb})
             node_list = list(graph)
             
             node_data = {
