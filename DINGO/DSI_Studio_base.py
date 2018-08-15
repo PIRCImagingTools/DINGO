@@ -1679,7 +1679,8 @@ class DSIStudioReconstruct(DSIStudioCommand):
         if 'output data' in split_output and os.path.exists(split_output[-1]):
             setattr(outputs, 'fiber_file', split_output[-1])
             return outputs
-        raise('Fiber file not created/found properly.')
+        raise(IOError('Fiber file not created/found properly for %s.' % 
+            (self.inputs.source)))
     
 
 
