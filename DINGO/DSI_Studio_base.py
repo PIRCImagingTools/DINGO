@@ -1,5 +1,6 @@
 import os
 import time
+import shutil
 from itertools import compress
 from DINGO.utils import list_to_str
 from nipype.interfaces.base import (traits, File, Directory, InputMultiPath, 
@@ -1145,6 +1146,7 @@ class DSIStudioTrack(DSIStudioFiberCommand):
         if name == 'output':
             path, infilename, _ = split_filename(
                 os.path.abspath(getattr(self.inputs, 'source')) )
+            working_dir = os.getcwd() #present cache working dir
             tract_name = getattr(self.inputs, 'tract_name')
             if isdefined(tract_name):
                 pfx = ''.join((tract_name,'_'))
@@ -1156,7 +1158,7 @@ class DSIStudioTrack(DSIStudioFiberCommand):
                 pfx,
                 infilename,
                 DSIInfo.ot_to_ext(self.inputs.output_type) ))
-            return os.path.join(path,''.join(fname))
+            return os.path.join(working_dir,''.join(fname))
         else:
             return super(DSIStudioFiberCommand, self)._gen_filename(name)
 
@@ -1208,7 +1210,7 @@ class DSIStudioAnalysis(DSIStudioFiberCommand):
             tractval = getattr(self.inputs, 'tract')
             tract_name = getattr(self.inputs, 'tract_name')
             sourceval = getattr(self.inputs, 'source')
-            
+            working_dir = os.getcwd() #present cache working dir
             if isdefined(tract_name):
                 pfx = ''.join((tract_name,'_'))
             else:
@@ -1226,7 +1228,7 @@ class DSIStudioAnalysis(DSIStudioFiberCommand):
                 pfx,
                 infilename,
                 DSIInfo.ot_to_ext(self.inputs.output_type)))
-            return os.path.join(path,''.join(fname))
+            return os.path.join(working_dir,''.join(fname))
         else:
             return super(DSIStudioFiberCommand, self)._gen_filename(name)
 
@@ -1292,6 +1294,9 @@ class DSIStudioSource(DSIStudioCommand):
             out = self.inputs.output
             if not isdefined(out) and isdefined(self.inputs.source):
                 out = self._gen_fname(self.inputs.source, change_ext=True)
+                working_dir = os.getcwd() #present cache working dir
+                outbase = os.path.basename(out)
+                out = os.path.join(working_dir, outbase)
             return os.path.abspath(out)
         else:
             return super(DSIStudioSource, self)._gen_filename(name)
@@ -1677,7 +1682,14 @@ class DSIStudioReconstruct(DSIStudioCommand):
         #as long as terminal_output = 'file' ; stdout in runtime.merged
         split_output = runtime.merged.split('\n')
         if 'output data' in split_output and os.path.exists(split_output[-1]):
-            setattr(outputs, 'fiber_file', split_output[-1])
+            afile = split_output[-1] #last line is created file
+            basename = os.path.basename(afile)
+            workflow_dir = os.getcwd() #present cache working directory
+            newfile = os.path.join(workflow_dir, basename)
+            shutil.move(afile, newfile)
+            split_output[-1] = newfile
+            runtime.merged = '\n'.join(split_output)
+            setattr(outputs, 'fiber_file', newfile)
             return outputs
         raise(IOError('Fiber file not created/found properly for %s.' % 
             (self.inputs.source)))
