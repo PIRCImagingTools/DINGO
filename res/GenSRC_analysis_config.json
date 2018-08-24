@@ -1,0 +1,211 @@
+{
+ "data_dir": "/home/pirc/Desktop/DWI/CHD_tractography/CHP",
+ "included_ids":
+  [
+	"0003_20150225_DTIFIXED",
+	"0004_MR1_DTIFIXED",
+	"0008_MR1_DTIFIXED",
+	"0011_MR1_DTIFIXED",
+	"0022_MR1_DTI",
+	"0023_MR3_DTIFIXED",
+	"0028_MR1_DTIFIXED",
+	"0035_MR1_DTIFIXED",
+	"0036_MR1_DTIFIXED",
+	"0040_MR1_DTIFIXED",
+	"0046_MR1_DTIFIXED",
+	"0060_MR1_DTIFIXED",
+	"0071_MR1_DTI",
+	"0129_20151125_DTIFIXED",
+	"0136_20151110_DTIFIXED",
+	"0136_20160201_DTIFIXED",
+	"0138_MR1_DTIFIXED",
+	"0164_20160113_DTIFIXED",
+	"0164_20160406_DTIFIXED",
+	"0195_MR1_DTI",
+	"0208_MR1_DTIFIXED",
+	"0230_MR1_DTIFIXED",
+	"0241_20160627_DTIFIXED",
+	"0243_MR1_DTI",
+	"0258_20160927_DTIFIXED",
+	"0304_20160509_DTIFIXED",
+	"0365_20120202_DTIFIXED",
+	"0408_20121010_DTI",
+	"0421_MR1_DTI",
+	"0421_MR2_DTI",
+	"0508_20140302_DTI",
+	"0527_20121002_DTIFIXED",
+	"0761_MR1_30D_DTI",
+	"0761_MR1_42D_DTI",
+	"0867_MR1_DTIFIXED",
+	"0877_MR1_30D_DTI",
+	"0877_MR1_42D_DTI",
+	"0882_MR1_DTI",
+	"0883_MR1_30D_DTI",
+	"0883_MR1_42D_DTI",
+	"0885_MR2_DTIFIXED",
+	"CHD_003_02a_DTIFIXED",
+	"CHD_009_01c_DTIFIXED",
+	"CHD_009_02a_DTIFIXED",
+	"CHD_013_01a_DTIFIXED",
+	"CHD_015_01a_DTIFIXED",
+	"CHD_017_01a_DTIFIXED",
+	"CHD_017_03a_DTIFIXED",
+	"CHD_018_01a_DTIFIXED",
+	"CHD_020_01a_DTIFIXED",
+	"CHD_024_01c_DTIFIXED",
+	"CHD_025_01a_DTIFIXED",
+	"CHD_026_01a_DTIFIXED",
+	"CHD_027_01a_DTIFIXED",
+	"CHD_028_01a_DTIFIXED",
+	"CHD_029_01c_DTIFIXED",
+	"CHD_030_01a_DTIFIXED",
+	"CHD_031_01a_DTIFIXED",
+	"CHD_034_01a_DTIFIXED",
+	"CHD_035_01a_DTIFIXED",
+	"CHD_036_01a_DTIFIXED",
+	"CHD_037_01a_DTIFIXED",
+	"CHD_039_01a_DTIFIXED",
+	"CHD_040_01a_DTIFIXED",
+	"CHD_041_01a_DTIFIXED",
+	"CHD_041_02a_DTIFIXED",
+	"CHD_043_01a_DTIFIXED",
+	"CHD_046_01a_DTIFIXED",
+	"CHD_047_01a_DTIFIXED",
+	"CHD_050_01a_DTIFIXED",
+	"CHD_051_01a_DTIFIXED",
+	"CHD_052_01a_DTIFIXED",
+	"CHD_053_01a_DTIFIXED",
+	"CHD_057_01a_DTIFIXED",
+	"CHD_058_01c_DTIFIXED",
+	"CHD_061_01a_DTIFIXED",
+	"CHD_062_01a_DTIFIXED",
+	"CHD_064_01a_DTIFIXED",
+	"CHD_065_01a_DTIFIXED",
+	"CHD_067_01a_DTIFIXED",
+	"CHD_069_01a_DTIFIXED",
+	"CHD_070_01a_DTIFIXED",
+	"CHD_072_01a_DTIFIXED",
+	"CHD_076_01c_DTIFIXED",
+	"CHD_081_01a_DTIFIXED",
+	"CHD_081_02a_DTIFIXED",
+	"CHD_081_03a_DTIFIXED",
+	"CHD_081_04a_DTIFIXED",
+	"CHD_082_01a_DTIFIXED",
+	"CHD_085_01a_DTIFIXED",
+	"CHD_087_01a_DTIFIXED",
+	"CHD_088_01a_DTIFIXED",
+	"CHD_089_01b_DTIFIXED",
+	"CHD_090_01a_DTIFIXED",
+	"CHD_091_01a_DTIFIXED",
+	"CHD_092_01a_DTIFIXED",
+	"CHD_093_01a_DTIFIXED",
+	"CHD_094_01a_DTIFIXED",
+	"CHD_095_01a_DTIFIXED",
+	"CHD_096_01a_DTIFIXED",
+	"CHD_097_01a_DTIFIXED",
+	"CHD_107_01a_DTIFIXED",
+	"CHD_109_02a_DTIFIXED",
+	"CHD_111_01a_DTIFIXED",
+	"CHD_111_02c_DTIFIXED",
+	"CHD_112_01c_DTIFIXED",
+	"CHD_113_01a_DTIFIXED",
+	"CHD_113_02a_DTIFIXED",
+	"CHD_114_01a_DTIFIXED",
+	"CHD_114_02a_DTIFIXED",
+	"CHD_119_20140717_DTIFIXED",
+	"CHD_121_20140817_DTIFIXED",
+	"CHD_123_20140714_DTIFIXED",
+	"CHD_124_20140807_DTIFIXED",
+	"CHD_125_20140818_DTI",
+	"CHD_128_20140912_DTIFIXED",
+	"CHD_128_20140928_DTIFIXED"
+  ],
+ "name": "GenSRC",
+ "steps":
+  [
+	"SplitIDs",
+	["FileIn_DTI_b", "FileIn"],
+	["Reorient"],
+	"EddyC",
+	"BET",
+	"DTIFIT",
+	"DSI_SRC",
+	"FileOut"
+  ],
+ "method" : 
+  {
+	"SplitIDs":
+	{
+	  "inputs":
+	  {
+		"id_sep":	"_"
+	  },
+	  "connect":
+	  {
+		"psid":	["Config", "included_ids"]
+	  }
+	},
+	"FileIn_DTI_b":
+	{
+	  "inputs":
+	  {
+		"base_directory":	"data_dir",
+		"outfields":	["dti","bval","bvec"],
+		"field_template":
+		{
+			"dti":	"%s/%s/%s_%s_%s.nii.gz",
+			"bval":	"%s/%s/%s_%s_%s.bval",
+			"bvec":	"%s/%s/%s_%s_%s.bvec"
+		},
+		"template_args":
+		{
+			"dti":	[["sub_id","scan_id","sub_id","scan_id","uid"]],
+			"bval":	[["sub_id","scan_id","sub_id","scan_id","uid"]],
+			"bvec":	[["sub_id","scan_id","sub_id","scan_id","uid"]]
+		}
+	  }  
+	},
+	"FileOut":
+	{
+	  "inputs":
+	  {
+		"parent_dir":	"data_dir",
+		"infields":	
+		[
+			"BET.@mask_file",
+			"EddyC.@eddy_corrected",
+			"DTIFIT.@FA",
+			"DTIFIT.@V1",
+			"DSI_Studio.auto.@src"
+		]
+	  },
+	  "connect":
+	  {
+		"BET_@mask_file":	["BET", "mask_file"],
+		"EddyC_@eddy_corrected":	["EddyC", "eddy_corrected"],
+		"DTIFIT_@FA":	["DTIFIT", "FA"],
+		"DTIFIT_@V1":	["DTIFIT", "V1"],
+		"DSI_Studio_auto_@src":	["DSI_SRC", "output"]
+	  }
+	},
+	"EddyC":
+	{
+	  "inputs":
+	  {
+		"ref_num":	0
+	  },
+	  "connect":
+	  {
+		"in_file":	["Reorient","out_file"]
+	  }
+	},
+	"BET":
+	{
+	  "inputs":
+	  {
+		"robust":	true,
+		"mask":		true
+	  }
+	}
+  }
+}

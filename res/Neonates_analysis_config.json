@@ -1,0 +1,343 @@
+{
+ "name": "CHP_CHD_DSI",
+ "data_dir": "/home/pirc/Desktop/DWI/CHD_tractography/CHP",
+ "included_ids":
+  [
+    "0761_MR1_42D_DTI",
+    "CHD_052_01a_DTIFIXED"
+  ],
+ "steps":
+  [
+    ["FileIn","FileIn_SConfig"],
+    "DSI_SRC",
+    "REC_prep",
+    "DSI_REC",
+    "DSI_TRK"
+  ],
+ "method" : 
+  {
+    "FileIn":
+    {
+      "inputs":
+      {
+        "base_directory":   "data_dir",
+        "outfields":        ["dti","bval","bvec","mask","regions_auto_nii"]
+      }
+    },
+    
+    "DSI_REC":
+    {
+      "inputs":
+      {
+            "method": "dti",
+            "output_dif":       1,
+            "output_tensor":    0,
+            "check_btable":     1
+      }
+    },
+    "DSI_TRK":
+    {
+      "inputs":
+        {
+          "output_type" : "TRK",
+          "stat" : true,
+          "fa_threshold: : 0.1,
+          "turning_angle" : 60,
+          "fiber_count" : 5000,
+          "seed_count" : 10000000,
+          "thread_count" : 7,
+          "tracts":
+          {
+            "Genu": 
+            {
+                "rois": 
+                [
+                    "Genu",
+                    "Sagittal_L",
+                    "Sagittal_R"
+                ],
+
+                "roas": 
+                [
+                    "PosteriorGenu",
+                    "InternalCapsule_L",
+                    "InternalCapsule_R"
+                ]
+            },
+     
+            "CCBody":
+            {
+                "rois": 
+                [
+                    "CCBody",
+                    "Sagittal_L",
+                    "Sagittal_R"
+                ],
+
+                "roas": 
+                [
+                    "ArcuateAxial_L",
+                    "ArcuateAxial_R",
+                    "ArcuateROA",
+                    "BodyCingulumROA",
+                    "BodyFornixROA",
+                    "CapsuleMerge_L",
+                    "CapsuleMerge_R",
+                    "Midbody"
+                ]
+            },
+     
+            "Splenium":
+            {
+                "rois": 
+                [
+                    "Splenium",
+                    "Sagittal_L",
+                    "Sagittal_R"
+                ],
+
+                "roas": 
+                [
+                    "ArcuateCoronal_L",
+                    "ArcuateCoronal_R",
+                    "FornixBody",
+                    "FornixCrura",
+                    "Midbody",
+                    "SFG_L",
+                    "SFG_R",
+                    "TemporalCoronal_L",
+                    "TemporalCoronal_R"
+                ]
+            },
+     
+            "IFOF_L": 
+            {
+                "rois": 
+                [
+                    "InferiorOccipital_L",
+                    "TemporalCoronal_L"
+                ],
+
+                "roas": 
+                [
+                    "AnteriorGenuFrontal",
+                    "ArcuateCoronal_L",
+                    "Cerebellum_L",
+                    "Cerebellum_R",
+                    "FornixBody",
+                    "FornixCrura",
+                    "ExternalCapsule_L",
+                    "Midbody",
+                    "SagittalROA",
+                    "UncinateCoronal_L",
+                    "UncinateAxial_L"
+                ]
+            },
+     
+            "IFOF_R": 
+            {
+                "rois": 
+                [
+                    "InferiorOccipital_R",
+                    "TemporalCoronal_R"
+                ],
+
+                "roas": 
+                [
+                    "AnteriorGenuFrontal",
+                    "ArcuateCoronal_R",
+                    "Cerebellum_L",
+                    "Cerebellum_R",
+                    "FornixBody",
+                    "FornixCrura",
+                    "ExternalCapsule_R",
+                    "Midbody",
+                    "SagittalROA",
+                    "UncinateCoronal_R",
+                    "UncinateAxial_R"
+                ]
+            },
+     
+            "FOF_L": 
+            {
+                "rois": 
+                [
+                    "PosteriorCingulum",
+                    "TemporalCoronal_L",
+                    "UncinateCoronal_L"
+                ],
+
+                "roas": 
+                [
+                    "AnteriorGenuFrontal",
+                    "ArcuateCoronal_L",
+                    "Cerebellum_L",
+                    "Cerebellum_R",
+                    "FornixBody",
+                    "FornixCrura",
+                    "ExternalCapsule_L",
+                    "Midbody",
+                    "SagittalROA"
+                ]
+            },
+     
+            "FOF_R": 
+            {
+                "rois": 
+                [
+                    "PosteriorCingulum",
+                    "TemporalCoronal_R",
+                    "UncinateCoronal_R"
+                ],
+
+                "roas": 
+                [
+                    "AnteriorGenuFrontal",
+                    "ArcuateCoronal_R",
+                    "Cerebellum_L",
+                    "Cerebellum_R",
+                    "FornixBody",
+                    "FornixCrura",
+                    "ExternalCapsule_R",
+                    "Midbody",
+                    "SagittalROA"
+                ]
+            },
+     
+            "SLFA_L":
+            {
+                "rois": 
+                [
+                    "ArcuateCoronal_L",
+                    "PosteriorGenu"
+                ],
+     
+                "roas":
+                [
+                    "ArcuateAxial_L",
+                    "ArcuateROA",
+                    "ExternalCapsule_L",
+                    "InternalCapsule_L",
+                    "Midbody",
+                    "PosteriorCingulum",
+                    "SagittalROA",
+                    "TemporalCoronal_L"
+                ]
+            },
+     
+            "SLFP_L":
+            {
+                "rois": 
+                [
+                    "ArcuateCoronal_L",
+                    "PosteriorCingulum"
+                ],
+     
+                "roas":
+                [
+                    "ArcuateROA",
+                    "ExternalCapsule_L",
+                    "InternalCapsule_L",
+                    "InferiorOccipital_L",
+                    "Midbody",
+                    "SagittalROA",
+                    "TemporalCoronal_L"
+                ]
+            },
+     
+            "SLFA_R":
+            {
+                "rois": 
+                [
+                    "ArcuateCoronal_R",
+                    "PosteriorGenu"
+                ],
+     
+                "roas":
+                [
+                    "ArcuateAxial_R",
+                    "ArcuateROA",
+                    "ExternalCapsule_R",
+                    "InternalCapsule_R",
+                    "Midbody",
+                    "PosteriorCingulum",
+                    "SagittalROA",
+                    "TemporalCoronal_R"
+                ]
+            },
+     
+            "SLFP_R":
+            {
+                "rois": 
+                [
+                    "ArcuateCoronal_R",
+                    "PosteriorCingulum"
+                ],
+     
+                "roas":
+                [
+                    "ArcuateROA",
+                    "ExternalCapsule_R",
+                    "InternalCapsule_R",
+                    "InferiorOccipital_R",
+                    "Midbody",
+                    "SagittalROA",
+                    "TemporalCoronal_R"
+                ]
+            },
+     
+            "CST_L":
+            {
+                "rois": 
+                [
+                    "AnteriorBrainstem",
+                    "InternalCapsule_L",
+                    "Medulla",
+                    "Midbody"
+                ],
+     
+                "roas":
+                [
+                    "ArcuateROA",
+                    "Cerebellum_L",
+                    "Cerebellum_R",
+                    "CingulumROA_L",
+                    "ExternalCapsule_L",
+                    "InternalCapsule_R",
+                    "FornixBody",
+                    "FornixCrura",
+                    "SagittalROA",
+                    "TemporalCoronal_L"
+                ]
+            },
+     
+            "CST_R":
+            {
+                "rois": 
+                [
+                    "AnteriorBrainstem",
+                    "InternalCapsule_R",
+                    "Medulla",
+                    "Midbody"
+                ],
+     
+                "roas":
+                [
+                    "ArcuateROA",
+                    "Cerebellum_L",
+                    "Cerebellum_R",
+                    "CingulumROA_R",
+                    "ExternalCapsule_R",
+                    "InternalCapsule_L",
+                    "FornixBody",
+                    "FornixCrura",
+                    "SagittalROA",
+                    "TemporalCoronal_R"
+                ]
+            }
+          }
+        }
+      }
+    }
+  }
+
