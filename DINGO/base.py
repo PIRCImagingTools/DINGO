@@ -250,9 +250,11 @@ class DINGO(pe.Workflow):
                     #connection from config, or at least name==step
                     srcobj = self.subflows[testsrckey]
                 elif self.name2step.values().count(testsrckey) > 1:
-                    raise Exception('Step: %s used more than once, default'
-                        'connections will not work. Add ["method"]["Name"]'
-                        '["connect"] for linked downstream nodes.' % testsrckey)
+                    msg=('Dest: %s.%s, "%s" used more than once, default '
+                        'connections will not work. Add ["method"]["%s"]'
+                        '["connect"]["%s"] to json to set connection.' 
+                        % (destkey, destfield, testsrckey, destkey, destfield))
+                    raise Exception(msg)
                 elif testsrckey == 'Config' or testsrckey == self._inputsname:
                     srcobj = self.get_node(self._inputsname)
                 else:
