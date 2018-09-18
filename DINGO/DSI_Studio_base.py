@@ -1680,7 +1680,10 @@ class DSIStudioReconstruct(DSIStudioCommand):
         '''
         outputs = self._outputs()
         #as long as terminal_output = 'file' ; stdout in runtime.merged
-        split_output = runtime.merged.split('\n')
+        if len(runtime.merged) > 0:
+            split_output = runtime.merged.split('\n')
+        elif len(runtime.stdout) > 0:
+            split_output = runtime.stdout.split('\n')
         if 'output data' in split_output and os.path.exists(split_output[-1]):
             afile = split_output[-1] #last line is created file
             basename = os.path.basename(afile)
