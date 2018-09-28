@@ -4,6 +4,8 @@ from nipype import config
 import nipype.pipeline.engine as pe
 from nipype import IdentityInterface
 from pprint import pprint
+import smtplib
+from email.mime.text import MIMEText
 
 
 class DINGO(pe.Workflow):
@@ -328,6 +330,10 @@ class DINGO(pe.Workflow):
         self.input_params = dict()
         self.input_connections = dict()
         self.name2step = dict()
+        self.email = None
+        
+        if 'email' in cfg:
+            self.email = cfg['email']
         
         method = input_fields['method']
         
@@ -392,7 +398,62 @@ class DINGO(pe.Workflow):
         self._connect_subwfs()
         
         
+    def send_mail(self, msg_body=None):
+        """Send a notification for workflow conclusion
         
+        Parameters
+        -------
+        self.email      :   dictionary
+            server      :   str 'server:port'
+            login       :   str
+            pw          :   str
+            fromaddr    :   str
+            toaddr      :   str
+        msg_body        :   str
+        """
+        if 'server' not in self.email or self.email['server'] is None:
+            self.email['server'] = 'localhost'
+            
+        s = smtplib.SMTP(self.email['server'])
+        
+        msg=MIMEText(msg_body)
+        msg['Subject'] = 'DINGO workflow completed'
+        msg['From'] = self.email['fromaddr']
+        msg['To'] = self.email['toaddr']
+        
+        if 'login' in self.email and self.email['login'] is not None \
+        and 'pw' in self.email and self.email['pw'] is not None:
+            s.starttls()
+            s.login(self.email['login'], self.email['pw'])
+        
+        s.sendmail(self.email['fromaddr'], self.email['toaddr'], msg.as_string())
+        
+        
+    def run(self, plugin=None, plugin_args=None, updatehash=False):
+        """Execute the workflow
+        
+        Parameters
+        ----------
+        plugin      :   plugin name or object
+            Plugin to use for execution. You can create your own plugins for
+            execution.
+        plugin_args :   dictionary containing arguments to be sent to plugin
+            constructor. see individual plugin doc strings for details.
+        email       :   dictionary containing arguments to send a notification
+            upon completion.
+        """
+        try:
+            super(DINGO,self).run(
+                plugin=plugin, plugin_args=plugin_args, updatehash=updatehash)
+            if self.email is not None:
+                msg='{} completed without error'.format(self.name)
+                self.send_mail(msg_body=msg)
+        except RuntimeError as err:
+            if self.email is not None:
+                msg='{} ended with error'.format(self.name)
+                self.send_mail(msg_body=msg, **self.email)
+            raise(err)
+            
 class DINGObase(object):
     config_inputs = 'config_inputs'
     connection_spec = {}
