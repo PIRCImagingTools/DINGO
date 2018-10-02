@@ -442,16 +442,18 @@ class DINGO(pe.Workflow):
         email       :   dictionary containing arguments to send a notification
             upon completion.
         """
+        err=None
         try:
             super(DINGO,self).run(
                 plugin=plugin, plugin_args=plugin_args, updatehash=updatehash)
-            if self.email is not None:
-                msg='{} completed without error'.format(self.name)
-                self.send_mail(msg_body=msg)
+            msg='{} completed without error'.format(self.name)
         except RuntimeError as err:
-            if self.email is not None:
-                msg='{} ended with error'.format(self.name)
-                self.send_mail(msg_body=msg, **self.email)
+            msg='{} ended with error(s)'.format(self.name)
+        except Exception as err:
+            msg='{} crashed'.format(self.name)
+        if self.email is not None:
+            self.send_mail(msg_body=msg)
+        if err is not None:
             raise(err)
             
 class DINGObase(object):
