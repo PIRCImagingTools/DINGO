@@ -439,7 +439,7 @@ class DINGO(pe.Workflow):
             execution.
         plugin_args :   dictionary containing arguments to be sent to plugin
             constructor. see individual plugin doc strings for details.
-        email       :   dictionary containing arguments to send a notification
+        self.email  :   dictionary containing arguments to send a notification
             upon completion.
         """
         err=None
