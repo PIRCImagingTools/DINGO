@@ -987,17 +987,15 @@ class DSIStudioFiberCommand(DSIStudioCommand):
         
     def _list_outputs(self):
         outputs = self._outputs().get()
-        base_texts = ('export_stat','export_fa','export_gfa','export_qa',
-            'export_nqa','export_md','export_ad','export_rd')
+        export_texts = ('stat','fa','gfa','qa','nqa','md','ad','rd')
         report_texts = ('report_fa','report_gfa','report_nqa',
             'report_md','report_ad','report_rd')
-        imgs = ('export_tdi','export_tdi2','export_tdi_color','export_tdi_end',
-            'export_tdi2_end')
+        export_imgs = ('tdi','tdi2','tdi_color','tdi_end','tdi2_end')
         for key in outputs.iterkeys():
-            inputkey = key.replace('_file','')
+            basekey = key.replace('_file','')
             if key == 'output':
                 outputs['output'] = self._gen_filename('output')
-            
+            #the following are booleans
             elif key == 'endpt' and \
             isdefined(getattr(self.inputs, 'endpt')) and \
             getattr(self.inputs, 'endpt'):
@@ -1006,31 +1004,34 @@ class DSIStudioFiberCommand(DSIStudioCommand):
                     change_ext=True, 
                     ext=self.inputs.endpt_format)
             
-            elif inputkey in base_texts and \
-            isdefined(getattr(self.inputs, inputkey)) and \
-            getattr(self.inputs, inputkey):
-                outputs[key] = self._gen_fname(self._gen_filename('output'),
-                    suffix=''.join(('.', inputkey)), 
-                    change_ext=True, 
-                    ext='.txt')
-            
-            elif inputkey in report_texts and \
-            isdefined(getattr(self.inputs, inputkey)) and \
-            getattr(self.inputs, inputkey):
+            elif basekey in export_texts:
+                inputkey='_'.join(('export',basekey))
+                if isdefined(getattr(self.inputs, inputkey)) and \
+                getattr(self.inputs, inputkey):
+                    outputs[key] = self._gen_fname(self._gen_filename('output'),
+                        suffix=''.join(('.', basekey)), 
+                        change_ext=True, 
+                        ext='.txt')
+                        
+            elif basekey in export_imgs:
+                inputkey='_'.join(('export',basekey))
+                if isdefined(getattr(self.inputs, inputkey)) and \
+                getattr(self.inputs, inputkey):
+                    outputs[key] = self._gen_fname(self._gen_filename('output'),
+                        suffix=''.join(('.', basekey)), 
+                        change_ext=True, 
+                        ext='.nii')
+                    
+            elif basekey in report_texts and \
+            isdefined(getattr(self.inputs, basekey)) and \
+            getattr(self.inputs, basekey):
                 rp = str(getattr(self.inputs, 'report_pstyle'))
                 rb = str(getattr(self.inputs, 'report_bandwidth'))
                 outputs[key] = self._gen_fname(self._gen_filename('output'),
-                    suffix='.'.join( ('',inputkey.replace('_','.'),rp,rb) ),
+                    suffix='.'.join( ('',basekey.replace('_','.'),rp,rb) ),
                     change_ext=True,
                     ext='.txt')
             
-            elif inputkey in imgs and \
-            isdefined(getattr(self.inputs, inputkey)) and \
-            getattr(self.inputs, inputkey):
-                outputs[key] = self._gen_fname(self._gen_filename('output'),
-                    suffix=''.join(('.', inputkey)), 
-                    change_ext=True, 
-                    ext='.nii')
         return outputs
 
 
