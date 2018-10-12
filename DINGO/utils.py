@@ -2,6 +2,38 @@ import os
 import importlib
 import copy
 import json
+from nipy import load_image
+from nipy.core.api import Image
+import numpy as np
+
+
+def dice_coef(nii_A, nii_B):
+    """
+    Dice Coefficient:
+        D = 2*(A == B)/(A)+(B)
+    
+    Input is two binary masks in the same 3D space
+    NII format
+    
+    Output is a DICE score
+    """
+    
+    imageA = load_image(nii_A)
+    dataA = imageA.get_data()
+    sumA = np.sum(dataA)
+    coord = imageA.coordmap
+    
+    
+    imageB = load_image(nii_B)
+    dataB = imageB.get_data()
+    sumB = np.sum(dataB)
+    
+    overlap = dataA + dataB
+    intersect = overlap[np.where(overlap==2)].sum()
+    
+    dice = intersect/(sumA + sumB)
+    
+    return dice
 
 def flatten(l, ltypes=(list, tuple)):
     """flatten lists and tuples to a single list, ignore empty

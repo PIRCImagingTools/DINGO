@@ -199,10 +199,10 @@ class DICE(DINGOflow):
         """
         Dice Coefficient:
             D = 2*(A == B)/(A)+(B)
-
+        
         Input is two binary masks in the same 3D space
         NII format
-
+        
         Output is a DICE score and overlap image
         """
         
@@ -215,17 +215,17 @@ class DICE(DINGOflow):
         dataA = imageA.get_data()
         sumA = np.sum(dataA)
         coord = imageA.coordmap
-
-
+        
+        
         imageB = load_image(nii_B)
         dataB = imageB.get_data()
         sumB = np.sum(dataB)
-
+        
         overlap = dataA + dataB
         intersect = overlap[np.where(overlap==2)].sum()
-
+        
         dice = intersect/(sumA + sumB)
-
+        
         def save_nii(data,coord, save_file):
             arr_img = Image(data, coord)
             img = save_image(arr_img, save_file)
@@ -237,7 +237,7 @@ class DICE(DINGOflow):
             f.write('{0}'.format(dice))
             f.close()
             return save_file
-
+        
         img = save_nii(overlap, coord, output_bn)
         coef = save_txt(dice, output_bn)
         return img, coef
