@@ -396,6 +396,11 @@ class DINGO(pe.Workflow):
             print('Create Workflow/Node Name:%s, Obj:%s' % (name, step))
             self.create_subwf(step, name)
         self._connect_subwfs()
+        if self.email is not None:
+            print('Email notification will be sent to %s' % 
+            (self.email['toaddr']))
+        else:
+            print('No email notification will be sent')
         
         
     def send_mail(self, msg_body=None):
@@ -452,7 +457,10 @@ class DINGO(pe.Workflow):
         except Exception as err:
             msg='{} crashed'.format(self.name)
         if self.email is not None:
-            self.send_mail(msg_body=msg)
+            msg_list=[]
+            msg_list.extend((msg,'With named steps:'))
+            msg_list.extend(self.name2step.keys())
+            self.send_mail(msg_body='\n'.join(msg_list))
         if err is not None:
             raise(err)
             
