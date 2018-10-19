@@ -47,7 +47,7 @@ class DSI_SRC(DINGOnode):
     """
     
     connection_spec = {
-        'source'    :   ['EddyC','eddy_corrected'],
+        'source':   ['FileIn','dti'],
         'bval'  :   ['FileIn','bval'],
         'bvec'  :   ['FileIn','bvec']
     }

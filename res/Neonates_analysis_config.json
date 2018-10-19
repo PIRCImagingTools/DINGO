@@ -1,11 +1,21 @@
 {
- "name": "CHP_CHD_DSI",
- "data_dir": "/home/pirc/Desktop/DWI/CHD_tractography/CHP",
+ "name": "Neonates_DSI_Studio",
+ "data_dir": "/home/user/path/to/Parent_Directory",
  "included_ids":
   [
-    "0761_MR1_42D_DTI",
-    "CHD_052_01a_DTIFIXED"
+    "patient1_scan1_unique1",
+    "patient1_scan1_unique2",
+    "patient1_scan2_unique1",
+    "patient2_scan2_unique2"
   ],
+ "email":
+  {
+    "server": "smtp.gmail.com:587",
+    "login": "myemail@gmail.com",
+    "pw" : "mypassword",
+    "fromaddr": "myemail@gmail.com",
+    "toaddr": "myemail@gmail.com"
+  },
  "steps":
   [
     ["FileIn","FileIn_SConfig"],
@@ -21,10 +31,19 @@
       "inputs":
       {
         "base_directory":   "data_dir",
-        "outfields":        ["dti","bval","bvec","mask","regions_auto_nii"]
+        "outfields":        ["dti","bval","bvec","mask","regions"]
       }
     },
-    
+
+    "DSI_SRC":
+    {
+      "connect":
+      {
+        "source": ["FileIn","dti"],
+        "bval": ["FileIn","bval"],
+        "bvec": ["FIleIn","bvec"]
+      }
+    },    
     "DSI_REC":
     {
       "inputs":
@@ -33,14 +52,24 @@
             "output_dif":       1,
             "output_tensor":    0,
             "check_btable":     1
+      },
+      "connect":
+      {
+            "source":["DSI_SRC","output"],
+            "mask":  ["REC_prep","out_file"]
       }
     },
     "DSI_TRK":
     {
+      "connect":
+      {
+            "fib_file" :  ["DSI_REC","fiber_file"],
+            "regions"  :  ["FileIn","regions"]
+      },
       "inputs":
         {
           "output_type" : "TRK",
-          "stat" : true,
+          "export_stat" : true,
           "fa_threshold: : 0.1,
           "turning_angle" : 60,
           "fiber_count" : 5000,
