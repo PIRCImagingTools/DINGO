@@ -1,0 +1,131 @@
+{
+	"name": "warp_regions_from_Template",
+	"data_dir": "/home/user/path/to/Parent_Directory",
+	"included_ids": [
+        "patient1_scan1_unique1",
+        "patient1_scan1_unique2",
+        "patient1_scan2_unique1",
+        "patient2_scan2_unique2"
+	],
+
+	"steps": [
+		"SplitIDs",
+		["FileIn_FA_regions","FileIn"],
+		"FLIRT",
+		"FNIRT",
+		"ApplyWarp",
+		["FileOut_registration", "FileOut"],
+		["FileOut_regions", "FileOut"]
+	],
+	"method": {
+		"SplitIDs": {
+			"inputs": {
+				"id_sep": "_"
+			},
+			"connect": {
+				"psid": ["Config","included_ids"]
+			}
+		},
+		"FileIn_FA_regions": {
+			"inputs": {
+				"base_directory": "data_dir",
+				"outfields": [
+					"Ind_Auto_FA",
+					"Template_FA",
+					"Template_regions"
+				],
+				"field_template": {
+					"Ind_FA": "%s/%s/DSI_Studio/%s_%s_%s*fa0.nii.gz",
+					"Template_FA": "bestID/Template_warp_merged_masked_mean.nii.gz",
+					"Template_regions": "bestID/Regions/*.nii"
+				},
+				"template_args": {
+					"Ind_FA": [["sub_id","scan_id","sub_id","scan_id","uid"]],
+					"Template_FA": [],
+					"Template_regions": []
+				}
+			}
+		},
+		"FLIRT": {
+			"inputs": {
+				"dof": 12
+			},
+			"connect": {
+				"in_file": ["FileIn_FA_regions","Template_FA"],
+				"reference": ["FileIn_FA_regions","Ind_FA"]
+			}
+		},
+		"FNIRT": {
+			"inputs": {
+				"fieldcoeff_file": true,
+				"skip_implicit_ref_masking": false,
+				"skip_implicit_in_masking": false,
+				"refmask_val": 0,
+				"inmask_val": 0,
+				"subsampling_scheme": [8,4,2,2],
+				"max_nonlin_iter": [5,5,5,5],
+				"in_fwhm": [12,6,2,2],
+				"ref_fwhm": [12,6,2,2],
+				"regularization_lambda": [300,75,30,30],
+				"skip_lambda_ssq": false,
+				"regularization_model": "bending_energy",
+				"apply_intensity_mapping": [1,1,1,0],
+				"intensity_mapping_model": "global_linear",
+				"derive_from_ref": false
+			},
+			"connect": {
+				"in_file": ["FileIn_FA_regions","Template_FA"],
+				"ref_file": ["FileIn_FA_regions","Ind_FA"],
+				"affine_file": ["FLIRT","out_matrix_file"]
+			}
+		},
+		"ApplyWarp": {
+			"inputs": {
+				"interp": "nn",
+				"iterfield": "in_file"
+			},
+			"connect": {
+				"field_file": ["FNIRT","fieldcoeff_file"],
+				"ref_file": ["FileIn_FA_regions","Ind_FA"],
+				"in_file": ["FileIn_FA_regions","Template_regions"]
+			}
+		},
+		"FileOut_registration": {
+			"inputs": {
+				"parent_dir": "data_dir",
+				"infields": [
+					"reg.@flirt_mat",
+					"reg.@fnirt_fieldwarp",
+					"reg.@fnirt_warped"
+				],
+				"s2r": "input_id",
+				"substitutions": [
+					["_flirt","_to_input_id_fa0_flirt"],
+					["_fieldwarp","_to_input_id_fa0_fieldwarp"],
+					["_warped","_to_input_id_fa0_warped"]
+				]
+			},
+			"connect": {
+				"reg_@flirt_mat": ["FLIRT", "out_matrix_file"],
+				"reg_@fnirt_fieldwarp": ["FNIRT", "fieldcoeff_file"],
+				"reg_@fnirt_warped": ["FNIRT", "warped_file"]
+			}
+		},
+		"FileOut_regions": {
+			"inputs": {
+				"parent_dir": "data_dir",
+				"infields": [
+					"Regions.from_template.bestID.@region"
+				],
+				"iterfield": "Regions.from_template.bestID.@region",
+				"s2r": "input_id",
+				"substitutions": [
+					["_warp","_mean_bestID_to_input_id_fa0_warp"]
+				]
+			},
+			"connect": {
+				"Regions_from_template_bestID_@region": ["ApplyWarp", "out_file"]
+			}
+		}
+	}
+}

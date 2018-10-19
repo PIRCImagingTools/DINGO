@@ -1,0 +1,72 @@
+{
+ "email":
+  {
+    "server": "smtp.gmail.com:587",
+    "login": "myemail@gmail.com",
+    "pw" : "mypassword",
+    "fromaddr": "myemail@gmail.com",
+    "toaddr": "myemail@gmail.com"
+  },
+ "data_dir": "/home/user/path/to/Parent_Directory",
+ "included_ids":
+  [
+    "patient1_scan1_unique1",
+    "patient1_scan1_unique2",
+    "patient1_scan2_unique1",
+    "patient2_scan2_unique2"
+  ],
+ "name": "Template",
+ "steps":
+  [
+	"SplitIDs",
+	["FileIn_FA","FileIn"],
+	"TBSS_prereg",
+	"TBSS_reg_NXN",
+	"TBSS_postreg"
+  ],
+ "method" : {
+
+	"SplitIDs": {
+		"inputs": {
+			"id_sep":	"_"
+		},
+		"connect": {
+			"psid" : ["Config_Inputs","included_ids"]
+		}
+	},
+
+	"FileIn_FA": {
+		"inputs": {
+			"base_directory":	"data_dir",
+			"outfields":	["FA"],
+			"field_template": {
+				"FA":	"%s/%s/DTIFIT/%s_%s__FA.nii.gz"
+			},
+			"template_args": {
+				"FA":	[["sub_id","scan_id","sub_id","scan_id"]]
+			}
+	 	}
+	},
+
+	"TBSS_prereg": {
+		"connect": {
+			"fa_list":	["FileIn_FA","FA"]
+		}
+	},
+
+	"TBSS_reg_NXN": {
+		"inputs": {
+			"id_list": "included_ids",
+			"n_procs": 6,
+			"memory_gb": 10
+		}
+	},
+
+	"TBSS_postreg": {
+			"inputs": {
+				"id_list": "included_ids",
+				"mask_best": false
+			}
+	}
+  }
+}

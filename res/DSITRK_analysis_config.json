@@ -1,6 +1,6 @@
 {
  "name": "GenTRK",
- "data_dir": "/home/pirc/Desktop/DWI/CHD_tractography/CHP",
+ "data_dir": "/home/user/path/to/Parent_Directory",
  "included_ids":
   [
     "patient1_scan1_unique1",
