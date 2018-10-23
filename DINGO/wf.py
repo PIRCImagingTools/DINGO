@@ -727,20 +727,12 @@ class FileOut(DINGOflow):
     }
     
     def __init__(self, name='FileOut_SubScanUID',\
-    inputs=dict(substitutions=None, s2r='input_id', \
+    inputs=dict(substitutions=None, s2r=None, regexp_substitutions=None,\
     iterfield=None, infields=None, \
-    parent_dir=None, sub_id=None, scan_id=None, uid=None),\
+    parent_dir=None, sub_id=None, scan_id=None, uid=None, container=None),\
     **kwargs):
 
         super(FileOut, self).__init__(name=name, **kwargs)
-        
-        
-        if 'iterfield' in inputs and inputs['iterfield'] is not None:
-            nodetype = pe.MapNode
-            sinkargs = dict(iterfield=inputs['iterfield'])
-        else:
-            nodetype = pe.Node
-            sinkargs = {}
             
         inputfields = ['parent_dir','sub_id','scan_id','uid']
         if 'infields' in inputs and inputs['infields'] is not None:
@@ -761,13 +753,6 @@ class FileOut(DINGOflow):
             inputnode.inputs.scan_id = inputs['scan_id']
         if 'uid' in inputs and inputs['uid'] is not None:
             inputnode.inputs.uid = inputs['uid']
-        
-        cont = pe.Node(
-            name='container',
-            interface=Function(
-                input_names=['sub_id', 'scan_id'],
-                output_names=['cont_string'],
-                function=self.container))
                 
         #Could possibly replace with function in connect statement
         prefix = pe.Node(
@@ -784,25 +769,58 @@ class FileOut(DINGOflow):
                 input_names=['subs','s2r','rep'],
                 output_names=['new_subs'],
                 function=self.substitutions))
-        if 'substitutions' in inputs and inputs['substitutions'] is not None:
-            subs.inputs.subs = inputs['substitutions']
-        if 's2r' in inputs and inputs['s2r'] is not None:
-            subs.inputs.s2r = inputs['s2r']
+                
+        sinkargs = {}
+        if 'iterfield' in inputs and inputs['iterfield'] is not None:
+            nodetype = pe.MapNode
+            sinkargs.update(dict(iterfield=inputs['iterfield']))
+        else:
+            nodetype = pe.Node
         
         sink = nodetype(name='sink', interface=nio.DataSink(infields=infields),
             **sinkargs)
         sink.inputs.parameterization = False
         
+        if 's2r' in inputs and inputs['s2r'] is not None:
+            subs.inputs.s2r = inputs['s2r']
+            if 'substitutions' in inputs and \
+            inputs['substitutions'] is not None:
+                subs.inputs.subs = inputs['substitutions']
+        elif 'substitutions' in inputs and inputs['substitutions'] is not None:
+            sink.inputs.substitutions = tuple(inputs['substitutions'])
+            
+        if 'regexp_substitutions' in inputs and \
+        inputs['regexp_substitutions'] is not None:
+            sink.inputs.regexp_substitutions = tuple(
+                inputs['regexp_substitutions'])
+        
         for field in infields:
             self.connect([
                 (inputnode, sink, 
                     [(field.replace('.','_'), field )])
-                ])
+            ])
         
+        #container handled differently as it may be dynamic
+        if 'container' in inputs and inputs['container'] is not None:
+            sink.inputs.container = inputs['container']
+            
+        else:
+            cont = pe.Node(
+                name='container',
+                interface=Function(
+                    input_names=['sub_id', 'scan_id'],
+                    output_names=['cont_string'],
+                    function=self.container))
+            
+            self.connect([
+                (inputnode, cont,
+                    [('sub_id','sub_id'),
+                    ('scan_id','scan_id')]),
+                (cont, sink,
+                    [('cont_string','container')])
+            ])
+        #finally
         self.connect([
-            (inputnode, cont,
-                [('sub_id','sub_id'),
-                ('scan_id','scan_id')]),
             (inputnode, prefix, 
                 [('sub_id','arg0'),
                 ('scan_id','arg1'),
@@ -811,11 +829,9 @@ class FileOut(DINGOflow):
                 [('parent_dir','base_directory')]),
             (prefix, subs,
                 [('pref_string','rep')]),
-            (cont, sink,
-                [('cont_string','container')]),
             (subs, sink,
                 [('new_subs','substitutions')])
-            ])
+        ])
                     
     def container(sub_id=None, scan_id=None):
         import os.path as op
@@ -834,4 +850,4 @@ class FileOut(DINGOflow):
                 newpair = (pair[0], pair[1].replace(s2r, rep))
                 newsubs.append(newpair)
         return newsubs
-    
+        
