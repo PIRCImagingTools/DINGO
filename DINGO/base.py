@@ -245,8 +245,16 @@ class DINGO(pe.Workflow):
             self.workflow_connections[destkey] = destobj.connection_spec
             for destfield, values in \
             self.workflow_connections[destkey].iteritems():
-                testsrckey = values[0]
-                srcfield = values[1]
+                if len(values) == 2:
+                    testsrckey = values[0]
+                    srcfield = values[1]
+                elif len(values) == 0:#to blank a default connection
+                    continue
+                else:
+                    msg = ('Connection spec for {}.{} malformed. Should be '
+                           '[SourceObj, SourceKey], or [] to supersede default.'
+                           ' but is: {} '.format(destkey, destfield, values))
+                    raise(ValueError(msg))
                 
                 if testsrckey in self.name2step:
                     #connection from config, or at least name==step
