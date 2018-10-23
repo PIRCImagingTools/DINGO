@@ -391,9 +391,7 @@ class DINGO(pe.Workflow):
                             (cfg_bn, name, connections, type(connections)))
                     for destfield, values in connections.iteritems():
                         if not isinstance(destfield, (str,unicode)) or \
-                        not isinstance(values, (list,tuple)) or \
-                        not isinstance(values[0], (str,unicode)) or \
-                        not isinstance(values[1], (str,unicode)):
+                        not isinstance(values, (list,tuple)):
                             raise TypeError('Analysis Config: %s, '
                                 '["method"]["%s"]["connect"] Invalid config. '
                                 'Key: %s, Value: %s' %
