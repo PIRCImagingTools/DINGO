@@ -460,15 +460,16 @@ class DINGO(pe.Workflow):
             msg='{} completed without error'.format(self.name)
         except RuntimeError as err:
             msg='{} ended with error(s)'.format(self.name)
+            raise
         except Exception as err:
             msg='{} crashed'.format(self.name)
-        if self.email is not None:
-            msg_list=[]
-            msg_list.extend((msg,'With named steps:'))
-            msg_list.extend(self.name2step.keys())
-            self.send_mail(msg_body='\n'.join(msg_list))
-        if err is not None:
-            raise(err)
+            raise
+        finally:
+            if self.email is not None:
+                msg_list=[]
+                msg_list.extend((msg,'With named steps:'))
+                msg_list.extend(self.name2step.keys())
+                self.send_mail(msg_body='\n'.join(msg_list))
             
 class DINGObase(object):
     config_inputs = 'config_inputs'
