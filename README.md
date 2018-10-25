@@ -11,11 +11,11 @@ This is an extension of nipype used to conduct analysis of diffusion MRI data in
  - [DSI Studio](http://dsi-studio.labsolver.org/)
 
 ### Install
-1) [Download](https://github.com/BenjaminMey/DINGO/archive/master.zip) and extract the repository.
+1) [Download](https://github.com/PIRCImagingTools/DINGO/archive/master.zip) and extract the repository.
 2) Add the DINGO directory to your python path (by adding /path/to/DINGO to your PYTHONPATH environment variable or a new line in a .pth file in your site-packages directory)
 
 ## Config Setup
-An analysis config specifies the workflow to be created. Several examples can be found in [res](https://github.com/BenjaminMey/DINGO/tree/master/res).
+An analysis config specifies the workflow to be created. Several examples can be found in [res](https://github.com/PIRCImagingTools/DINGO/tree/master/res).
 
 ### Required Keys
   - name          : String, new nipype workflow directory that will be created in the current working directory.
