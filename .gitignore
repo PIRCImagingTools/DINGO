@@ -108,3 +108,6 @@ crash-*
 
 #Geany project settings
 *.geany
+
+#PyCharm settings
+.idea*

@@ -10,7 +10,7 @@ from nipype.interfaces.base import (traits, File, Directory, InputMultiPath,
 from nipype.utils.filemanip import split_filename
 from traits.trait_base import _Undefined
 
-#on_trait_change functions not firing when updating from indict
+# on_trait_change functions not firing when updating from indict
 #_check_mandatory_inputs  updates are currently necessary
 
 class DSIInfo(object):
@@ -1783,6 +1783,7 @@ class DSIStudioAtlas(DSIStudioCommand):
 class DSIStudioExportInputSpec(DSIStudioInputSpec):
     export = traits.List(traits.Str(),
         argstr='--export=%s',
+        sep=',',
         desc='name of export target, includes fa0,fa1,gfa,dir0,dir1,'
              'dirs,image0,4dnii, maybe others')
     output_type = traits.Enum('NIFTI',
@@ -1804,15 +1805,41 @@ class DSIStudioExport(DSIStudioCommand):
     _output_type = 'NIFTI'
     input_spec = DSIStudioExportInputSpec
     output_spec = DSIStudioExportOutputSpec
-
-    def _list_outputs(self):
-        outputs = self._outputs().get()
-        srcval = getattr(self.inputs, 'source')
-        path = os.path.dirname(srcval)
-        basename = os.path.basename(srcval)
-        outputs['export'] = self._gen_fname(basename, cwd=path, 
-            ext='.fa0.nii.gz', change_ext=True)
-        return outputs
+        
+    def aggregate_outputs(self, runtime=None, needed_outputs=None):
+        """DSIStudio export will write the output to the input directory
+        with a variable filename, but puts this information in stdout.
+        """
+        outputs = self._outputs()
+        outputkey = 'export'
+        #as long as terminal_output = 'file' ; stdout in runtime.merged
+        if len(runtime.merged) > 0:
+            log = runtime.merged
+        elif len(runtime.stdout) > 0:
+            log = runtime.stdout
+        split_stdout = log.split('\n')
+        str2find = 'write to file '
+        workflow_dir = os.getcwd()
+        fixed_outputs = []
+        for i in xrange(len(split_stdout)):
+            if str2find in split_stdout[i]:
+                afile = split_stdout[i].replace(str2find,'')
+                basename = os.path.basename(afile)
+                newfile = os.path.join(workflow_dir, basename)
+                shutil.move(afile, newfile)
+                split_stdout[i] = ''.join((str2find, newfile))
+                fixed_outputs.append(newfile)
+        if len(runtime.merged) > 0:
+            runtime.merged = '\n'.join(split_stdout)
+        elif len(runtime.stdout) > 0:
+            runtime.stdout = '\n'.join(split_stdout)
+        n_expected = len(getattr(self.inputs, outputkey))
+        if len(fixed_outputs) != n_expected:
+            setattr(outputs, outputkey, fixed_outputs)
+            return outputs
+        else:
+            raise(IOError('Export not created/found properly for %s.' % 
+                (self.inputs.source)))
         
     def _check_mandatory_inputs(self):
         '''Update other inputs from inputs.indict then call super'''
