@@ -1834,7 +1834,7 @@ class DSIStudioExport(DSIStudioCommand):
         elif len(runtime.stdout) > 0:
             runtime.stdout = '\n'.join(split_stdout)
         n_expected = len(getattr(self.inputs, outputkey))
-        if len(fixed_outputs) != n_expected:
+        if len(fixed_outputs) == n_expected:
             setattr(outputs, outputkey, fixed_outputs)
             return outputs
         else:

@@ -70,7 +70,7 @@
         {
           "output_type" : "TRK",
           "export_stat" : true,
-          "fa_threshold: : 0.1,
+          "fa_threshold": 0.1,
           "turning_angle" : 60,
           "fiber_count" : 5000,
           "seed_count" : 10000000,
