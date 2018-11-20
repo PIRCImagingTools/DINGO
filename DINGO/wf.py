@@ -729,7 +729,8 @@ class FileOut(DINGOflow):
     def __init__(self, name='FileOut_SubScanUID',\
     inputs=dict(substitutions=None, s2r=None, regexp_substitutions=None,\
     iterfield=None, infields=None, \
-    parent_dir=None, sub_id=None, scan_id=None, uid=None, container=None),\
+    parent_dir=None, sub_id=None, scan_id=None, uid=None, 
+    container=None, container_args=None),\
     **kwargs):
 
         super(FileOut, self).__init__(name=name, **kwargs)
@@ -753,6 +754,10 @@ class FileOut(DINGOflow):
             inputnode.inputs.scan_id = inputs['scan_id']
         if 'uid' in inputs and inputs['uid'] is not None:
             inputnode.inputs.uid = inputs['uid']
+        if 'container' in inputs and inputs['container'] is not None:
+            inputnode.inputs.container = inputs['container']
+        if 'container_args' in inputs and inputs['container_args'] is not None:
+           inputnode.inputs.container_args = inputs['container_args']
                 
         #Could possibly replace with function in connect statement
         prefix = pe.Node(
@@ -799,43 +804,47 @@ class FileOut(DINGOflow):
                 (inputnode, sink, 
                     [(field.replace('.','_'), field )])
             ])
+           
+        cont = pe.Node(
+            name='container',
+            interface=Function(
+                input_names=['sub_id', 'scan_id', 'uid', 
+                             'container', 'container_args'],
+                output_names=['cont_string'],
+                function=self.container))
         
-        #container handled differently as it may be dynamic
-        if 'container' in inputs and inputs['container'] is not None:
-            sink.inputs.container = inputs['container']
-            
-        else:
-            cont = pe.Node(
-                name='container',
-                interface=Function(
-                    input_names=['sub_id', 'scan_id'],
-                    output_names=['cont_string'],
-                    function=self.container))
-            
-            self.connect([
-                (inputnode, cont,
-                    [('sub_id','sub_id'),
-                    ('scan_id','scan_id')]),
-                (cont, sink,
-                    [('cont_string','container')])
-            ])
         #finally
         self.connect([
             (inputnode, prefix, 
                 [('sub_id','arg0'),
                 ('scan_id','arg1'),
                 ('uid','arg2')]),
+            (inputnode, cont,
+                [('sub_id','sub_id'),
+                ('scan_id','scan_id'),
+                ('uid','uid'),
+                ('container', 'container'),
+                ('container_args', 'container_args')]),
             (inputnode, sink,
                 [('parent_dir','base_directory')]),
+            (cont, sink,
+                [('cont_string','container')]),
             (prefix, subs,
                 [('pref_string','rep')]),
             (subs, sink,
                 [('new_subs','substitutions')])
         ])
                     
-    def container(sub_id=None, scan_id=None):
+    def container(sub_id=None, scan_id=None, uid=None,
+    container=None, container_args=None):
         import os.path as op
-        return op.join(sub_id, scan_id)
+        if container_args is None:
+            container_args = tuple()
+        strings = [ locals()[k] for k in container_args ]
+        if container is not None:
+            return op.join(container.format(*strings))
+        else:
+            return _Undefined()
         
     def substitutions(subs=None, s2r=None, rep=None):
         from traits.trait_base import _Undefined

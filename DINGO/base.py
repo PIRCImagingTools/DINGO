@@ -6,6 +6,7 @@ from nipype import IdentityInterface
 from pprint import pprint
 import smtplib
 from email.mime.text import MIMEText
+from collections import OrderedDict
 
 
 class DINGO(pe.Workflow):
@@ -216,8 +217,8 @@ class DINGO(pe.Workflow):
                 destname = ('inputnode', destfield)
         destname = '.'.join(destname)
                     
-        print('Connecting %s.%s --> %s.%s' %
-            (srcobj.name, srcname, destobj.name, destname))
+        print('Connecting {}.{} <- {}.{}'.format(
+            destobj.name, destname, srcobj.name, srcname))
         self.connect(srcobj, srcname, destobj, destname)
         
     def _connect_subwfs(self):
@@ -334,7 +335,7 @@ class DINGO(pe.Workflow):
 
         #Set up from config
         self.create_config_inputs(**input_fields)
-        self.subflows = dict()
+        self.subflows = OrderedDict()
         self.input_params = dict()
         self.input_connections = dict()
         self.name2step = dict()
@@ -468,7 +469,7 @@ class DINGO(pe.Workflow):
             if self.email is not None:
                 msg_list=[]
                 msg_list.extend((msg,'With named steps:'))
-                msg_list.extend(self.name2step.keys())
+                msg_list.extend(self.subflows.keys())
                 self.send_mail(msg_body='\n'.join(msg_list))
             
 class DINGObase(object):
