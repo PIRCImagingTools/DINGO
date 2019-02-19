@@ -695,19 +695,20 @@ class FileOut(DINGOflow):
     ----------
     name            :    Workflow name
     inputs          :    Dict
-            whether to make sink a mapnode
-        substitutions    :    List of pairs for filename substitutions
+        substitutions    :  List of pairs for filename substitutions
             (s2r substitute will be replaced with subid_scanid_uid)
             e.g. [('input_id','id'),('dtifit_','input_id')] ->
                 [('input_id','id'),('dtifit_','subid_scanid_uid')]
-        s2r         :    Str
+        s2r             :   Str
             replace in substitutions
-        infields    :    List of output fields
-        iterfield   :    Str, infield used as iterfield
-        parent_dir  :    Str
-        sub_id      :    Str
-        scan_id     :    Str
-        uid         :    Str
+        infields        :   List of output fields
+        iterfield       :   Str, infield used as iterfield, will make sink a mapnode
+        parent_dir      :   Str
+        sub_id          :   Str
+        scan_id         :   Str
+        uid             :   Str
+        container       :   Str, default '{0}/{1}'
+        container_args  :   List, default ['sub_id','scan_id']
         
     Returns
     -------
@@ -715,7 +716,7 @@ class FileOut(DINGOflow):
     
     Outputs
     -------
-    Files written to parent_dir/sub_id/scan_id/
+    Files written with defaults to parent_dir/sub_id/scan_id/
     """
     _inputnode = 'inputnode'
     _outputnode = 'sink'
@@ -756,8 +757,12 @@ class FileOut(DINGOflow):
             inputnode.inputs.uid = inputs['uid']
         if 'container' in inputs and inputs['container'] is not None:
             inputnode.inputs.container = inputs['container']
+        else:
+            inputnode.inputs.container = '{0}/{1}'
         if 'container_args' in inputs and inputs['container_args'] is not None:
-           inputnode.inputs.container_args = inputs['container_args']
+            inputnode.inputs.container_args = inputs['container_args']
+        else:
+            inputnode.inputs.container_args = ['sub_id','scan_id']
                 
         #Could possibly replace with function in connect statement
         prefix = pe.Node(
