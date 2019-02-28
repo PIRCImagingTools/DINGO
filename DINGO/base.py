@@ -84,21 +84,9 @@ class DINGO(pe.Workflow):
             raise KeyError(msg)
     
     def keep_and_move_files(self):
-        cfg = dict(execution={'remove_unnecessary_outputs':False})
-        #                      'use_relative_paths':True})
-        #If 'use_relative_paths':False
-        #DataGrabber nodes successfully try base_directory/field_template_path
-        #or os.path.abspath(field_template_path)
-        
-        #If 'use_relative_paths':True
-        #DataGrabber nodes crash trying ../../../field_template_path
-        #i.e. ~/field_template_path
-
-        #Changing inputs to not include base_directory: same crash
-        #Cannot change base_directory to not include home_dir, as it must exist
-        #Changing field_template_path to include full path or below home:
-        #DataGrabber nodes crash trying os.path.abspath(new_field_template_path)
-        config.update_config(cfg)
+        execution_update = {'remove_unnecessary_outputs':u'false',
+                            'use_relative_paths':u'true'}
+        self.config['execution'].update(execution_update)
                             
     def check_input_field(self, cfg_bn, cfg, keyname, exptype):
         if keyname not in cfg:
@@ -331,6 +319,7 @@ class DINGO(pe.Workflow):
             self.base_dir = input_fields['data_dir']
         if 'name' in input_fields:
             self.name = input_fields['name']
+        os.chdir(self.base_dir)
         print('Nipype cache at: %s' % os.path.join(self.base_dir,self.name))
 
         #Set up from config
