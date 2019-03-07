@@ -445,12 +445,12 @@ def json_load_byteified(handle):
         json.load(handle, object_hook=byteify), ignore_dicts=True
     )
     
-def read_config(configpath):
+def read_setup(setuppath):
     """Read in json config file
 
     Parameters
     ----------
-    configpath : str (absolute path to file)
+    setuppath : str (absolute path to file)
 
     Returns
     -------
@@ -461,10 +461,10 @@ def read_config(configpath):
     from DINGO.utils import json_load_byteified
     logger = logging.getLogger(__name__)
     try:
-        with open(configpath) as cfg_file:
-            cfg = json_load_byteified(cfg_file)
-            cfg_file.close()
+        with open(setuppath) as setup_file:
+            setup = json_load_byteified(setup_file)
+            setup_file.close()
     except Exception:
-        logger.exception("Config file could not be read: " + configpath)
+        logger.exception("Config file could not be read: " + setuppath)
         raise
-    return cfg
+    return setup

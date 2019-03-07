@@ -1,5 +1,5 @@
 import os
-from DINGO.utils import (read_config, split_chpid, join_strs)
+from DINGO.utils import (read_setup, split_chpid, join_strs)
 from DINGO.base import DINGO, DINGOflow, DINGOnode
 from nipype import IdentityInterface, Function
 import nipype.pipeline.engine as pe
@@ -51,8 +51,8 @@ class DICE(DINGOflow):
     dicenode.img
     dicenode.coef
     """
-    _inputnode = 'inputnode'
-    _outputnode = 'dicenode'
+    inputnode = 'inputnode'
+    outputnode = 'dicenode'
     connection_spec = {
         'sub_id'    :    ['SplitIDs','sub_id'],
         'scan_id'   :    ['SplitIDs','scan_id'],
@@ -328,8 +328,8 @@ class SplitIDs_iterate(DINGOflow):
     outputnode.scan_id
     outputnode.uid
     """
-    _inputnode = 'inputnode'
-    _outputnode = 'outputnode'
+    inputnode = 'inputnode'
+    outputnode = 'outputnode'
     
     def __init__(self, name='SplitIDs',\
     inputs={'parent_dir':None,'scan_list':None,'scan_list_sep':'_'}, **kwargs):
@@ -514,8 +514,8 @@ class FileIn_SConfig(DINGOflow):
     ---------------
     repl                :    List or Dict
     """
-    _inputnode = 'inputnode'
-    _outputnode = 'filein'
+    inputnode = 'inputnode'
+    outputnode = 'filein'
     
     connection_spec = {
         'sub_id'    :    ['SplitIDs','sub_id'],
@@ -718,8 +718,8 @@ class FileOut(DINGOflow):
     -------
     Files written with defaults to parent_dir/sub_id/scan_id/
     """
-    _inputnode = 'inputnode'
-    _outputnode = 'sink'
+    inputnode = 'inputnode'
+    outputnode = 'sink'
     
     connection_spec = {
         'sub_id'    :    ['SplitIDs','sub_id'],

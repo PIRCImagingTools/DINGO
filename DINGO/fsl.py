@@ -71,8 +71,8 @@ class BET(DINGOnode):
     
 
 class DTIFIT(DINGOflow):
-    _inputnode = 'inputnode'
-    _outputnode = 'dti'
+    inputnode = 'inputnode'
+    outputnode = 'dti'
     
     connection_spec = {
         'sub_id'    :   ['SplitIDs','sub_id'],
@@ -134,8 +134,8 @@ class FLIRT(DINGOnode):
 
 class ApplyXFM(DINGOflow):
     
-    _inputnode = 'xfmnode'
-    _outputnode = 'xfmnode'
+    inputnode = 'xfmnode'
+    outputnode = 'xfmnode'
     connection_spec = {
         'in_matrix_file'    :   ['FLIRT', 'out_matrix_file']
     }
@@ -171,8 +171,8 @@ class FNIRT(DINGOnode):
         
 class ApplyWarp(DINGOflow):
     
-    _inputnode = 'warpnode'
-    _outputnode = 'warpnode'
+    inputnode = 'warpnode'
+    outputnode = 'warpnode'
     connection_spec = {
         'in_file'       :   ['FileIn','in_file'],
         'ref_file'      :   ['FileIn','ref_file'],
@@ -196,8 +196,8 @@ class ApplyWarp(DINGOflow):
         
         
 class FSL_nonlinreg(DINGOflow):
-    _inputnode = 'inputnode'
-    _outputnode = 'outputnode'
+    inputnode = 'inputnode'
+    outputnode = 'outputnode'
     
     connection_spec = {
         'in_file'   :   ['DTIFIT','FA']
@@ -266,8 +266,8 @@ class FSL_nonlinreg(DINGOflow):
         
         
 class TBSS_prereg(DINGOflow):
-    _inputnode = 'inputnode'
-    _outputnode = 'tbss1.outputnode'
+    inputnode = 'inputnode'
+    outputnode = 'tbss1.outputnode'
     
     connection_spec = {
         'fa_list'   :   ['DTIFIT','FA']
@@ -300,8 +300,8 @@ class TBSS_prereg(DINGOflow):
         
 
 class TBSS_reg_NXN(DINGOflow):
-    _inputnode = 'inputnode'
-    _outputnode = 'tbss2'
+    inputnode = 'inputnode'
+    outputnode = 'tbss2'
     
     connection_spec = {
         'fa_list'   :   ['TBSS_prereg','fa_list'],
@@ -586,8 +586,8 @@ class TBSS_reg_NXN(DINGOflow):
         
         
 class TBSS_postreg(DINGOflow):
-    _inputnode = 'inputnode'
-    _outputnode = 'outputnode'
+    inputnode = 'inputnode'
+    outputnode = 'outputnode'
     
     connection_spec = {
         'fa_list'       :    ['TBSS_prereg','fa_list'],

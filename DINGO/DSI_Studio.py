@@ -182,8 +182,8 @@ class DSI_TRK(DINGOflow):
     """
     from DSI_Studio import TRKnode
             
-    _inputnode = 'inputnode'
-    _outputnode = 'trknode'
+    inputnode = 'inputnode'
+    outputnode = 'trknode'
     
     connection_spec = {
         'fib_file'        :    ['DSI_REC','fiber_file'],
@@ -377,8 +377,8 @@ class DSI_ANA(DINGOflow):
     dsi_ana.outputs.stat_file = myTract_stat.txt
     dsi_ana.outputs.track = myTract.txt
     """
-    _inputnode = 'ananode'
-    _outputnode = 'ananode'
+    inputnode = 'ananode'
+    outputnode = 'ananode'
     
     def __init__(self, name='DSI_ANA', inputs={}, **kwargs):
         super(DSI_ANA, self).__init__(name=name, **kwargs)
