@@ -3,11 +3,10 @@ import importlib
 import copy
 import json
 from nipy import load_image
-from nipy.core.api import Image
 import numpy as np
 
 
-def dice_coef(nii_A, nii_B):
+def dice_coef(nii_a, nii_b):
     """
     Dice Coefficient:
         D = 2*(A == B)/(A)+(B)
@@ -18,30 +17,29 @@ def dice_coef(nii_A, nii_B):
     Output is a DICE score
     """
     
-    imageA = load_image(nii_A)
-    dataA = imageA.get_data()
-    sumA = np.sum(dataA)
-    coord = imageA.coordmap
+    image_a = load_image(nii_a)
+    data_a = image_a.get_data()
+    sum_a = np.sum(data_a)
+
+    image_b = load_image(nii_b)
+    data_b = image_b.get_data()
+    sum_b = np.sum(data_b)
     
+    overlap = data_a + data_b
+    intersect = overlap[np.where(overlap == 2)].sum()
     
-    imageB = load_image(nii_B)
-    dataB = imageB.get_data()
-    sumB = np.sum(dataB)
-    
-    overlap = dataA + dataB
-    intersect = overlap[np.where(overlap==2)].sum()
-    
-    dice = intersect/(sumA + sumB)
+    dice = intersect / (sum_a + sum_b)
     
     return dice
 
-def flatten(l, ltypes=(list, tuple)):
+
+def flatten(s, accepted_types=(list, tuple)):
     """flatten lists and tuples to a single list, ignore empty
     
     Parameters
     ----------
-    l       :    Sequence
-    ltypes  :    Tuple (acceptable sequence types, default (list,tuple)
+    s       :    Sequence
+    accepted_types  :    Tuple (acceptable sequence types, default (list,tuple)
     
     Return
     ------
@@ -52,19 +50,20 @@ def flatten(l, ltypes=(list, tuple)):
     flatten(('Hello',[' ',2],[' '],(),['the',[([' '])],('World')]))
     ('Hello', ' ', 2, ' ', 'the', ' ', 'World')
     """
-    ltype = type(l)
-    l = list(l)
+    s_type = type(s)
+    s = list(s)
     i = 0
-    while i < len(l):
-        while isinstance(l[i], ltypes):
-            if not l[i]:
-                l.pop(i)
+    while i < len(s):
+        while isinstance(s[i], accepted_types):
+            if not s[i]:
+                s.pop(i)
                 i -= 1
                 break
             else:
-                l[i:i+1] = l[i]
+                s[i:i+1] = s[i]
         i += 1
-    return ltype(l)
+    return s_type(s)
+
 
 def list_to_str(sep=None, args=None):
     """flattened args turned to str with separator
@@ -87,11 +86,12 @@ def list_to_str(sep=None, args=None):
     'Hello 2 the World'
     """
     if sep is None:
-        sep=''
+        sep = ''
     if args is None:
-        raise TypeError("Not enough arguments for str creation")
+        raise TypeError('Not enough arguments for str creation')
     return sep.join(str(e) for e in flatten(args))
-    
+
+
 def join_strs(sep=None, **kwargs):
     """Interface between list_to_str and Nipype function nodes
     
@@ -109,15 +109,17 @@ def join_strs(sep=None, **kwargs):
     join_strs(sep='_', arg0='foo', arg1='bar', arg2='baz')
     'foo_bar_baz'
     """
+    # import in function for nipype
     from DINGO.utils import list_to_str
     if sep is None:
-        sep=''
+        sep = ''
     arglist = []
     for arg in kwargs.itervalues():
         arglist.append(arg)
     return list_to_str(sep=sep, args=arglist)
-    
-def DynImport(mod=None, obj=None):
+
+
+def dynamic_import(mod=None, obj=None):
     """Import a given object from a given module
     
     Parameters
@@ -144,7 +146,8 @@ def DynImport(mod=None, obj=None):
             return imp_module, None
     else:
         return None, None
-        
+
+
 def split_filename(fname, special_extensions=None):
     """Split a filename into path, base filename, and extension.
     
@@ -160,13 +163,14 @@ def split_filename(fname, special_extensions=None):
     fname   :    str - base filename, without extension
     ext     :    str - file extension from fname
     """
+    # import in function for nipype
     import os
     
     default_se = ('.nii.gz', 
-                '.tar.gz', 
-                '.fib.gz', 
-                '.src.gz',
-                '.trk.gz')
+                  '.tar.gz',
+                  '.fib.gz',
+                  '.src.gz',
+                  '.trk.gz')
     
     if special_extensions is None:
         special_extensions = default_se
@@ -180,7 +184,7 @@ def split_filename(fname, special_extensions=None):
     for special_ext in special_extensions:
         ext_len = len(special_ext)
         if (len(fname) > ext_len) and \
-        (fname[-ext_len:].lower() == special_ext.lower()):
+           (fname[-ext_len:].lower() == special_ext.lower()):
             ext = fname[-ext_len:]
             fname = fname[:-ext_len]
             break
@@ -188,9 +192,10 @@ def split_filename(fname, special_extensions=None):
         fname, ext = os.path.splitext(fname)
 
     return path, fname, ext
-    
-def fileout_util(names=None, file_list=None, substitutions=None,\
-psep='_', nsep='.', sub_id=None, scan_id=None, uid=None):
+
+
+def fileout_util(names=None, file_list=None, substitutions=None,
+                 psep='_', nsep='.', sub_id=None, scan_id=None, uid=None):
     """Utility for sinker nodes to create container, folders, substitutions
     
     Parameters
@@ -214,21 +219,22 @@ psep='_', nsep='.', sub_id=None, scan_id=None, uid=None):
     out_file_list   :    list[str] prefix_suffix
     newsubs         :    list[(str, str)] - [('str2replace', 'prefix_suffix')]
     """
+    # import in function for nipype
     from DINGO.utils import list_to_str, split_filename
     import os
-    #container
+    # container
     container = os.path.join(sub_id, scan_id)
     
-    #out_file_list
-    if names is not None and isinstance(names, (list,tuple,str)):
-        folder = list_to_str(sep=nsep, args=(names,''))#extra empty=add nsep
+    # out_file_list
+    if names is not None and isinstance(names, (list, tuple, str)):
+        folder = list_to_str(sep=nsep, args=(names, ''))  # extra empty=add nsep
     else:
         folder = ''
-    sinkfile = ''.join((folder,'@sinkfile'))
+    sinkfile = ''.join((folder, '@sinkfile'))
     
-    setfl=[]
+    setfl = []
     if file_list is not None:
-        if not isinstance(file_list, (tuple,list)):
+        if not isinstance(file_list, (tuple, list)):
             file_list = (file_list,)
             setfl = set().union(file_list)
             if len(setfl) != len(file_list):
@@ -239,24 +245,25 @@ psep='_', nsep='.', sub_id=None, scan_id=None, uid=None):
     out_file_list = []
     for elt in setfl:
         _, newelt, _ = split_filename(elt)
-        out_file_list.append(sinkfile.replace('sinkfile',newelt))
-    nfiles = len(out_file_list)
+        out_file_list.append(sinkfile.replace('sinkfile', newelt))
     
-    #newsubs
+    # newsubs
     prefix = list_to_str(sep=psep, args=(sub_id, scan_id, uid))
     newsubs = []
-    if substitutions is not None and isinstance(substitutions, (list,tuple)):
+    if substitutions is not None and isinstance(substitutions, (list, tuple)):
         for elt in substitutions:
-            newsubs.append((elt[0], elt[1].replace('input_id','prefix')))
+            newsubs.append((elt[0], elt[1].replace('input_id', prefix)))
     
     return container, out_file_list, newsubs
-    
+
+
 def reverse_lookup(indict, value):
     for key in indict:
         if indict[key] == value:
             return key
     raise ValueError('Value: %s, Dict: %s' % (value, indict))
-    
+
+
 def update_dict(indict=None, **kwargs):
     """update key/value pairs dictionary with type checking
     
@@ -275,30 +282,31 @@ def update_dict(indict=None, **kwargs):
     if indict is None:
         outdict = dict()
     elif not isinstance(indict, dict):
-        raise TypeError('indict: %s is not a dictionary' % (indict))
+        raise TypeError('indict: {} is not a dictionary'.format(indict))
     else:
         outdict = copy.deepcopy(indict)
-    for k,v in kwargs.iteritems():
+    for k, v in kwargs.iteritems():
         if k in outdict:
             tv = type(v)
             td = type(outdict[k])
             if tv == td:
-                outdict.update([(k,v)])
+                outdict.update([(k, v)])
             else:
-                raise TypeError('Type(%s): %s, != Type(%s): %s' %
-                (k, tv, k, td))
+                raise TypeError('Type({}): {}, != Type({}): {}'
+                                .format(k, tv, k, td))
         else:
-            outdict.update([(k,v)])
+            outdict.update([(k, v)])
     return outdict
 
-#Return patient/scan id
-def patient_scan(patientcfg, addSequence=None, sep=None):
+
+# Return patient/scan id
+def patient_scan(patientcfg, add_sequence=None, sep=None):
     """Get patient/scan id
 
     Parameters
     ----------
     patientcfg      :   Dict < json (patient config file with pid, scanid in top level)
-    addSequence     :   Bool (Flag to join sequence id with pid, scanid)
+    add_sequence     :   Bool (Flag to join sequence id with pid, scanid)
     sep             :   Str (separator, default '_')
 
     Returns
@@ -314,25 +322,26 @@ def patient_scan(patientcfg, addSequence=None, sep=None):
         scan_id = patientcfg["scanid"]
     else:
         raise KeyError("patient_config:scanid")
-    if addSequence == None:
-        addSequence = False
+    if add_sequence is None:
+        add_sequence = False
     if sep is None:
         sep = '_'
     ps_id = []
-    ps_id.extend((patient_id,sep,scan_id))
+    ps_id.extend((patient_id, sep, scan_id))
 
-    if addSequence: #if True, default False
+    if add_sequence:  # if True, default False
         if "sequenceid" in patientcfg:
             seq_id = patientcfg["sequenceid"]
-            ps_id.extend((sep,seq_id))
+            ps_id.extend((sep, seq_id))
         else:
             raise KeyError("patient_config:sequenceid")
     patient_scan_id = "".join(ps_id)
 
     return patient_scan_id
 
-#Split patient/scan id
-def split_chpid(psid,sep):
+
+# Split patient/scan id
+def split_chpid(psid, sep):
     """Returns patient/scan/uid from input id
     
     Parameters
@@ -351,20 +360,20 @@ def split_chpid(psid,sep):
          CHD_XXX_YYYY_ZZZZ      ->  CHD_XXX, YYYY, ZZZZ
          CHD_XXX_YYYY_ZZZZ_ZZZZ ->  CHD_XXX, YYYY, ZZZZ_ZZZZ
 """
-    if not isinstance(psid, (str,unicode)):
-        raise TypeError("%s is not a string" % psid)
-    if not isinstance(sep, (str,unicode)):
-        raise TypeError("%s is not a string" % sep)
+    if not isinstance(psid, (str, unicode)):
+        raise TypeError('{} is not a string'.format(psid))
+    if not isinstance(sep, (str, unicode)):
+        raise TypeError('{} is not a string'.format(sep))
 
-    splitid=psid.split(sep)
+    splitid = psid.split(sep)
     if splitid[0] == "CHD":
-        subind=0
-        scanind=2
-        uniind=3
+        subind = 0
+        scanind = 2
+        uniind = 3
     else:
-        subind=0
-        scanind=1
-        uniind=2
+        subind = 0
+        scanind = 1
+        uniind = 2
 
     subid = "_".join(splitid[subind:scanind])
     scanid = "_".join(splitid[scanind:uniind])
@@ -372,7 +381,7 @@ def split_chpid(psid,sep):
     return subid, scanid, uniid
 
 
-#Convert to boolean
+# Convert to boolean
 def tobool(s):
     """Convert string/int true/false values to bool
     
@@ -396,24 +405,24 @@ def tobool(s):
 
     if isinstance(s, bool):
         return s
-    if isinstance(s, (str,unicode)):
+    if isinstance(s, (str, unicode)):
         s = s.lower()
     if s in true:
         return True
     elif s in false:
         return False
     else:
-        raise ValueError("%s cannot be converted to bool" % (s))
+        raise ValueError('{} cannot be converted to bool'.format(s))
     
     
 def add_id_subs(input_id=None, subs=None):
     """create dataout substitutions combining subs with input_id"""
-    repl=[]
+    repl = []
     if input_id is not None:
-        if (subs is not None) and isinstance(subs, (list,tuple)):
+        if (subs is not None) and isinstance(subs, (list, tuple)):
             for e in subs:
                 if isinstance(e, tuple) and len(e) == 2 and e[1] == 'input_id':
-                    newe = (e[0],input_id)
+                    newe = (e[0], input_id)
                     repl.append(newe)
                 else:
                     repl.append(e)
@@ -435,16 +444,18 @@ def byteify(data, ignore_dicts=False):
         return [byteify(item, ignore_dicts=True) for item in data]
     if isinstance(data, dict) and not ignore_dicts:
         return {
-            byteify(key, ignore_dicts=True):byteify(value, ignore_dicts=True) 
+            byteify(key, ignore_dicts=True): byteify(value, ignore_dicts=True)
             for key, value in data.iteritems()
         }
     return data
-    
+
+
 def json_load_byteified(handle):
     return byteify(
         json.load(handle, object_hook=byteify), ignore_dicts=True
     )
-    
+
+
 def read_setup(setuppath):
     """Read in json config file
 

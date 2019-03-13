@@ -23,8 +23,10 @@ def check_input_field(setup_bn, setup, keyname, exptype):
 
 
 def keep_and_move_files():
-    cfg = dict(execution={'remove_unnecessary_outputs': u'false',
-                          'use_relative_paths': u'true'})
+    # use_relative_paths interaction with DataGrabber nodes, probably DataSink
+    # i.e. tries to grab from ../../../../given/path/to/directory/files
+    cfg = dict(execution={'remove_unnecessary_outputs': u'false'})
+    #                      'use_relative_paths': u'true'})
     config.update_config(cfg)
 
 
@@ -79,30 +81,30 @@ class DINGO(pe.Workflow):
     """
 
     workflow_to_module = {
-        'SplitIDs': 'DINGO.wf',
-        'SplitIDs_iterate': 'DINGO.wf',
-        'FileIn': 'DINGO.wf',
-        'FileIn_SConfig': 'DINGO.wf',
-        'FileOut': 'DINGO.wf',
-        'DICE': 'DINGO.wf',
-        'Reorient': 'DINGO.fsl',
-        'EddyC': 'DINGO.fsl',
-        'BET': 'DINGO.fsl',
-        'DTIFIT': 'DINGO.fsl',
-        'FLIRT': 'DINGO.fsl',
-        'ApplyXFM': 'DINGO.fsl',
-        'FNIRT': 'DINGO.fsl',
-        'ApplyWarp': 'DINGO.fsl',
-        'FSL_nonlinreg': 'DINGO.fsl',
-        'TBSS_prereg': 'DINGO.fsl',
-        'TBSS_reg_NXN': 'DINGO.fsl',
-        'TBSS_postreg': 'DINGO.fsl',
-        'DSI_SRC': 'DINGO.DSI_Studio',
-        'REC_prep': 'DINGO.DSI_Studio',
-        'DSI_REC': 'DINGO.DSI_Studio',
-        'DSI_TRK': 'DINGO.DSI_Studio',
-        'DSI_ANA': 'DINGO.DSI_Studio',
-        'DSI_EXP': 'DINGO.DSI_Studio'
+        'SplitIDs':         'DINGO.wf',
+        'SplitIDsIterate': 'DINGO.wf',
+        'FileIn':           'DINGO.wf',
+        'FileInSConfig':    'DINGO.wf',
+        'FileOut':          'DINGO.wf',
+        'DICE':             'DINGO.wf',
+        'Reorient':         'DINGO.fsl',
+        'EddyC':            'DINGO.fsl',
+        'BET':              'DINGO.fsl',
+        'DTIFIT':           'DINGO.fsl',
+        'FLIRT':            'DINGO.fsl',
+        'ApplyXFM':         'DINGO.fsl',
+        'FNIRT':            'DINGO.fsl',
+        'ApplyWarp':        'DINGO.fsl',
+        'FSL_nonlinreg':    'DINGO.fsl',
+        'TBSS_prereg':      'DINGO.fsl',
+        'TBSS_reg_NXN':     'DINGO.fsl',
+        'TBSS_postreg':     'DINGO.fsl',
+        'DSI_SRC':          'DINGO.DSI_Studio',
+        'REC_prep':         'DINGO.DSI_Studio',
+        'DSI_REC':          'DINGO.DSI_Studio',
+        'DSI_TRK':          'DINGO.DSI_Studio',
+        'DSI_ANA':          'DINGO.DSI_Studio',
+        'DSI_EXP':          'DINGO.DSI_Studio'
     }
 
     def __init__(self, setuppath=None, workflow_to_module=None, name=None,
@@ -138,7 +140,7 @@ class DINGO(pe.Workflow):
         
         Parameters
         ----------
-        wf        :    String specifiying the workflow
+        wf        :    String specifying the workflow
         
         Returns
         -------
@@ -271,7 +273,8 @@ class DINGO(pe.Workflow):
                            '["connect"]["%s"] to json to set connection.'
                            % (destkey, destfield, testsrckey, destkey, destfield))
                     raise Exception(msg)
-                elif testsrckey == 'Setup' or testsrckey == self._inputsname:
+                elif testsrckey == 'Setup' or testsrckey == 'Config' or \
+                        testsrckey == self._inputsname:
                     srcobj = self.get_node(self._inputsname)
                 else:
                     # testsrckey is step that appears once, name!=step
@@ -466,6 +469,7 @@ class DINGO(pe.Workflow):
                 msg_list.extend((msg, 'With named steps:'))
                 msg_list.extend(self.subflows.keys())
                 self.send_mail(msg_body='\n'.join(msg_list))
+
 
 class DINGObase(object):
     setup_inputs = 'setup_inputs'
