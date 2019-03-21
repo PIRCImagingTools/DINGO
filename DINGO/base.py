@@ -48,8 +48,8 @@ class DINGO(pe.Workflow):
     **kwargs):
         if name is None:
             name = 'DINGO'
-        super(DINGO,self).__init__(name=name,**kwargs)
         self.keep_and_move_files()
+        super(DINGO,self).__init__(name=name,**kwargs)
         
         if workflow_to_module is not None:
             self.update_wf_to_mod_map(**workflow_to_module)
@@ -84,9 +84,13 @@ class DINGO(pe.Workflow):
             raise KeyError(msg)
     
     def keep_and_move_files(self):
-        execution_update = {'remove_unnecessary_outputs':u'false',
-                            'use_relative_paths':u'true'}
-        self.config['execution'].update(execution_update)
+        cfg = dict(
+            execution={'remove_unnecessary_outputs': False})
+                       # 'use_relative_paths': True})
+        # interaction btw use_relative_paths (urp) and directories used by 
+        # DataGrabber. urp combined with base_directory and container ends up
+        # looking like ../../../../path/to/directory/files -> doesn't work
+        config.update_config(cfg)
                             
     def check_input_field(self, cfg_bn, cfg, keyname, exptype):
         if keyname not in cfg:
