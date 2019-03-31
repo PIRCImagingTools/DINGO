@@ -282,7 +282,7 @@ class TBSS_prereg(DINGOflow):
                 interface=IdentityInterface(
                     fields=['fa_list']),
                     mandatory_inputs=True,
-                joinsource=self.config_inputs,
+                joinsource=self.setup_inputs,
                 joinfield=['fa_list'])
         else:
             inputnode = pe.Node(
@@ -338,7 +338,7 @@ class TBSS_reg_NXN(DINGOflow):
         
         #update cfg to keep unnecessary outputs, or most of the function nodes
         #will be empty and rerun each execution
-        cfg = dict(execution={'remove_unnecessary_outputs':False})
+        cfg = dict(execution={'remove_unnecessary_outputs':u'false'})
         config.update_config(cfg)
         #In order to iterate over something not set in advance, workflow must be
         #in a function node, within a map node with the proper iterfield

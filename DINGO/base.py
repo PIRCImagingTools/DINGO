@@ -1,7 +1,7 @@
 import os
 from typing import List, Any, Tuple
 
-from DINGO.utils import DynImport, read_setup, reverse_lookup
+from DINGO.utils import dynamic_import, read_setup, reverse_lookup
 from nipype import config
 import nipype.pipeline.engine as pe
 from nipype import IdentityInterface
@@ -181,7 +181,7 @@ class DINGO(pe.Workflow):
         """update subwf.inputs with self.input_params[subwfname]
         add subwf to self.subflows[subwfname]
         """
-        _, obj = DynImport(mod=self.wf_to_mod(step), obj=step)
+        _, obj = dynamic_import(mod=self.wf_to_mod(step), obj=step)
         ci = self.get_node(self._inputsname)
         for paramkey, paramval in self.input_params[name].iteritems():
             if isinstance(paramval, (str, unicode)) and \
