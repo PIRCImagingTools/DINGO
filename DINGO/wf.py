@@ -82,21 +82,21 @@ class DICE(DINGOflow):
             interface=Function(
                 input_names=['tract_list', 'tract_name'],
                 output_names=['tract'],
-                function=DICE.get_tract))
+                function=self.get_tract))
                     
         get_b = pe.Node(
             name='getB',
             interface=Function(
                 input_names=['tract_list', 'tract_name'],
                 output_names=['tract'],
-                function=DICE.get_tract))
+                function=self.get_tract))
         
         dicenode = pe.Node(
             name='dicenode',
             interface=Function(
                 input_names=['nii_a', 'nii_b', 'output_bn'],
                 output_names=['img', 'coef'],
-                function=DICE.dice_coef))
+                function=self.dice_coef))
         
         create_bn = pe.Node(
             name='create_bn',
@@ -104,7 +104,7 @@ class DICE(DINGOflow):
                 input_names=['sep', 'subfolder', 'tract_name',
                              'basedir', 'subid', 'scanid', 'uid'],
                 output_names=['file'],
-                function=DICE.create_basename))
+                function=self.create_basename))
                 
         # Connect
         self.connect([
@@ -130,7 +130,6 @@ class DICE(DINGOflow):
                 ('file', 'output_bn')])
         ])
 
-    @staticmethod
     def get_tract(tract_list, tract_name):
         """Takes a list of tract file strings and single tract name, returns
         the matching tract from list
@@ -159,7 +158,6 @@ class DICE(DINGOflow):
                               .format(tract_name))
         return tract
 
-    @staticmethod
     def create_basename(tract_name=None, basedir=None, subfolder='',
                         subid=None, scanid=None, uid=None, sep='_'):
         """Takes a file along with basedir, subid, scanid, uid, subfolder 
@@ -200,7 +198,6 @@ class DICE(DINGOflow):
                 
             return os.path.join(path, basename)
 
-    @staticmethod
     def dice_coef(nii_a, nii_b, output_bn):
         """
         Dice Coefficient:
@@ -577,7 +574,7 @@ class FileInSConfig(DINGOflow):
                     'scan_id',
                     'uid'],
                 output_names=['path'],
-                function=FileInSConfig.cfgpath_from_ids))
+                function=self.cfgpath_from_ids))
                 
         read_conf = pe.Node(
             name='read_conf',
@@ -598,7 +595,7 @@ class FileInSConfig(DINGOflow):
                     'outfields',
                     'repl'],
                 output_names=['field_template'],
-                function=FileInSConfig.create_field_template))
+                function=self.create_field_template))
                 
         if 'repl' in inputs and inputs['repl'] is not None:
             create_ft.inputs.repl = inputs['repl']
@@ -625,7 +622,6 @@ class FileInSConfig(DINGOflow):
             (create_ft, filein, [('field_template', 'field_template')])
             ])
 
-    @staticmethod
     def cfgpath_from_ids(base_directory=None,
                          sub_id=None, scan_id=None, uid=None):
         if base_directory is not None and \
@@ -638,7 +634,6 @@ class FileInSConfig(DINGOflow):
             cfgname = '_'.join(cfgname)
             return os.path.join(base_directory, sub_id, scan_id, cfgname)
 
-    @staticmethod
     def create_field_template(base_directory=None,
                               sub_id=None, scan_id=None, uid=None,
                               config=None, outfields=None, repl=None):
@@ -783,7 +778,7 @@ class FileOut(DINGOflow):
             interface=Function(
                 input_names=['subs', 's2r', 'rep'],
                 output_names=['new_subs'],
-                function=FileOut.substitutions))
+                function=self.substitutions))
                 
         sinkargs = {}
         if 'iterfield' in inputs and inputs['iterfield'] is not None:
@@ -793,6 +788,7 @@ class FileOut(DINGOflow):
             nodetype = pe.Node
         
         sink = nodetype(name='sink', interface=nio.DataSink(infields=infields),
+                        parameterization=False,
                         **sinkargs)
         sink.inputs.parameterization = False
         
@@ -821,7 +817,7 @@ class FileOut(DINGOflow):
                 input_names=['sub_id', 'scan_id', 'uid', 
                              'container', 'container_args'],
                 output_names=['cont_string'],
-                function=FileOut.container))
+                function=self.container))
         
         # finally
         self.connect([
@@ -845,7 +841,6 @@ class FileOut(DINGOflow):
                 [('new_subs', 'substitutions')])
         ])
 
-    @staticmethod
     def container(sub_id=None, scan_id=None, uid=None,
                   container=None, container_args=None):
         import os.path as op
@@ -857,7 +852,6 @@ class FileOut(DINGOflow):
         else:
             return _Undefined()
 
-    @staticmethod
     def substitutions(subs=None, s2r=None, rep=None):
         from traits.trait_base import _Undefined
         if s2r is None or rep is None:
