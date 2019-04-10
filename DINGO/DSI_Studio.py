@@ -266,19 +266,20 @@ class DSI_TRK(DINGOflow):
         """Return the right regions needed by tract_input"""
         import re
         if regions is not None:
-            #without per subject region list the analysis config must have
-            #filepaths for region lists, thus can only work in one space
+            # without per subject region list the analysis config must have
+            # filepaths for region lists, thus can only work in one space
             region_types = ('rois','roas','seed','ends','ter')
             for reg_type in region_types:
                 if reg_type in tract_input:
                     regionname_list = tract_input[reg_type]
                     region_files = []
                     for regionname in regionname_list:
-                        #match pattern preceded by '\' or '_' or '/'
+                        # match pattern preceded by '\' or '_' or '/'
                         pattern = ''.join(('(?<=[\\\\_\/])',regionname))
                         found = False
-                        for realregion in regions:#realregion is a filepath
-                            if re.search(pattern, realregion):
+                        for realregion in regions:  # realregion is a filepath
+                            # case insensitive match to replace regionname w/ realregion
+                            if re.search(pattern, realregion, flags=re.I):
                                 region_files.append(realregion)
                                 found = True
                                 break
