@@ -7,6 +7,7 @@ from collections import OrderedDict
 from DINGO.utils import (read_setup,
                          reverse_lookup)
 from nipype import config
+from nipype.interfaces.base import Interface
 import nipype.pipeline.engine as pe
 from nipype import IdentityInterface
 from pprint import pprint
@@ -68,6 +69,59 @@ def check_input_fields(setup_bn, setup, expected_keys):
             else:
                 raise
     return input_fields
+
+
+def dingo_node_factory(name=None, engine_type='Node', **kwargs):
+    node_class = type(name,
+                (getattr(pe, engine_type),),
+                {})
+    # cannot pickle class (failure on run) if not added to globals
+    globals()[name] = node_class
+    return node_class
+
+
+class DINGO_nodeflow_base(object):
+    setup_inputs = 'setup_inputs'
+    connection_spec = {}
+
+    def __init__(self, connection_spec=None, inputs_name=None,
+                 **kwargs):
+
+        if inputs_name is not None:
+            self.setup_inputs = inputs_name
+
+        if connection_spec is not None:
+            self.connection_spec.update(connection_spec)
+
+
+class DINGOflow(pe.Workflow, DINGO_nodeflow_base):
+    """Add requisite properties to Nipype Workflow. Output folder 'Name', will
+    be in top level of nipype cache with its own parameterized iterables
+    folders.
+    """
+    inputnode = None
+    outputnode = None
+
+    def __init__(self, connection_spec=None, inputs_name=None, inputs=None,
+                 **kwargs):
+        pe.Workflow.__init__(self, **kwargs)
+        DINGO_nodeflow_base.__init__(self,
+                           connection_spec=connection_spec,
+                           inputs_name=inputs_name)
+
+
+class DINGOnode(pe.Node, DINGO_nodeflow_base):
+    """Add requisite properties to Nipype Node. Output folder 'Name', will be in
+     the parameterized iterables folders.
+     """
+
+    def __init__(self, connection_spec=None, inputs_name=None, inputs=None,
+                 **kwargs):
+        pe.Node.__init__(self, **kwargs)
+        DINGO_nodeflow_base.__init__(self,
+                           connection_spec=connection_spec,
+                           inputs_name=inputs_name)
+
 
 
 class DINGO(pe.Workflow):
@@ -176,30 +230,39 @@ class DINGO(pe.Workflow):
         self.add_nodes([setup])
         self._inputsname = inputsname
 
+    def import_mod_obj(self, my_string):
+        try:
+            mod_string, obj_string = my_string.rsplit('.', 1)
+            mod = import_module(mod_string)
+            obj = getattr(mod, obj_string)
+        # catch string split error, try workflow name to module map
+        # pass ImportError, AttributeError
+        except ValueError:
+            mod = import_module(self.wf_to_mod(my_string))
+            obj = getattr(mod, my_string)
+        return mod, obj
+
     def create_subwf(self, step, name):
         """update subwf.inputs with self.input_params[subwfname]
         add subwf to self.subflows[subwfname]
         """
-        if isinstance(step, (str, unicode)):
-            try:
-                mod_string, obj_string = step.rsplit('.', 1)
-                mod = import_module(mod_string)
-                obj = getattr(mod, obj_string)
-            # catch string split error, try workflow name to module map
-            # pass ImportError, AttributeError
-            except ValueError:
-                mod = import_module(self.wf_to_mod(step))
-                obj = getattr(mod, step)
-        ci = self.get_node(self._inputsname)
+        setup = self.get_node(self._inputsname)
         for paramkey, paramval in self.input_params[name].iteritems():
             if isinstance(paramval, (str, unicode)) and \
-                    hasattr(ci.inputs, paramval):
-                cival = getattr(ci.inputs, paramval)
-                self.input_params[name].update({paramkey: cival})
+                    hasattr(setup.inputs, paramval):
+                setup_val = getattr(setup.inputs, paramval)
+                self.input_params[name].update({paramkey: setup_val})
+        _, obj = self.import_mod_obj(step)
         try:
-            self.subflows[name] = obj(name=name,
-                                      inputs_name=self._inputsname,
-                                      inputs=self.input_params[name])
+            if issubclass(obj, Interface):
+                new_class = dingo_node_factory(name=name,
+                                               interface=obj,
+                                               **self.input_params[name])
+                self.subflows[name] = new_class(name=name, interface=obj(**self.input_params[name]))
+            else:
+                self.subflows[name] = obj(name=name,
+                                          inputs_name=self._inputsname,
+                                          inputs=self.input_params[name])
         except Exception:
             print('#######Error######')
             pprint(self.input_params[name])
@@ -221,7 +284,6 @@ class DINGO(pe.Workflow):
                    .format(type(srcobj), srcfield))
             raise TypeError(msg)
         srcname = '.'.join(srcname)
-
         if issubclass(type(destobj), pe.Node):
             destname = (destfield,)
         elif issubclass(type(destobj), pe.Workflow):
@@ -396,7 +458,7 @@ class DINGO(pe.Workflow):
             else:
                 self.input_params[name] = {}
             if name in method and 'connect' in method[name]:
-                # connect are changes to the defaults in connection spec
+                # connect given by { "input": ["Source Node", "output"]}
                 connections = method[name]['connect']
                 if not isinstance(connections, dict):
                     raise TypeError('Analysis Setup: {0}, Invalid configuration '
@@ -482,49 +544,6 @@ class DINGO(pe.Workflow):
                 msg_list.extend((msg, 'With named steps:'))
                 msg_list.extend(self.subflows.keys())
                 self.send_mail(msg_body='\n'.join(msg_list))
-
-
-class DINGObase(object):
-    setup_inputs = 'setup_inputs'
-    connection_spec = {}
-
-    def __init__(self, connection_spec=None, inputs_name=None,
-                 **kwargs):
-
-        if inputs_name is not None:
-            self.setup_inputs = inputs_name
-
-        if connection_spec is not None:
-            self.connection_spec.update(connection_spec)
-
-
-class DINGOflow(pe.Workflow, DINGObase):
-    """Add requisite properties to Nipype Workflow. Output folder 'Name', will 
-    be in top level of nipype cache with its own parameterized iterables 
-    folders.
-    """
-    inputnode = None
-    outputnode = None
-
-    def __init__(self, connection_spec=None, inputs_name=None, inputs=None,
-                 **kwargs):
-        pe.Workflow.__init__(self, **kwargs)
-        DINGObase.__init__(self,
-                           connection_spec=connection_spec,
-                           inputs_name=inputs_name)
-
-
-class DINGOnode(pe.Node, DINGObase):
-    """Add requisite properties to Nipype Node. Output folder 'Name', will be in
-     the parameterized iterables folders.
-     """
-
-    def __init__(self, connection_spec=None, inputs_name=None, inputs=None,
-                 **kwargs):
-        pe.Node.__init__(self, **kwargs)
-        DINGObase.__init__(self,
-                           connection_spec=connection_spec,
-                           inputs_name=inputs_name)
 
 
 if __name__ == '__main__':
