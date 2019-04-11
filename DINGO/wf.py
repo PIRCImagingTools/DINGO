@@ -572,7 +572,7 @@ class FileIn_SConfig(DINGOflow):
             interface=Function(
                 input_names=['configpath'],
                 output_names=['configdict'],
-                function=read_config))
+                function=read_setup))
                 
         create_ft = pe.Node(
             name='create_field_template',

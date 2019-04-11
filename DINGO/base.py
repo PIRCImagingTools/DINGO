@@ -1,14 +1,16 @@
 import os
 from typing import List, Any, Tuple
-
-from DINGO.utils import DynImport, read_setup, reverse_lookup
+import smtplib
+from importlib import import_module
+from email.mime.text import MIMEText
+from collections import OrderedDict
+from DINGO.utils import (read_setup,
+                         reverse_lookup)
 from nipype import config
 import nipype.pipeline.engine as pe
 from nipype import IdentityInterface
 from pprint import pprint
-import smtplib
-from email.mime.text import MIMEText
-from collections import OrderedDict
+
 
 
 def check_input_field(setup_bn, setup, keyname, exptype):
@@ -23,8 +25,7 @@ def check_input_field(setup_bn, setup, keyname, exptype):
 
 
 def keep_and_move_files():
-    cfg = dict(execution={'remove_unnecessary_outputs': u'false',
-                          'use_relative_paths': u'true'})
+    cfg = dict(execution={'remove_unnecessary_outputs': u'false'})
     config.update_config(cfg)
 
 
@@ -108,6 +109,7 @@ class DINGO(pe.Workflow):
     def __init__(self, setuppath=None, workflow_to_module=None, name=None,
                  **kwargs):
         self.email = None
+        self._inputsname = None
         self.name2step = dict()
         self.input_connections = dict()
         self.input_params = dict()
@@ -179,7 +181,16 @@ class DINGO(pe.Workflow):
         """update subwf.inputs with self.input_params[subwfname]
         add subwf to self.subflows[subwfname]
         """
-        _, obj = DynImport(mod=self.wf_to_mod(step), obj=step)
+        if isinstance(step, (str, unicode)):
+            try:
+                mod_string, obj_string = step.rsplit('.', 1)
+                mod = import_module(mod_string)
+                obj = getattr(mod, obj_string)
+            # catch string split error, try workflow name to module map
+            # pass ImportError, AttributeError
+            except ValueError:
+                mod = import_module(self.wf_to_mod(step))
+                obj = getattr(mod, step)
         ci = self.get_node(self._inputsname)
         for paramkey, paramval in self.input_params[name].iteritems():
             if isinstance(paramval, (str, unicode)) and \
@@ -190,7 +201,7 @@ class DINGO(pe.Workflow):
             self.subflows[name] = obj(name=name,
                                       inputs_name=self._inputsname,
                                       inputs=self.input_params[name])
-        except:
+        except Exception:
             print('#######Error######')
             pprint(self.input_params[name])
             raise
@@ -266,10 +277,10 @@ class DINGO(pe.Workflow):
                     # connection from setup, or at least name==step
                     srcobj = self.subflows[testsrckey]
                 elif self.name2step.values().count(testsrckey) > 1:
-                    msg = ('Dest: %s.%s, "%s" used more than once, default '
-                           'connections will not work. Add ["method"]["%s"]'
-                           '["connect"]["%s"] to json to set connection.'
-                           % (destkey, destfield, testsrckey, destkey, destfield))
+                    msg = ('Destination: {0}.{1}, "{2}" used more than once, default '
+                           'connections will not work. Add ["method"]["{0}"]'
+                           '["connect"]["{1}"] to json to set connection.'
+                           .format(destkey, destfield, testsrckey))
                     raise Exception(msg)
                 elif testsrckey == 'Setup' or testsrckey == self._inputsname:
                     srcobj = self.get_node(self._inputsname)
@@ -279,7 +290,7 @@ class DINGO(pe.Workflow):
                         srckey = reverse_lookup(self.name2step, testsrckey)
                         srcobj = self.subflows[srckey]
                     except ValueError:
-                        print('destkey: %s' % destkey)
+                        print('destination_key: {}'.format(destkey))
                         raise
 
                 self.make_connection(srcobj, srcfield, destobj, destfield)
@@ -326,14 +337,15 @@ class DINGO(pe.Workflow):
                 (('included_ids', list), (
                     ('included_imgs', list), ('included_masks', list)))
             )
-        # expected keynames should be toplevel fields in the configuration
+        # expected keynames should be top level fields in the configuration
         input_fields = check_input_fields(setup_bn, setup, expected_keys)
         if 'data_dir' in input_fields:
             self.base_dir = input_fields['data_dir']
         if 'name' in input_fields:
             self.name = input_fields['name']
         os.chdir(self.base_dir)
-        print('Nipype cache at: %s' % os.path.join(self.base_dir, self.name))
+        print('Nipype cache at: {}'.format(
+              os.path.join(self.base_dir, self.name)))
 
         # Set up from configuration
         self.create_setup_inputs(**input_fields)
@@ -356,53 +368,57 @@ class DINGO(pe.Workflow):
                 name = nameandstep
             self.name2step.update({name: step})
             # Get changes to defaults from setup file
-            if not isinstance(step, (str, unicode)) or \
-                    not isinstance(name, (str, unicode)):
-                raise TypeError('Analysis Setup: %s, Invalid configuration.\n'
-                                'Step: %s, of type "%s" and Name: %s, of type "%s" '
-                                'must be str or unicode' %
-                                (setup_bn, step, type(step), name, type(name)))
+            if not isinstance(step, (str, unicode, list)):
+                raise TypeError('Analysis Setup: {0}, Invalid configuration.\n'
+                                'Step: {1}, of type "{3}", named {2} '
+                                'is not str or unicode, '
+                                'or list ["module", "object"]'
+                                .format(setup_bn, step, name, type(step)))
+            if not isinstance(name, (str, unicode)):
+                raise TypeError('Analysis Setup: {0}, Invalid configuration.\n'
+                                'Name: {2}, of type "{3}", for step {2} '
+                                'is not str or unicode'
+                                .format(setup_bn, step, name, type(name)))
+            if name in self.subflows:
+                raise KeyError('Analysis Setup: {0}, Invalid configuration.'
+                               ' Duplicates of Name: {1}'
+                               .format(setup_bn, name))
+            if name in method and 'inputs' in method[name]:
+                # inputs are flags for the function creating the workflow
+                # used in various fashions
+                inputs = method[name]['inputs']
+                if not isinstance(inputs, dict):
+                    raise TypeError('Analysis Setup: {0}, Invalid configuration '
+                                    '["method"]["{1}"]["inputs"] is not a dict. '
+                                    'Value: {2}, Type: {3}'
+                                    .format(setup_bn, name, inputs, type(inputs)))
+                self.input_params[name] = inputs
             else:
-                if name in self.subflows:
-                    raise KeyError('Analysis Setup: %s, Invalid configuration.'
-                                   ' Duplicates of Name: %s' %
-                                   (setup_bn, name))
-                if name in method and 'inputs' in method[name]:
-                    # inputs are flags for the function creating the workflow
-                    # used in various fashions
-                    inputs = method[name]['inputs']
-                    if not isinstance(inputs, dict):
-                        raise TypeError('Analysis Setup: %s, '
-                                        '["method"]["%s"]["inputs"] is not a dict. '
-                                        'Value: %s, Type: %s' %
-                                        (setup_bn, name, inputs, type(inputs)))
-                    self.input_params[name] = inputs
-                else:
-                    self.input_params[name] = {}
-                if name in method and 'connect' in method[name]:
-                    # connect are changes to the defaults in connection spec
-                    connections = method[name]['connect']
-                    if not isinstance(connections, dict):
-                        raise TypeError('Analysis Setup: %s, '
-                                        '["method"]["%s"]["connect"] is not a dict. '
-                                        'Value: %s, Type: %s' %
-                                        (setup_bn, name, connections, type(connections)))
-                    for destfield, values in connections.iteritems():
-                        if not isinstance(destfield, (str, unicode)) or \
-                                not isinstance(values, (list, tuple)):
-                            raise TypeError('Analysis Setup: %s, '
-                                            '["method"]["%s"]["connect"] Invalid configuration. '
-                                            'Key: %s, Value: %s' %
-                                            (setup_bn, name, destfield, values))
-                    self.input_connections[name] = connections
-                else:
-                    self.input_connections[name] = {}
-            print('Create Workflow/Node Name:%s, Obj:%s' % (name, step))
+                self.input_params[name] = {}
+            if name in method and 'connect' in method[name]:
+                # connect are changes to the defaults in connection spec
+                connections = method[name]['connect']
+                if not isinstance(connections, dict):
+                    raise TypeError('Analysis Setup: {0}, Invalid configuration '
+                                    '["method"]["{1}"]["connect"] is not a dict. '
+                                    'Value: {2}, Type: {3}'
+                                    .format(setup_bn, name, connections, type(connections)))
+                for destfield, values in connections.iteritems():
+                    if not isinstance(destfield, (str, unicode)) or \
+                            not isinstance(values, (list, tuple)):
+                        raise TypeError('Analysis Setup: {0}, Invalid configuration '
+                                        '["method"]["{1}"]["connect"], '
+                                        'Key: {2}, Value: {3}'
+                                        .format(setup_bn, name, destfield, values))
+                self.input_connections[name] = connections
+            else:
+                self.input_connections[name] = {}
+            print('Create Workflow/Node Name:{0}, Obj:{1}'.format(name, step))
             self.create_subwf(step, name)
         self._connect_subwfs()
         if self.email is not None:
-            print('Email notification will be sent to %s' %
-                  (self.email['toaddr']))
+            print('Email notification will be sent to {}'
+                  .format(self.email['toaddr']))
         else:
             print('No email notification will be sent')
 
@@ -466,6 +482,7 @@ class DINGO(pe.Workflow):
                 msg_list.extend((msg, 'With named steps:'))
                 msg_list.extend(self.subflows.keys())
                 self.send_mail(msg_body='\n'.join(msg_list))
+
 
 class DINGObase(object):
     setup_inputs = 'setup_inputs'

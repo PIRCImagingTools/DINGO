@@ -35,6 +35,7 @@ def dice_coef(nii_A, nii_B):
     
     return dice
 
+
 def flatten(l, ltypes=(list, tuple)):
     """flatten lists and tuples to a single list, ignore empty
     
@@ -66,6 +67,7 @@ def flatten(l, ltypes=(list, tuple)):
         i += 1
     return ltype(l)
 
+
 def list_to_str(sep=None, args=None):
     """flattened args turned to str with separator
     default separator: ''
@@ -91,7 +93,8 @@ def list_to_str(sep=None, args=None):
     if args is None:
         raise TypeError("Not enough arguments for str creation")
     return sep.join(str(e) for e in flatten(args))
-    
+
+
 def join_strs(sep=None, **kwargs):
     """Interface between list_to_str and Nipype function nodes
     
@@ -109,6 +112,7 @@ def join_strs(sep=None, **kwargs):
     join_strs(sep='_', arg0='foo', arg1='bar', arg2='baz')
     'foo_bar_baz'
     """
+    # import must be self-contained for use with nipype function node
     from DINGO.utils import list_to_str
     if sep is None:
         sep=''
@@ -116,35 +120,8 @@ def join_strs(sep=None, **kwargs):
     for arg in kwargs.itervalues():
         arglist.append(arg)
     return list_to_str(sep=sep, args=arglist)
-    
-def DynImport(mod=None, obj=None):
-    """Import a given object from a given module
-    
-    Parameters
-    ----------
-    mod     :   Str (module name)
-    obj     :   Str (object name)
-    
-    Return
-    ------
-    imported module, imported object
-    
-    Example
-    -------
-    DynImport('DINGO.utils','list_to_str') equivalent to 
-    from DINGO.utils import list_to_str
-    """
-    import importlib
-    if mod is not None:
-        imp_module = importlib.import_module(mod)
-        if obj is not None:
-            imp_object = getattr(imp_module, obj)
-            return imp_module, imp_object
-        else:
-            return imp_module, None
-    else:
-        return None, None
-        
+
+
 def split_filename(fname, special_extensions=None):
     """Split a filename into path, base filename, and extension.
     
@@ -188,9 +165,10 @@ def split_filename(fname, special_extensions=None):
         fname, ext = os.path.splitext(fname)
 
     return path, fname, ext
-    
-def fileout_util(names=None, file_list=None, substitutions=None,\
-psep='_', nsep='.', sub_id=None, scan_id=None, uid=None):
+
+
+def fileout_util(names=None, file_list=None, substitutions=None,
+                 psep='_', nsep='.', sub_id=None, scan_id=None, uid=None):
     """Utility for sinker nodes to create container, folders, substitutions
     
     Parameters
@@ -216,19 +194,18 @@ psep='_', nsep='.', sub_id=None, scan_id=None, uid=None):
     """
     from DINGO.utils import list_to_str, split_filename
     import os
-    #container
+
     container = os.path.join(sub_id, scan_id)
-    
-    #out_file_list
-    if names is not None and isinstance(names, (list,tuple,str)):
-        folder = list_to_str(sep=nsep, args=(names,''))#extra empty=add nsep
+
+    if names is not None and isinstance(names, (list, tuple, str)):
+        folder = list_to_str(sep=nsep, args=(names, ''))  # extra empty=add nsep
     else:
         folder = ''
-    sinkfile = ''.join((folder,'@sinkfile'))
+    sinkfile = ''.join((folder, '@sinkfile'))
     
     setfl=[]
     if file_list is not None:
-        if not isinstance(file_list, (tuple,list)):
+        if not isinstance(file_list, (list, tuple)):
             file_list = (file_list,)
             setfl = set().union(file_list)
             if len(setfl) != len(file_list):
@@ -241,22 +218,23 @@ psep='_', nsep='.', sub_id=None, scan_id=None, uid=None):
         _, newelt, _ = split_filename(elt)
         out_file_list.append(sinkfile.replace('sinkfile',newelt))
     nfiles = len(out_file_list)
-    
-    #newsubs
+
     prefix = list_to_str(sep=psep, args=(sub_id, scan_id, uid))
     newsubs = []
-    if substitutions is not None and isinstance(substitutions, (list,tuple)):
+    if substitutions is not None and isinstance(substitutions, (list, tuple)):
         for elt in substitutions:
-            newsubs.append((elt[0], elt[1].replace('input_id','prefix')))
+            newsubs.append((elt[0], elt[1].replace('input_id', 'prefix')))
     
     return container, out_file_list, newsubs
-    
+
+
 def reverse_lookup(indict, value):
     for key in indict:
         if indict[key] == value:
             return key
     raise ValueError('Value: %s, Dict: %s' % (value, indict))
-    
+
+
 def update_dict(indict=None, **kwargs):
     """update key/value pairs dictionary with type checking
     
@@ -291,7 +269,7 @@ def update_dict(indict=None, **kwargs):
             outdict.update([(k,v)])
     return outdict
 
-#Return patient/scan id
+
 def patient_scan(patientcfg, addSequence=None, sep=None):
     """Get patient/scan id
 
@@ -331,8 +309,8 @@ def patient_scan(patientcfg, addSequence=None, sep=None):
 
     return patient_scan_id
 
-#Split patient/scan id
-def split_chpid(psid,sep):
+
+def split_chpid(psid, sep):
     """Returns patient/scan/uid from input id
     
     Parameters
@@ -372,7 +350,6 @@ def split_chpid(psid,sep):
     return subid, scanid, uniid
 
 
-#Convert to boolean
 def tobool(s):
     """Convert string/int true/false values to bool
     
@@ -439,12 +416,14 @@ def byteify(data, ignore_dicts=False):
             for key, value in data.iteritems()
         }
     return data
-    
+
+
 def json_load_byteified(handle):
     return byteify(
         json.load(handle, object_hook=byteify), ignore_dicts=True
     )
-    
+
+
 def read_setup(setuppath):
     """Read in json config file
 
@@ -456,7 +435,7 @@ def read_setup(setuppath):
     -------
     config : dict < json
     """
-
+    # import must be self-contained for use with nipype function node
     import logging
     from DINGO.utils import json_load_byteified
     logger = logging.getLogger(__name__)
