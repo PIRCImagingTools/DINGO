@@ -12,21 +12,20 @@ from nipype import IdentityInterface
 from pprint import pprint
 
 
-
-def check_input_field(setup_bn, setup, keyname, exptype):
-    if keyname not in setup:
-        raise KeyError('Analysis setup: {}, missing required key ["{}"]'
-                       .format(setup_bn, keyname))
-    elif not isinstance(setup[keyname], exptype):
-        raise TypeError('Analysis setup: {}, ["{}"] is not a {}'
-                        'Type: {}, Value: {}'
-                        .format(setup_bn, keyname, exptype,
-                                type(setup[keyname]), setup[keyname]))
-
-
 def keep_and_move_files():
     cfg = dict(execution={'remove_unnecessary_outputs': u'false'})
     config.update_config(cfg)
+
+
+def check_input_field(setup_bn, setup, keyname, exptype):
+    if keyname not in setup:
+        raise KeyError('Analysis setup: {0}, missing required key ["{1}"]'
+                       .format(setup_bn, keyname))
+    elif not isinstance(setup[keyname], exptype):
+        raise TypeError('Analysis setup: {0}, ["{1}"] is not a {2}'
+                        'Type: {3}, Value: {4}'
+                        .format(setup_bn, keyname, exptype,
+                                type(setup[keyname]), setup[keyname]))
 
 
 def check_input_fields(setup_bn, setup, expected_keys):
@@ -47,7 +46,7 @@ def check_input_fields(setup_bn, setup, expected_keys):
             valtype = keytuple[0][1]
             alternatives.update({keytuple[0][0]: keytuple[1:]})
         else:
-            msg = 'Unhandled pair: {}, for Setup: {}'.format(keytuple, setup_bn)
+            msg = 'Unhandled pair: {0}, for Setup: {1}'.format(keytuple, setup_bn)
             raise TypeError(msg)
         try:
             check_input_field(setup_bn, setup, keyname, valtype)
@@ -149,7 +148,7 @@ class DINGO(pe.Workflow):
         try:
             return cls.workflow_to_module[wf]
         except KeyError:
-            msg = 'Workflow: %s not associated with a module' % wf
+            msg = 'Workflow: {} not associated with a module'.format(wf)
             raise KeyError(msg)
 
     def create_setup_inputs(self, inputsname='Setup_Inputs', **kwargs):
@@ -368,6 +367,7 @@ class DINGO(pe.Workflow):
                 name = nameandstep
             self.name2step.update({name: step})
             # Get changes to defaults from setup file
+            # Checking types to give informative error messages
             if not isinstance(step, (str, unicode, list)):
                 raise TypeError('Analysis Setup: {0}, Invalid configuration.\n'
                                 'Step: {1}, of type "{3}", named {2} '
