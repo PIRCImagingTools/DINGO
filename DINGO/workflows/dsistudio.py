@@ -1,5 +1,5 @@
 import os
-from DINGO.base import (DINGOflow, DINGOnode)
+from DINGO.base import (DINGOFlow, DINGONode)
 from DINGO.interfaces.dsistudio import (DSIStudioSource,
                                         DSIStudioReconstruct,
                                         DSIStudioTrack,
@@ -27,7 +27,7 @@ class HelperDSI(HelperFlow):
         super(HelperDSI, self).__init__(workflow_to_module=wfm, **kwargs)
 
 
-class DSI_SRC(DINGOnode):
+class DSI_SRC(DINGONode):
     """Nipype node to create a src file in DSIStudio with dwi, bval, bvec
     
     Parameters
@@ -65,7 +65,7 @@ class DSI_SRC(DINGOnode):
             **kwargs)
             
             
-class REC_prep(DINGOnode):
+class REC_prep(DINGONode):
     """Nipype node to erode the BET mask (over-inclusive) to pass to DSI_REC"""
 
     connection_spec = {
@@ -86,7 +86,7 @@ class REC_prep(DINGOnode):
             **kwargs)
 
 
-class DSI_REC(DINGOnode):
+class DSI_REC(DINGONode):
     """Nipype node to create a fib file in DSIStudio with src file
     
     Parameters
@@ -157,7 +157,7 @@ class TRKnode(pe.Node):
         return self._output_dir    
 
 
-class DSI_TRK(DINGOflow):
+class DSI_TRK(DINGOFlow):
     """Nipype wf to create a trk with fiber file and input parameters
     DSIStudioTrack.inputs will not seem to reflect the config until
     self._check_mandatory_inputs(), part of run() and cmdline(), is executed
@@ -360,7 +360,7 @@ class DSI_TRK(DINGOflow):
         return merge
         
 
-class DSI_ANA(DINGOflow):
+class DSI_ANA(DINGOFlow):
     """Nipype node to run DSIStudioAnalysis
     
     Parameters
@@ -396,7 +396,7 @@ class DSI_ANA(DINGOflow):
             iterfield=['tract'])
         self.add_nodes([ananode])
 
-class DSI_ANAnode(DINGOnode):
+class DSI_ANAnode(DINGONode):
     def __init__(self, name='DSI_ANA', inputs={}, **kwargs):
         super(DSI_ANAnode, self).__init__(
             name=name,
@@ -404,7 +404,7 @@ class DSI_ANAnode(DINGOnode):
             **kwargs)
             
             
-class DSI_EXP(DINGOnode):
+class DSI_EXP(DINGONode):
     """Nipype node to run DSIStudioAnalysis
     
     Parameters

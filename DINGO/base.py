@@ -133,30 +133,30 @@ class DINGO(pe.Workflow):
     """
 
     workflow_to_module = {
-        'SplitIDs': 'DINGO.wf',
-        'SplitIDs_iterate': 'DINGO.wf',
-        'FileIn': 'DINGO.wf',
-        'FileIn_SConfig': 'DINGO.wf',
-        'FileOut': 'DINGO.wf',
-        'DICE': 'DINGO.wf',
-        'Reorient': 'DINGO.fsl',
-        'EddyC': 'DINGO.fsl',
-        'BET': 'DINGO.fsl',
-        'DTIFIT': 'DINGO.fsl',
-        'FLIRT': 'DINGO.fsl',
-        'ApplyXFM': 'DINGO.fsl',
-        'FNIRT': 'DINGO.fsl',
-        'ApplyWarp': 'DINGO.fsl',
-        'FSL_nonlinreg': 'DINGO.fsl',
-        'TBSS_prereg': 'DINGO.fsl',
-        'TBSS_reg_NXN': 'DINGO.fsl',
-        'TBSS_postreg': 'DINGO.fsl',
-        'DSI_SRC': 'DINGO.workflows.dsistudio',
-        'REC_prep': 'DINGO.workflows.dsistudio',
-        'DSI_REC': 'DINGO.workflows.dsistudio',
-        'DSI_TRK': 'DINGO.workflows.dsistudio',
-        'DSI_ANA': 'DINGO.workflows.dsistudio',
-        'DSI_EXP': 'DINGO.workflows.dsistudio'
+        'SplitIDs':         'DINGO.workflows.utils',
+        'SplitIDsIterate':  'DINGO.workflows.utils',
+        'FileIn':           'DINGO.workflows.utils',
+        'FileIn_SConfig':   'DINGO.workflows.utils',
+        'FileOut':          'DINGO.workflows.utils',
+        'DICE':             'DINGO.workflows.utils',
+        'Reorient':         'DINGO.workflows.fsl',
+        'EddyC':            'DINGO.workflows.fsl',
+        'BET':              'DINGO.workflows.fsl',
+        'DTIFIT':           'DINGO.workflows.fsl',
+        'FLIRT':            'DINGO.workflows.fsl',
+        'ApplyXFM':         'DINGO.workflows.fsl',
+        'FNIRT':            'DINGO.workflows.fsl',
+        'ApplyWarp':        'DINGO.workflows.fsl',
+        'FSLNonLinReg':     'DINGO.workflows.fsl',
+        'TBSSPreReg':       'DINGO.workflows.fsl',
+        'TBSSRegNXN':       'DINGO.workflows.fsl',
+        'TBSSPostReg':      'DINGO.workflows.fsl',
+        'DSI_SRC':          'DINGO.workflows.dsistudio',
+        'REC_prep':         'DINGO.workflows.dsistudio',
+        'DSI_REC':          'DINGO.workflows.dsistudio',
+        'DSI_TRK':          'DINGO.workflows.dsistudio',
+        'DSI_ANA':          'DINGO.workflows.dsistudio',
+        'DSI_EXP':          'DINGO.workflows.dsistudio'
     }
 
     def __init__(self, setuppath=None, workflow_to_module=None, name=None,
@@ -457,6 +457,8 @@ class DINGO(pe.Workflow):
                 self.input_params[name] = inputs
             else:
                 self.input_params[name] = {}
+                print('### No input params found for {}, using defaults ###'
+                      .format(name))
             if name in method and 'connect' in method[name]:
                 # connect given by { "input": ["Source Node", "output"]}
                 connections = method[name]['connect']
@@ -475,6 +477,8 @@ class DINGO(pe.Workflow):
                 self.input_connections[name] = connections
             else:
                 self.input_connections[name] = {}
+                print('### No input connections found for {}, using defaults ###'
+                      .format(name))
             print('Create Workflow/Node Name:{0}, Obj:{1}'.format(name, step))
             self.create_subwf(step, name)
         self._connect_subwfs()
