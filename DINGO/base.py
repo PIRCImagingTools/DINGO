@@ -73,14 +73,14 @@ def check_input_fields(setup_bn, setup, expected_keys):
 
 def dingo_node_factory(name=None, engine_type='Node', **kwargs):
     node_class = type(name,
-                (getattr(pe, engine_type),),
-                {})
+                      (getattr(pe, engine_type),),
+                      {})
     # cannot pickle class (failure on run) if not added to globals
     globals()[name] = node_class
     return node_class
 
 
-class DINGO_nodeflow_base(object):
+class DINGONodeFlowBase(object):
     setup_inputs = 'setup_inputs'
     connection_spec = {}
 
@@ -94,7 +94,7 @@ class DINGO_nodeflow_base(object):
             self.connection_spec.update(connection_spec)
 
 
-class DINGOflow(pe.Workflow, DINGO_nodeflow_base):
+class DINGOFlow(pe.Workflow, DINGONodeFlowBase):
     """Add requisite properties to Nipype Workflow. Output folder 'Name', will
     be in top level of nipype cache with its own parameterized iterables
     folders.
@@ -105,12 +105,12 @@ class DINGOflow(pe.Workflow, DINGO_nodeflow_base):
     def __init__(self, connection_spec=None, inputs_name=None, inputs=None,
                  **kwargs):
         pe.Workflow.__init__(self, **kwargs)
-        DINGO_nodeflow_base.__init__(self,
-                           connection_spec=connection_spec,
-                           inputs_name=inputs_name)
+        DINGONodeFlowBase.__init__(self,
+                                   connection_spec=connection_spec,
+                                   inputs_name=inputs_name)
 
 
-class DINGOnode(pe.Node, DINGO_nodeflow_base):
+class DINGONode(pe.Node, DINGONodeFlowBase):
     """Add requisite properties to Nipype Node. Output folder 'Name', will be in
      the parameterized iterables folders.
      """
@@ -118,9 +118,9 @@ class DINGOnode(pe.Node, DINGO_nodeflow_base):
     def __init__(self, connection_spec=None, inputs_name=None, inputs=None,
                  **kwargs):
         pe.Node.__init__(self, **kwargs)
-        DINGO_nodeflow_base.__init__(self,
-                           connection_spec=connection_spec,
-                           inputs_name=inputs_name)
+        DINGONodeFlowBase.__init__(self,
+                                   connection_spec=connection_spec,
+                                   inputs_name=inputs_name)
 
 
 
@@ -151,12 +151,12 @@ class DINGO(pe.Workflow):
         'TBSS_prereg': 'DINGO.fsl',
         'TBSS_reg_NXN': 'DINGO.fsl',
         'TBSS_postreg': 'DINGO.fsl',
-        'DSI_SRC': 'DINGO.DSI_Studio',
-        'REC_prep': 'DINGO.DSI_Studio',
-        'DSI_REC': 'DINGO.DSI_Studio',
-        'DSI_TRK': 'DINGO.DSI_Studio',
-        'DSI_ANA': 'DINGO.DSI_Studio',
-        'DSI_EXP': 'DINGO.DSI_Studio'
+        'DSI_SRC': 'DINGO.workflows.dsistudio',
+        'REC_prep': 'DINGO.workflows.dsistudio',
+        'DSI_REC': 'DINGO.workflows.dsistudio',
+        'DSI_TRK': 'DINGO.workflows.dsistudio',
+        'DSI_ANA': 'DINGO.workflows.dsistudio',
+        'DSI_EXP': 'DINGO.workflows.dsistudio'
     }
 
     def __init__(self, setuppath=None, workflow_to_module=None, name=None,
@@ -527,15 +527,14 @@ class DINGO(pe.Workflow):
         self.email  :   dictionary containing arguments to send a notification
             upon completion.
         """
-        err = None
         try:
             super(DINGO, self).run(
                 plugin=plugin, plugin_args=plugin_args, updatehash=updatehash)
             msg = '{} completed without error'.format(self.name)
-        except RuntimeError as err:
+        except RuntimeError:
             msg = '{} ended with error(s)'.format(self.name)
             raise
-        except Exception as err:
+        except Exception:
             msg = '{} crashed'.format(self.name)
             raise
         finally:
