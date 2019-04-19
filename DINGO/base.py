@@ -4,13 +4,13 @@ import smtplib
 from importlib import import_module
 from email.mime.text import MIMEText
 from collections import OrderedDict
-from DINGO.utils import (read_setup,
-                         reverse_lookup)
+from pprint import pprint
 from nipype import config
 from nipype.interfaces.base import Interface
 import nipype.pipeline.engine as pe
 from nipype import IdentityInterface
-from pprint import pprint
+from DINGO.utils import (read_setup,
+                         reverse_lookup)
 
 
 def keep_and_move_files():
