@@ -88,7 +88,7 @@ def list_to_str(sep=None, args=None):
     if sep is None:
         sep = ''
     if args is None:
-        raise TypeError('Not enough arguments for str creation')
+        raise TypeError("Not enough arguments for str creation")
     return sep.join(str(e) for e in flatten(args))
 
 
@@ -117,35 +117,6 @@ def join_strs(sep=None, **kwargs):
     for arg in kwargs.itervalues():
         arglist.append(arg)
     return list_to_str(sep=sep, args=arglist)
-
-
-def dynamic_import(mod=None, obj=None):
-    """Import a given object from a given module
-    
-    Parameters
-    ----------
-    mod     :   Str (module name)
-    obj     :   Str (object name)
-    
-    Return
-    ------
-    imported module, imported object
-    
-    Example
-    -------
-    DynImport('DINGO.utils','list_to_str') equivalent to 
-    from DINGO.utils import list_to_str
-    """
-    import importlib
-    if mod is not None:
-        imp_module = importlib.import_module(mod)
-        if obj is not None:
-            imp_object = getattr(imp_module, obj)
-            return imp_module, imp_object
-        else:
-            return imp_module, None
-    else:
-        return None, None
 
 
 def split_filename(fname, special_extensions=None):
@@ -222,7 +193,7 @@ def fileout_util(names=None, file_list=None, substitutions=None,
     # import in function for nipype
     from DINGO.utils import list_to_str, split_filename
     import os
-    # container
+
     container = os.path.join(sub_id, scan_id)
     
     # out_file_list
@@ -246,7 +217,7 @@ def fileout_util(names=None, file_list=None, substitutions=None,
     for elt in setfl:
         _, newelt, _ = split_filename(elt)
         out_file_list.append(sinkfile.replace('sinkfile', newelt))
-    
+
     # newsubs
     prefix = list_to_str(sep=psep, args=(sub_id, scan_id, uid))
     newsubs = []
@@ -299,7 +270,6 @@ def update_dict(indict=None, **kwargs):
     return outdict
 
 
-# Return patient/scan id
 def patient_scan(patientcfg, add_sequence=None, sep=None):
     """Get patient/scan id
 
@@ -340,7 +310,6 @@ def patient_scan(patientcfg, add_sequence=None, sep=None):
     return patient_scan_id
 
 
-# Split patient/scan id
 def split_chpid(psid, sep):
     """Returns patient/scan/uid from input id
     
@@ -381,7 +350,6 @@ def split_chpid(psid, sep):
     return subid, scanid, uniid
 
 
-# Convert to boolean
 def tobool(s):
     """Convert string/int true/false values to bool
     
@@ -467,7 +435,7 @@ def read_setup(setuppath):
     -------
     config : dict < json
     """
-
+    # import must be self-contained for use with nipype function node
     import logging
     from DINGO.utils import json_load_byteified
     logger = logging.getLogger(__name__)

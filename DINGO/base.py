@@ -1,33 +1,32 @@
 import os
 from typing import List, Any, Tuple
-
-from DINGO.utils import dynamic_import, read_setup, reverse_lookup
+import smtplib
+from importlib import import_module
+from email.mime.text import MIMEText
+from collections import OrderedDict
+from DINGO.utils import (read_setup,
+                         reverse_lookup)
 from nipype import config
+from nipype.interfaces.base import Interface
 import nipype.pipeline.engine as pe
 from nipype import IdentityInterface
 from pprint import pprint
-import smtplib
-from email.mime.text import MIMEText
-from collections import OrderedDict
+
+
+def keep_and_move_files():
+    cfg = dict(execution={'remove_unnecessary_outputs': u'false'})
+    config.update_config(cfg)
 
 
 def check_input_field(setup_bn, setup, keyname, exptype):
     if keyname not in setup:
-        raise KeyError('Analysis setup: {}, missing required key ["{}"]'
+        raise KeyError('Analysis setup: {0}, missing required key ["{1}"]'
                        .format(setup_bn, keyname))
     elif not isinstance(setup[keyname], exptype):
-        raise TypeError('Analysis setup: {}, ["{}"] is not a {}'
-                        'Type: {}, Value: {}'
+        raise TypeError('Analysis setup: {0}, ["{1}"] is not a {2}'
+                        'Type: {3}, Value: {4}'
                         .format(setup_bn, keyname, exptype,
                                 type(setup[keyname]), setup[keyname]))
-
-
-def keep_and_move_files():
-    # use_relative_paths interaction with DataGrabber nodes, probably DataSink
-    # i.e. tries to grab from ../../../../given/path/to/directory/files
-    cfg = dict(execution={'remove_unnecessary_outputs': u'false'})
-    #                      'use_relative_paths': u'true'})
-    config.update_config(cfg)
 
 
 def check_input_fields(setup_bn, setup, expected_keys):
@@ -48,7 +47,7 @@ def check_input_fields(setup_bn, setup, expected_keys):
             valtype = keytuple[0][1]
             alternatives.update({keytuple[0][0]: keytuple[1:]})
         else:
-            msg = 'Unhandled pair: {}, for Setup: {}'.format(keytuple, setup_bn)
+            msg = 'Unhandled pair: {0}, for Setup: {1}'.format(keytuple, setup_bn)
             raise TypeError(msg)
         try:
             check_input_field(setup_bn, setup, keyname, valtype)
@@ -72,6 +71,58 @@ def check_input_fields(setup_bn, setup, expected_keys):
     return input_fields
 
 
+def dingo_node_factory(name=None, engine_type='Node', **kwargs):
+    node_class = type(name,
+                      (getattr(pe, engine_type),),
+                      {})
+    # cannot pickle class (failure on run) if not added to globals
+    globals()[name] = node_class
+    return node_class
+
+
+class DINGONodeFlowBase(object):
+    setup_inputs = 'setup_inputs'
+    connection_spec = {}
+
+    def __init__(self, connection_spec=None, inputs_name=None,
+                 **kwargs):
+
+        if inputs_name is not None:
+            self.setup_inputs = inputs_name
+
+        if connection_spec is not None:
+            self.connection_spec.update(connection_spec)
+
+
+class DINGOFlow(pe.Workflow, DINGONodeFlowBase):
+    """Add requisite properties to Nipype Workflow. Output folder 'Name', will
+    be in top level of nipype cache with its own parameterized iterables
+    folders.
+    """
+    inputnode = None
+    outputnode = None
+
+    def __init__(self, connection_spec=None, inputs_name=None, inputs=None,
+                 **kwargs):
+        pe.Workflow.__init__(self, **kwargs)
+        DINGONodeFlowBase.__init__(self,
+                                   connection_spec=connection_spec,
+                                   inputs_name=inputs_name)
+
+
+class DINGONode(pe.Node, DINGONodeFlowBase):
+    """Add requisite properties to Nipype Node. Output folder 'Name', will be in
+     the parameterized iterables folders.
+     """
+
+    def __init__(self, connection_spec=None, inputs_name=None, inputs=None,
+                 **kwargs):
+        pe.Node.__init__(self, **kwargs)
+        DINGONodeFlowBase.__init__(self,
+                                   connection_spec=connection_spec,
+                                   inputs_name=inputs_name)
+
+
 class DINGO(pe.Workflow):
     """Create a workflow from a json setup file
     
@@ -81,35 +132,36 @@ class DINGO(pe.Workflow):
     """
 
     workflow_to_module = {
-        'SplitIDs':         'DINGO.wf',
-        'SplitIDsIterate': 'DINGO.wf',
-        'FileIn':           'DINGO.wf',
-        'FileInSConfig':    'DINGO.wf',
-        'FileOut':          'DINGO.wf',
-        'DICE':             'DINGO.wf',
-        'Reorient':         'DINGO.fsl',
-        'EddyC':            'DINGO.fsl',
-        'BET':              'DINGO.fsl',
-        'DTIFIT':           'DINGO.fsl',
-        'FLIRT':            'DINGO.fsl',
-        'ApplyXFM':         'DINGO.fsl',
-        'FNIRT':            'DINGO.fsl',
-        'ApplyWarp':        'DINGO.fsl',
-        'FSL_nonlinreg':    'DINGO.fsl',
-        'TBSS_prereg':      'DINGO.fsl',
-        'TBSS_reg_NXN':     'DINGO.fsl',
-        'TBSS_postreg':     'DINGO.fsl',
-        'DSI_SRC':          'DINGO.DSI_Studio',
-        'REC_prep':         'DINGO.DSI_Studio',
-        'DSI_REC':          'DINGO.DSI_Studio',
-        'DSI_TRK':          'DINGO.DSI_Studio',
-        'DSI_ANA':          'DINGO.DSI_Studio',
-        'DSI_EXP':          'DINGO.DSI_Studio'
+        'SplitIDs':         'DINGO.workflows.utils',
+        'SplitIDsIterate':  'DINGO.workflows.utils',
+        'FileIn':           'DINGO.workflows.utils',
+        'FileIn_SConfig':   'DINGO.workflows.utils',
+        'FileOut':          'DINGO.workflows.utils',
+        'DICE':             'DINGO.workflows.utils',
+        'Reorient':         'DINGO.workflows.fsl',
+        'EddyC':            'DINGO.workflows.fsl',
+        'BET':              'DINGO.workflows.fsl',
+        'DTIFIT':           'DINGO.workflows.fsl',
+        'FLIRT':            'DINGO.workflows.fsl',
+        'ApplyXFM':         'DINGO.workflows.fsl',
+        'FNIRT':            'DINGO.workflows.fsl',
+        'ApplyWarp':        'DINGO.workflows.fsl',
+        'FSLNonLinReg':     'DINGO.workflows.fsl',
+        'TBSSPreReg':       'DINGO.workflows.fsl',
+        'TBSSRegNXN':       'DINGO.workflows.fsl',
+        'TBSSPostReg':      'DINGO.workflows.fsl',
+        'DSI_SRC':          'DINGO.workflows.dsistudio',
+        'REC_prep':         'DINGO.workflows.dsistudio',
+        'DSI_REC':          'DINGO.workflows.dsistudio',
+        'DSI_TRK':          'DINGO.workflows.dsistudio',
+        'DSI_ANA':          'DINGO.workflows.dsistudio',
+        'DSI_EXP':          'DINGO.workflows.dsistudio'
     }
 
     def __init__(self, setuppath=None, workflow_to_module=None, name=None,
                  **kwargs):
         self.email = None
+        self._inputsname = None
         self.name2step = dict()
         self.input_connections = dict()
         self.input_params = dict()
@@ -149,7 +201,7 @@ class DINGO(pe.Workflow):
         try:
             return cls.workflow_to_module[wf]
         except KeyError:
-            msg = 'Workflow: %s not associated with a module' % wf
+            msg = 'Workflow: {} not associated with a module'.format(wf)
             raise KeyError(msg)
 
     def create_setup_inputs(self, inputsname='Setup_Inputs', **kwargs):
@@ -177,22 +229,40 @@ class DINGO(pe.Workflow):
         self.add_nodes([setup])
         self._inputsname = inputsname
 
+    def import_mod_obj(self, my_string):
+        try:
+            mod_string, obj_string = my_string.rsplit('.', 1)
+            mod = import_module(mod_string)
+            obj = getattr(mod, obj_string)
+        # catch string split error, try workflow name to module map
+        # pass ImportError, AttributeError
+        except ValueError:
+            mod = import_module(self.wf_to_mod(my_string))
+            obj = getattr(mod, my_string)
+        return mod, obj
+
     def create_subwf(self, step, name):
         """update subwf.inputs with self.input_params[subwfname]
         add subwf to self.subflows[subwfname]
         """
-        _, obj = dynamic_import(mod=self.wf_to_mod(step), obj=step)
-        ci = self.get_node(self._inputsname)
+        setup = self.get_node(self._inputsname)
         for paramkey, paramval in self.input_params[name].iteritems():
             if isinstance(paramval, (str, unicode)) and \
-                    hasattr(ci.inputs, paramval):
-                cival = getattr(ci.inputs, paramval)
-                self.input_params[name].update({paramkey: cival})
+                    hasattr(setup.inputs, paramval):
+                setup_val = getattr(setup.inputs, paramval)
+                self.input_params[name].update({paramkey: setup_val})
+        _, obj = self.import_mod_obj(step)
         try:
-            self.subflows[name] = obj(name=name,
-                                      inputs_name=self._inputsname,
-                                      inputs=self.input_params[name])
-        except:
+            if issubclass(obj, Interface):
+                new_class = dingo_node_factory(name=name,
+                                               interface=obj,
+                                               **self.input_params[name])
+                self.subflows[name] = new_class(name=name, interface=obj(**self.input_params[name]))
+            else:
+                self.subflows[name] = obj(name=name,
+                                          inputs_name=self._inputsname,
+                                          inputs=self.input_params[name])
+        except Exception:
             print('#######Error######')
             pprint(self.input_params[name])
             raise
@@ -213,7 +283,6 @@ class DINGO(pe.Workflow):
                    .format(type(srcobj), srcfield))
             raise TypeError(msg)
         srcname = '.'.join(srcname)
-
         if issubclass(type(destobj), pe.Node):
             destname = (destfield,)
         elif issubclass(type(destobj), pe.Workflow):
@@ -268,10 +337,10 @@ class DINGO(pe.Workflow):
                     # connection from setup, or at least name==step
                     srcobj = self.subflows[testsrckey]
                 elif self.name2step.values().count(testsrckey) > 1:
-                    msg = ('Dest: %s.%s, "%s" used more than once, default '
-                           'connections will not work. Add ["method"]["%s"]'
-                           '["connect"]["%s"] to json to set connection.'
-                           % (destkey, destfield, testsrckey, destkey, destfield))
+                    msg = ('Destination: {0}.{1}, "{2}" used more than once, default '
+                           'connections will not work. Add ["method"]["{0}"]'
+                           '["connect"]["{1}"] to json to set connection.'
+                           .format(destkey, destfield, testsrckey))
                     raise Exception(msg)
                 elif testsrckey == 'Setup' or testsrckey == 'Config' or \
                         testsrckey == self._inputsname:
@@ -282,7 +351,7 @@ class DINGO(pe.Workflow):
                         srckey = reverse_lookup(self.name2step, testsrckey)
                         srcobj = self.subflows[srckey]
                     except ValueError:
-                        print('destkey: %s' % destkey)
+                        print('destination_key: {}'.format(destkey))
                         raise
 
                 self.make_connection(srcobj, srcfield, destobj, destfield)
@@ -329,14 +398,15 @@ class DINGO(pe.Workflow):
                 (('included_ids', list), (
                     ('included_imgs', list), ('included_masks', list)))
             )
-        # expected keynames should be toplevel fields in the configuration
+        # expected keynames should be top level fields in the configuration
         input_fields = check_input_fields(setup_bn, setup, expected_keys)
         if 'data_dir' in input_fields:
             self.base_dir = input_fields['data_dir']
         if 'name' in input_fields:
             self.name = input_fields['name']
         os.chdir(self.base_dir)
-        print('Nipype cache at: %s' % os.path.join(self.base_dir, self.name))
+        print('Nipype cache at: {}'.format(
+              os.path.join(self.base_dir, self.name)))
 
         # Set up from configuration
         self.create_setup_inputs(**input_fields)
@@ -359,53 +429,62 @@ class DINGO(pe.Workflow):
                 name = nameandstep
             self.name2step.update({name: step})
             # Get changes to defaults from setup file
-            if not isinstance(step, (str, unicode)) or \
-                    not isinstance(name, (str, unicode)):
-                raise TypeError('Analysis Setup: %s, Invalid configuration.\n'
-                                'Step: %s, of type "%s" and Name: %s, of type "%s" '
-                                'must be str or unicode' %
-                                (setup_bn, step, type(step), name, type(name)))
+            # Checking types to give informative error messages
+            if not isinstance(step, (str, unicode, list)):
+                raise TypeError('Analysis Setup: {0}, Invalid configuration.\n'
+                                'Step: {1}, of type "{3}", named {2} '
+                                'is not str or unicode, '
+                                'or list ["module", "object"]'
+                                .format(setup_bn, step, name, type(step)))
+            if not isinstance(name, (str, unicode)):
+                raise TypeError('Analysis Setup: {0}, Invalid configuration.\n'
+                                'Name: {2}, of type "{3}", for step {2} '
+                                'is not str or unicode'
+                                .format(setup_bn, step, name, type(name)))
+            if name in self.subflows:
+                raise KeyError('Analysis Setup: {0}, Invalid configuration.'
+                               ' Duplicates of Name: {1}'
+                               .format(setup_bn, name))
+            if name in method and 'inputs' in method[name]:
+                # inputs are flags for the function creating the workflow
+                # used in various fashions
+                inputs = method[name]['inputs']
+                if not isinstance(inputs, dict):
+                    raise TypeError('Analysis Setup: {0}, Invalid configuration '
+                                    '["method"]["{1}"]["inputs"] is not a dict. '
+                                    'Value: {2}, Type: {3}'
+                                    .format(setup_bn, name, inputs, type(inputs)))
+                self.input_params[name] = inputs
             else:
-                if name in self.subflows:
-                    raise KeyError('Analysis Setup: %s, Invalid configuration.'
-                                   ' Duplicates of Name: %s' %
-                                   (setup_bn, name))
-                if name in method and 'inputs' in method[name]:
-                    # inputs are flags for the function creating the workflow
-                    # used in various fashions
-                    inputs = method[name]['inputs']
-                    if not isinstance(inputs, dict):
-                        raise TypeError('Analysis Setup: %s, '
-                                        '["method"]["%s"]["inputs"] is not a dict. '
-                                        'Value: %s, Type: %s' %
-                                        (setup_bn, name, inputs, type(inputs)))
-                    self.input_params[name] = inputs
-                else:
-                    self.input_params[name] = {}
-                if name in method and 'connect' in method[name]:
-                    # connect are changes to the defaults in connection spec
-                    connections = method[name]['connect']
-                    if not isinstance(connections, dict):
-                        raise TypeError('Analysis Setup: %s, '
-                                        '["method"]["%s"]["connect"] is not a dict. '
-                                        'Value: %s, Type: %s' %
-                                        (setup_bn, name, connections, type(connections)))
-                    for destfield, values in connections.iteritems():
-                        if not isinstance(destfield, (str, unicode)) or \
-                                not isinstance(values, (list, tuple)):
-                            raise TypeError('Analysis Setup: %s, '
-                                            '["method"]["%s"]["connect"] Invalid configuration. '
-                                            'Key: %s, Value: %s' %
-                                            (setup_bn, name, destfield, values))
-                    self.input_connections[name] = connections
-                else:
-                    self.input_connections[name] = {}
-            print('Create Workflow/Node Name:%s, Obj:%s' % (name, step))
+                self.input_params[name] = {}
+                print('### No input params found for {}, using defaults ###'
+                      .format(name))
+            if name in method and 'connect' in method[name]:
+                # connect given by { "input": ["Source Node", "output"]}
+                connections = method[name]['connect']
+                if not isinstance(connections, dict):
+                    raise TypeError('Analysis Setup: {0}, Invalid configuration '
+                                    '["method"]["{1}"]["connect"] is not a dict. '
+                                    'Value: {2}, Type: {3}'
+                                    .format(setup_bn, name, connections, type(connections)))
+                for destfield, values in connections.iteritems():
+                    if not isinstance(destfield, (str, unicode)) or \
+                            not isinstance(values, (list, tuple)):
+                        raise TypeError('Analysis Setup: {0}, Invalid configuration '
+                                        '["method"]["{1}"]["connect"], '
+                                        'Key: {2}, Value: {3}'
+                                        .format(setup_bn, name, destfield, values))
+                self.input_connections[name] = connections
+            else:
+                self.input_connections[name] = {}
+                print('### No input connections found for {}, using defaults ###'
+                      .format(name))
+            print('Create Workflow/Node Name:{0}, Obj:{1}'.format(name, step))
             self.create_subwf(step, name)
         self._connect_subwfs()
         if self.email is not None:
-            print('Email notification will be sent to %s' %
-                  (self.email['toaddr']))
+            print('Email notification will be sent to {}'
+                  .format(self.email['toaddr']))
         else:
             print('No email notification will be sent')
 
@@ -452,15 +531,14 @@ class DINGO(pe.Workflow):
         self.email  :   dictionary containing arguments to send a notification
             upon completion.
         """
-        err = None
         try:
             super(DINGO, self).run(
                 plugin=plugin, plugin_args=plugin_args, updatehash=updatehash)
             msg = '{} completed without error'.format(self.name)
-        except RuntimeError as err:
+        except RuntimeError:
             msg = '{} ended with error(s)'.format(self.name)
             raise
-        except Exception as err:
+        except Exception:
             msg = '{} crashed'.format(self.name)
             raise
         finally:
@@ -469,49 +547,6 @@ class DINGO(pe.Workflow):
                 msg_list.extend((msg, 'With named steps:'))
                 msg_list.extend(self.subflows.keys())
                 self.send_mail(msg_body='\n'.join(msg_list))
-
-
-class DINGObase(object):
-    setup_inputs = 'setup_inputs'
-    connection_spec = {}
-
-    def __init__(self, connection_spec=None, inputs_name=None,
-                 **kwargs):
-
-        if inputs_name is not None:
-            self.setup_inputs = inputs_name
-
-        if connection_spec is not None:
-            self.connection_spec.update(connection_spec)
-
-
-class DINGOflow(pe.Workflow, DINGObase):
-    """Add requisite properties to Nipype Workflow. Output folder 'Name', will 
-    be in top level of nipype cache with its own parameterized iterables 
-    folders.
-    """
-    inputnode = None
-    outputnode = None
-
-    def __init__(self, connection_spec=None, inputs_name=None, inputs=None,
-                 **kwargs):
-        pe.Workflow.__init__(self, **kwargs)
-        DINGObase.__init__(self,
-                           connection_spec=connection_spec,
-                           inputs_name=inputs_name)
-
-
-class DINGOnode(pe.Node, DINGObase):
-    """Add requisite properties to Nipype Node. Output folder 'Name', will be in
-     the parameterized iterables folders.
-     """
-
-    def __init__(self, connection_spec=None, inputs_name=None, inputs=None,
-                 **kwargs):
-        pe.Node.__init__(self, **kwargs)
-        DINGObase.__init__(self,
-                           connection_spec=connection_spec,
-                           inputs_name=inputs_name)
 
 
 if __name__ == '__main__':

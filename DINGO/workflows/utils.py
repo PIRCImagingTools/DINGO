@@ -1,22 +1,21 @@
 import os
 from DINGO.utils import (read_setup, split_chpid, join_strs)
-from DINGO.base import DINGO, DINGOflow, DINGOnode
+from DINGO.base import DINGO, DINGOFlow, DINGONode
 from nipype import IdentityInterface, Function
 import nipype.pipeline.engine as pe
 import nipype.interfaces.io as nio
-from traits.trait_base import _Undefined
 
 
 class HelperFlow(DINGO):
     
     def __init__(self, workflow_to_module=None, **kwargs):
         wfm = {
-            'SplitIDs':         'DINGO.wf',
-            'SplitIDsIterate': 'DINGO.wf',
-            'FileIn':           'DINGO.wf',
-            'FileInSConfig':   'DINGO.wf',
-            'FileOut':          'DINGO.wf',
-            'DICE':             'DINGO.wf'
+            'SplitIDs':         'DINGO.workflows.utils',
+            'SplitIDsIterate':  'DINGO.workflows.utils',
+            'FileIn':           'DINGO.workflows.utils',
+            'FileInSConfig':    'DINGO.workflows.utils',
+            'FileOut':          'DINGO.workflows.utils',
+            'DICE':             'DINGO.workflows.utils'
         }
         
         if workflow_to_module is None:
@@ -32,7 +31,7 @@ class HelperFlow(DINGO):
         )
 
 
-class DICE(DINGOflow):
+class DICE(DINGOFlow):
     """Nipype node to output dice image and coefficient for lists of niftis
     
     Inputs
@@ -63,8 +62,8 @@ class DICE(DINGOflow):
     def __init__(self, name='DICE', inputs={}, **kwargs):
         super(DICE, self).__init__(name=name, **kwargs)
         
-        input_fields = ['nii_list_a', 'nii_list_b', 'tract_names',
-                        'base_dir', 'sub_id', 'scan_id', 'uid', 'sep',
+        input_fields = ['nii_list_a', 'nii_list_b', 'tract_names', 'base_dir',
+                        'sub_id', 'scan_id', 'uid', 'sep',
                         'subfolder']
         input_iters = ('tract_names', inputs['tract_names'])
         
@@ -101,8 +100,8 @@ class DICE(DINGOflow):
         create_bn = pe.Node(
             name='create_bn',
             interface=Function(
-                input_names=['sep', 'subfolder', 'tract_name',
-                             'basedir', 'subid', 'scanid', 'uid'],
+                input_names=['sep', 'subfolder', 'tract_name', 'basedir',
+                             'subid', 'scanid', 'uid'],
                 output_names=['file'],
                 function=self.create_basename))
                 
@@ -139,7 +138,7 @@ class DICE(DINGOflow):
         tract_name = 'tract_name1'
         tract = get_tract(tract_list, tract_name)
         tract -> '/path/to/tract_name1.trk...'
-
+        
         Will raise if tract not matched, or more than one match.
         """
         import re
@@ -157,9 +156,11 @@ class DICE(DINGOflow):
             raise LookupError('Found more than one matching tract: {}'
                               .format(tract_name))
         return tract
-
-    def create_basename(tract_name=None, basedir=None, subfolder='',
-                        subid=None, scanid=None, uid=None, sep='_'):
+    
+    def create_basename(tract_name=None, 
+                        basedir=None,
+                        subid=None, scanid=None, uid=None,
+                        subfolder='', sep='_'):
         """Takes a file along with basedir, subid, scanid, uid, subfolder 
         strings and returns a new filename.
         
@@ -217,7 +218,7 @@ class DICE(DINGOflow):
         data_a = image_a.get_data()
         sum_a = np.sum(data_a)
         coord = image_a.coordmap
-        
+
         image_b = load_image(nii_b)
         data_b = image_b.get_data()
         sum_b = np.sum(data_b)
@@ -225,7 +226,7 @@ class DICE(DINGOflow):
         overlap = data_a + data_b
         intersect = overlap[np.where(overlap == 2)].sum()
         
-        dice = intersect / (sum_a + sum_b)
+        dice = intersect/(sum_a + sum_b)
         
         def save_nii(data, coord, save_file):
             arr_img = Image(data, coord)
@@ -244,7 +245,7 @@ class DICE(DINGOflow):
         return img, coef
 
 
-class SplitIDs(DINGOnode):
+class SplitIDs(DINGONode):
     """Nipype node to split a CHP_ID into separate subject, scan and task ids
     
     Parameters
@@ -269,11 +270,14 @@ class SplitIDs(DINGOnode):
     """
     
     connection_spec = {
-        'psid':    ['Config', 'included_ids']
+        'psid': ['Config', 'included_ids']
     }
     
-    def __init__(self, name='SplitIDs',
-                 inputs={'parent_dir': None, 'id': None, 'id_sep': '_'},
+    def __init__(self,
+                 name='SplitIDs',
+                 inputs={'parent_dir': None,
+                         'id': None,
+                         'id_sep': '_'},
                  **kwargs):
         
         if 'parent_dir' in inputs and inputs['parent_dir'] is not None:
@@ -293,7 +297,7 @@ class SplitIDs(DINGOnode):
             self.inputs.sep = inputs['id_sep']
             
             
-class SplitIDsIterate(DINGOflow):
+class SplitIDsIterate(DINGOFlow):
     """Nipype node to iterate a list of ids into separate subject, scan, and
     task ids.
     
@@ -314,7 +318,7 @@ class SplitIDsIterate(DINGOflow):
     Returns
     -------
     splitids    :    Nipype workflow
-    (splitids.outputnode.outputs=['sub_id','scan_id','uid'])
+    (splitids.outputnode.outputs=['sub_id', 'scan_id', 'uid'])
     e.g. {0: {parent_dir='/home/pirc/Desktop/DWI/CHD_tractography/CHP',
                 sub_id='0761', scan_id='MR1', uid='42D_DTIFIXED'},
           1: {parent_dir='/home/pirc/Desktop/DWI/CHD_tractography/CHP',
@@ -396,13 +400,13 @@ class SplitIDsIterate(DINGOflow):
             ])
     
     
-class FileIn(DINGOnode):
+class FileIn(DINGONode):
     """
     Parameters
     ----------
     name            :    Workflow name
     infields        :    List, template field arguments
-        (default ['sub_id','scan_id','uid'])
+        (default ['sub_id', 'scan_id', 'uid'])
     outfields       :    List, output files 
         (default ['nifti'])
     exts            :    Dict, extensions for output files
@@ -432,15 +436,20 @@ class FileIn(DINGOnode):
     filein.outfields
     """
     connection_spec = {
-        'sub_id':    ['SplitIDs', 'sub_id'],
-        'scan_id':    ['SplitIDs', 'scan_id'],
+        'sub_id':   ['SplitIDs', 'sub_id'],
+        'scan_id':  ['SplitIDs', 'scan_id'],
         'uid':      ['SplitIDs', 'uid']
     }
     
-    def __init__(self, name='FileIn_SubScanUID',
-                 inputs={'infields': None, 'outfields': None, 'exts': None,
-                         'template': None, 'field_template': None,
-                         'template_args': None, 'sort_filelist': True},
+    def __init__(self,
+                 name='FileIn',
+                 inputs={'infields': None,
+                         'outfields': None,
+                         'exts': None,
+                         'template': None,
+                         'field_template': None,
+                         'template_args': None,
+                         'sort_filelist': True},
                  **kwargs):
     
         # Defaults
@@ -468,17 +477,15 @@ class FileIn(DINGOnode):
             base_directory = os.getcwd()
         else:
             base_directory = inputs['base_directory']
-            
-        lof = len(outfields)
-        lex = len(exts)
-        if 'field_template' not in inputs or \
-           inputs['field_template'] is None or \
-           len(inputs['field_template']) != lof:
-            if lof != lex:
+
+        if ('field_template' not in inputs or
+                inputs['field_template'] is None or
+                len(inputs['field_template']) != len(outfields)):
+            if len(outfields) != len(exts):
                 raise ValueError('len(outfields): {:d} != len(ext) {:d}'
-                                 .format(lof, lex))
+                                 .format(len(outfields), len(exts)))
             field_template = dict()
-            for i in range(0, lof):
+            for i in range(0, len(outfields)):
                 field_template.update(
                     {outfields[i]: template.replace('.ext', exts[outfields[i]])})
         else:
@@ -487,7 +494,7 @@ class FileIn(DINGOnode):
             
         if 'template_args' not in inputs or inputs['template_args'] is None:
             template_args = dict()
-            for i in range(0, lof):
+            for i in range(0, len(outfields)):
                 template_args.update(
                     {outfields[i]:
                         [['sub_id', 'scan_id', 'sub_id', 'scan_id', 'uid']]})
@@ -508,7 +515,7 @@ class FileIn(DINGOnode):
         self.inputs.sort_filelist = sort_filelist
     
     
-class FileInSConfig(DINGOflow):
+class FileInSConfig(DINGOFlow):
     """Nipype workflow to get files specified in a subject config.json
     
     Mandatory Inputs - either in dict arg inputs or connected to inputnode
@@ -532,7 +539,8 @@ class FileInSConfig(DINGOflow):
         'uid':      ['SplitIDs', 'uid']
     }
     
-    def __init__(self, name='FileIn_SConfig',
+    def __init__(self,
+                 name='FileIn_SConfig',
                  inputs=None,
                  **kwargs):
         if inputs is None:
@@ -555,8 +563,8 @@ class FileInSConfig(DINGOflow):
         if 'outfields' in inputs and inputs['outfields'] is not None:
             inputnode.inputs.outfields = inputs['outfields']
         else:
-            raise KeyError('inputs["outfields"] must be specified to '
-                           'instantiate {}'
+            raise KeyError('inputs["outfields"] '
+                           'must be specified to instantiate {}'
                            .format(self.__class__))
         if 'sub_id' in inputs and inputs['sub_id'] is not None:
             inputnode.inputs.sub_id = inputs['sub_id']
@@ -624,16 +632,16 @@ class FileInSConfig(DINGOflow):
 
     def cfgpath_from_ids(base_directory=None,
                          sub_id=None, scan_id=None, uid=None):
-        if base_directory is not None and \
-           sub_id is not None and \
-           scan_id is not None and \
-           uid is not None:
+        if (base_directory is not None and
+                sub_id is not None and
+                scan_id is not None and
+                uid is not None):
             import os
             cfgname = []
             cfgname.extend((sub_id, scan_id, uid, 'config.json'))
             cfgname = '_'.join(cfgname)
             return os.path.join(base_directory, sub_id, scan_id, cfgname)
-
+            
     def create_field_template(base_directory=None,
                               sub_id=None, scan_id=None, uid=None,
                               config=None, outfields=None, repl=None):
@@ -690,7 +698,7 @@ class FileInSConfig(DINGOflow):
         return field_template
         
 
-class FileOut(DINGOflow):
+class FileOut(DINGOFlow):
     """
     Parameters
     ----------
@@ -698,8 +706,8 @@ class FileOut(DINGOflow):
     inputs          :    Dict
         substitutions    :  List of pairs for filename substitutions
             (s2r substitute will be replaced with subid_scanid_uid)
-            e.g. [('input_id','id'),('dtifit_','input_id')] ->
-                [('input_id','id'),('dtifit_','subid_scanid_uid')]
+            e.g. [('input_id', 'id'),('dtifit_', 'input_id')] ->
+                [('input_id', 'id'),('dtifit_', 'subid_scanid_uid')]
         s2r             :   Str
             replace in substitutions
         infields        :   List of output fields
@@ -709,7 +717,7 @@ class FileOut(DINGOflow):
         scan_id         :   Str
         uid             :   Str
         container       :   Str, default '{0}/{1}'
-        container_args  :   List, default ['sub_id','scan_id']
+        container_args  :   List, default ['sub_id', 'scan_id']
         
     Returns
     -------
@@ -728,24 +736,31 @@ class FileOut(DINGOflow):
         'uid':      ['SplitIDs', 'uid']
     }
     
-    def __init__(self, name='FileOut_SubScanUID',
-                 inputs=dict(substitutions=None, s2r=None, regexp_substitutions=None,
-                             iterfield=None, infields=None,
-                             parent_dir=None, sub_id=None, scan_id=None, uid=None,
-                             container=None, container_args=None),
+    def __init__(self,
+                 name='FileOut_SubScanUID',
+                 inputs=dict(
+                     substitutions=None,
+                     s2r=None,
+                     regexp_substitutions=None,
+                     iterfield=None, infields=None,
+                     parent_dir=None,
+                     sub_id=None, scan_id=None, uid=None,
+                     container=None, container_args=None),
                  **kwargs):
 
         super(FileOut, self).__init__(name=name, **kwargs)
             
-        inputfields = ['parent_dir',  'sub_id', 'scan_id', 'uid']
+        inputfields = ['parent_dir', 'sub_id', 'scan_id', 'uid']
         if 'infields' in inputs and inputs['infields'] is not None:
             infields = inputs['infields']
         else:
             infields = []
         inputfields.extend((field.replace('.', '_') for field in infields))
-        inputnode = pe.Node(name='inputnode',
-                            interface=IdentityInterface(fields=inputfields),
-                            mandatory_inputs=True)
+        inputnode = pe.Node(
+            name='inputnode',
+            interface=IdentityInterface(
+                fields=inputfields), 
+            mandatory_inputs=True)
         
         if 'parent_dir' in inputs and inputs['parent_dir'] is not None:
             inputnode.inputs.parent_dir = inputs['parent_dir']
@@ -787,21 +802,23 @@ class FileOut(DINGOflow):
         else:
             nodetype = pe.Node
         
-        sink = nodetype(name='sink', interface=nio.DataSink(infields=infields),
-                        parameterization=False,
-                        **sinkargs)
+        sink = nodetype(
+            name='sink',
+            interface=nio.DataSink(infields=infields),
+            parameterization=False,
+            **sinkargs)
         sink.inputs.parameterization = False
         
         if 's2r' in inputs and inputs['s2r'] is not None:
             subs.inputs.s2r = inputs['s2r']
-            if 'substitutions' in inputs and \
-               inputs['substitutions'] is not None:
+            if ('substitutions' in inputs and
+                    inputs['substitutions'] is not None):
                 subs.inputs.subs = inputs['substitutions']
         elif 'substitutions' in inputs and inputs['substitutions'] is not None:
             sink.inputs.substitutions = tuple(inputs['substitutions'])
             
-        if 'regexp_substitutions' in inputs and \
-           inputs['regexp_substitutions'] is not None:
+        if ('regexp_substitutions' in inputs and
+                inputs['regexp_substitutions'] is not None):
             sink.inputs.regexp_substitutions = tuple(
                 inputs['regexp_substitutions'])
         
@@ -840,9 +857,10 @@ class FileOut(DINGOflow):
             (subs, sink,
                 [('new_subs', 'substitutions')])
         ])
-
+                    
     def container(sub_id=None, scan_id=None, uid=None,
                   container=None, container_args=None):
+        from traits.trait_base import _Undefined
         import os.path as op
         if container_args is None:
             container_args = tuple()
