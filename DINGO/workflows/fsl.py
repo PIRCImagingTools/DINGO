@@ -280,7 +280,7 @@ class TBSSPreReg(DINGOFlow):
         'fa_list':  ['DTIFIT', 'FA']
     }    
     
-    def __init__(self, name='TBSS_prereg', req_join=True, **kwargs):
+    def __init__(self, name='TBSSPreReg', req_join=True, **kwargs):
         super(TBSSPreReg, self).__init__(name=name, **kwargs)
         
         if req_join:
@@ -289,7 +289,7 @@ class TBSSPreReg(DINGOFlow):
                 interface=IdentityInterface(
                     fields=['fa_list']),
                 mandatory_inputs=True,
-                joinsource=self.config_inputs,
+                joinsource=self.setup_inputs,
                 joinfield=['fa_list'])
         else:
             inputnode = pe.Node(
@@ -311,8 +311,8 @@ class TBSSRegNXN(DINGOFlow):
     outputnode = 'tbss2'
     
     connection_spec = {
-        'fa_list':      ['TBSS_prereg', 'fa_list'],
-        'mask_list':    ['TBSS_prereg', 'mask_list']
+        'fa_list':      ['TBSSPreReg', 'fa_list'],
+        'mask_list':    ['TBSSPreReg', 'mask_list']
     }
     
     def __init__(self, name='TBSS_reg_NXN',
@@ -598,9 +598,9 @@ class TBSSPostReg(DINGOFlow):
     outputnode = 'outputnode'
     
     connection_spec = {
-        'fa_list':      ['TBSS_prereg', 'fa_list'],
-        'field_list':   ['TBSS_reg_NXN', 'fieldcoeff_list'],
-        'mm_list':      ['TBSS_reg_NXN', 'mean_median_list']
+        'fa_list':      ['TBSSPreReg', 'fa_list'],
+        'field_list':   ['TBSSRegNXN', 'fieldcoeff_list'],
+        'mm_list':      ['TBSSRegNXN', 'mean_median_list']
     }
     
     def __init__(self,

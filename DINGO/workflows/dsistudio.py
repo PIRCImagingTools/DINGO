@@ -403,8 +403,152 @@ class DSI_ANAnode(DINGONode):
             name=name,
             interface=DSIStudioAnalysis(**inputs),
             **kwargs)
-            
-            
+
+
+class DSI_Merge(DINGOFlow):
+    """Nipype workflow to merge tracts with specified names
+    """
+    inputnode = 'inputnode'
+    outputnode = 'outputnode'
+
+    connection_spec = {
+        'tract_list': ['DSI_TRK', 'output']
+    }
+
+    def __init__(self,
+                 name='DSI_Merge',
+                 inputs=None,
+                 **kwargs):
+        if inputs is None:
+            inputs = {}
+        super(DSI_Merge, self).__init__(name=name, **kwargs)
+
+        if 'req_join' in inputs and inputs['req_join'] is not None:
+            req_join = inputs['req_join']
+            del inputs['req_join']
+        else:
+            req_join = False
+
+        if req_join:
+            inputnode = pe.JoinNode(
+                name='inputnode',
+                interface=IdentityInterface(
+                    fields=['tract_list',
+                            'tract_names',
+                            'tracts2merge',
+                            'source']),
+                mandatory_inputs=True,
+                joinsource=self.setup_inputs,
+                joinfield=['tract_list'])
+        else:
+            inputnode = pe.Node(
+                name='inputnode',
+                interface=IdentityInterface(
+                    fields=['tract_list',
+                            'tract_names',
+                            'tracts2merge',
+                            'source']),
+                mandatory_inputs=True)
+
+        if 'source' in inputs and inputs['source'] is not None:
+            inputnode.inputs.source = inputs['source']
+        if 'tract_list' in inputs and inputs['tract_list'] is not None:
+            inputnode.inputs.tract_list = inputs['tract_list']
+            del inputs['tract_list']
+        inputnode.iterables = [
+            ('tract_names', inputs['tracts'].keys()),
+            ('tracts2merge', inputs['tracts'].values())]
+        del inputs['tracts']
+        inputnode.synchronize = True
+
+        replace_tracts = TRKnode(
+            name='replace_tracts',
+            interface=Function(
+                input_names=['tract_list',
+                             'tracts2merge'],
+                output_names=['tract_files'],
+                function=self.replace_tracts))
+
+        convertnode = pe.MapNode(
+            name='convertnode',
+            interface=DSIStudioAnalysis(**inputs),
+            iterfield=['tract'])
+
+        mergenode = TRKnode(
+            name='merge_tracts',
+            base_dir=os.getcwd(),
+            interface=Function(
+                input_names=['file_list',
+                             'tracts2merge',
+                             'new_tract_name'],
+                output_names=['merged_file'],
+                function=self.merge_tracts))
+
+        outputnode = TRKnode(
+            name='outputnode',
+            interface=IdentityInterface(
+                fields=['merged_file']))
+
+        self.connect([
+            (inputnode, replace_tracts, [('tract_list', 'tract_list'),
+                                         ('tracts2merge', 'tracts2merge')]),
+            (inputnode, convertnode, [('source', 'source')]),
+            (inputnode, mergenode, [('tract_names', 'new_tract_name'),
+                                    ('tracts2merge', 'tracts2merge')]),
+            (replace_tracts, convertnode, [('tract_files', 'tract')]),
+            (convertnode, mergenode, [('output', 'file_list')]),
+            (mergenode, outputnode, [('merged_file', 'merged_file')])
+        ])
+
+    def replace_tracts(tract_list, tracts2merge):
+        """Return the real tract files from the tract list
+        which match the names in tracts2merge
+
+        Parameters
+        ----------
+        tracts2merge    :   Sequence(Str, Str, ...)
+        tract_list      :   Sequence(Str, Str, Str, ...)
+
+        Returns
+        -------
+        tract_files     :   Sequence(Str, Str, ...)
+        """
+        import re
+        if tracts2merge is not None:
+            tract_files = []
+            for tractname in tracts2merge:
+                pattern = ''.join(('(?<=[\\\\_\/])', tractname))
+                found = False
+                for realtract in tract_list:  # realtract is a filepath
+                    if re.search(pattern, realtract, flags=re.IGNORECASE):
+                        tract_files.append(realtract)
+                        found = True
+                        break
+                if not found:
+                    raise Exception('{} not found in tract file list'
+                                    .format(tractname))
+            if len(tract_files) != len(tracts2merge):
+                raise Exception('Incorrect number of tracts found')
+        return tract_files
+
+    def merge_tracts(file_list=None, tracts2merge=None, new_tract_name=None):
+        """Accept tract files in '.txt' format, each line a stream. Return merged"""
+        import os
+        merged_data = []
+        try:
+            for afile in file_list:
+                with open(afile, 'r') as f:
+                    merged_data.extend(f.readlines())
+            merged_filename = os.path.basename(file_list[0]).replace(
+                tracts2merge[0], new_tract_name)
+            merged_file = os.path.abspath(merged_filename)
+            with open(merged_file, 'w') as f:
+                f.writelines(merged_data)
+        except TypeError:
+            merged_file = None
+        return merged_file
+
+
 class DSI_EXP(DINGONode):
     """Nipype node to run DSIStudioAnalysis
     

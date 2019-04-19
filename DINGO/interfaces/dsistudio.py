@@ -335,6 +335,13 @@ class DSIStudioCommand(CommandLine):
         -------
         fname       : str (new filename based on input)
         """
+        remove_ends = (
+            ('.src.gz', 3),
+            ('.fib.gz', 3),
+            ('.nii.gz', 7),
+            ('.trk.gz', 7),
+            ('.trk.txt', 8),
+            ('.txt', 4))
 
         if basename == '':
             raise ValueError('Unable to generate filename for command {}.'
@@ -344,6 +351,9 @@ class DSIStudioCommand(CommandLine):
         if ext is None:
             ext = DSIInfo.ot_to_ext(self.inputs.output_type)
         if change_ext:
+            for ending in remove_ends:
+                if basename.endswith(ending[0]):
+                    basename = basename[0:len(basename)-ending[1]]
             if suffix:
                 suffix = ''.join((suffix, ext))
             else:
@@ -1203,7 +1213,7 @@ class DSIStudioTrack(DSIStudioFiberCommand):
                 pfx,
                 infilename,
                 DSIInfo.ot_to_ext(self.inputs.output_type)))
-            return os.path.join(working_dir, ''.join(fname))
+            return self._gen_fname(''.join(fname), change_ext=True)
         else:
             return super(DSIStudioFiberCommand, self)._gen_filename(name)
 
@@ -1275,7 +1285,7 @@ class DSIStudioAnalysis(DSIStudioFiberCommand):
                 pfx,
                 infilename,
                 DSIInfo.ot_to_ext(self.inputs.output_type)))
-            return os.path.join(working_dir, ''.join(fname))
+            return self._gen_fname(''.join(fname), change_ext=True)
         else:
             return super(DSIStudioFiberCommand, self)._gen_filename(name)
 

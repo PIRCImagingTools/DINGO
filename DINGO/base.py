@@ -155,6 +155,7 @@ class DINGO(pe.Workflow):
         'DSI_REC':          'DINGO.workflows.dsistudio',
         'DSI_TRK':          'DINGO.workflows.dsistudio',
         'DSI_ANA':          'DINGO.workflows.dsistudio',
+        'DSI_Merge':        'DINGO.workflows.dsistudio',
         'DSI_EXP':          'DINGO.workflows.dsistudio'
     }
 
