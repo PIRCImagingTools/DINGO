@@ -2,12 +2,12 @@ import os
 import time
 import shutil
 from itertools import compress
-from DINGO.utils import list_to_str
+from DINGO.utils import (list_to_str,
+                         split_filename)
 from nipype.interfaces.base import (traits, File, Directory, InputMultiPath, 
                                     OutputMultiPath, isdefined,
                                     CommandLine, CommandLineInputSpec, 
                                     TraitedSpec)
-from nipype.utils.filemanip import split_filename
 from traits.trait_base import _Undefined
 
 # on_trait_change functions not firing when updating from indict
@@ -35,6 +35,12 @@ class DSIInfo(object):
         'export_tdi_color', 'export_tdi_end',
         'export_fa', 'export_gfa', 'export_qa', 'export_nqa',
         'export_md', 'export_ad', 'export_rd', 'report')
+
+    # export extension types
+    export_texts = ('stat', 'fa', 'gfa', 'qa', 'nqa', 'md', 'ad', 'rd')
+    report_texts = ('report_fa', 'report_gfa', 'report_nqa',
+                    'report_md', 'report_ad', 'report_rd')
+    export_imgs = ('tdi', 'tdi2', 'tdi_color', 'tdi_end', 'tdi2_end')
         
     # file extensions for output types
     ftypes = {
@@ -680,6 +686,73 @@ class DSIStudioFiberCommand(DSIStudioCommand):
         super(DSIStudioFiberCommand, self).__init__(**inputs)
         self.inputs.on_trait_change(self._report_update, 'report+')
         self.inputs.on_trait_change(self._export_update, 'export+,report')
+
+        self._output_pfx = None
+        self._output_basename = None
+        self.inputs.on_trait_change(self._gen_output_pfx_base, 'source,tract')
+
+    def _gen_output_pfx_base(self):
+        def get_attr_or_undefined(inputs, name):
+            try:
+                attr = getattr(inputs, name)
+            except AttributeError:
+                attr = _Undefined()
+            return attr
+        source_val = get_attr_or_undefined(self.inputs, 'source')
+        tract_name = get_attr_or_undefined(self.inputs, 'tract_name')
+        tract_val = get_attr_or_undefined(self.inputs, 'tract')
+        pfx = self._output_pfx
+
+        if isdefined(tract_val):
+            self._output_pfx = None  # tract_name assumed to be in tract_val
+            _, self._output_basename, _ = split_filename(
+                os.path.abspath(tract_val))
+        elif isdefined(source_val):
+            if isdefined(tract_name):
+                self._output_pfx = ''.join((tract_name, '_'))
+                _, self._output_basename, _ = split_filename(
+                    os.path.abspath(source_val))
+            elif pfx is None or not pfx.startswith('Track_'):
+                self._output_pfx = ('Track_{:04d}{:02d}{:02d}_{:02d}{:02d}{:02d}_'
+                                    .format(*time.localtime(time.time())))
+                _, self._output_basename, _ = split_filename(
+                    os.path.abspath(source_val))
+        else:
+            self._output_pfx = None
+            self._output_basename = None
+
+    def _gen_filename(self, name):
+        """Executed if self.inputs.name is undefined, but genfile=True"""
+        fname = []
+        fname.extend((
+            self._output_pfx,
+            self._output_basename))
+        suffix = DSIInfo.ot_to_ext(self.inputs.output_type)
+        if name == 'output':
+            suffix = None
+            ext = DSIInfo.ot_to_ext(self.inputs.output_type)
+        elif name == 'endpt':
+            suffix = '_endpt'
+            ext = self.inputs.endpt_format
+        elif name.endswith('_file'):
+            export = name.replace('_file', '')
+            if export in DSIInfo.export_texts:
+                ext = ''.join(('.', export, '.txt'))
+            elif export in DSIInfo.exprot_imgs:
+                ext = ''.join(('.', export, '.nii'))
+            elif export in DSIInfo.report_texts:
+                rp = str(getattr(self.inputs, 'report_pstyle'))
+                rb = str(getattr(self.inputs, 'report_bandwidth'))
+                suffix = '.'.join((
+                    DSIInfo.ot_to_ext(self.inputs.output_type),
+                    export.replace('_', '.'), rp, rb))
+                ext = '.txt'
+        else:
+            raise NotImplementedError
+        return self._gen_fname(''.join([item for item in fname if item is not None]),
+                               change_ext=True,
+                               suffix=suffix,
+                               ext=ext)
     
     def _regions_update(self):
         """Update region category ('rois', 'roas', etc.) with atlas regions"""
@@ -793,9 +866,12 @@ class DSIStudioFiberCommand(DSIStudioCommand):
 
     def _check_mandatory_inputs(self):
         """correct values, then call super"""
+        # trait change notifiers don't seem to fire when traits updated on
+        # instantiation. Make sure all values are validated before gen cmdline
         self._update_from_indict()
         self._report_update()
         self._export_update()
+        self._gen_output_pfx_base()
                     
         super(DSIStudioFiberCommand, self)._check_mandatory_inputs()
 
@@ -1024,10 +1100,6 @@ class DSIStudioFiberCommand(DSIStudioCommand):
         
     def _list_outputs(self):
         outputs = self._outputs().get()
-        export_texts = ('stat', 'fa', 'gfa', 'qa', 'nqa', 'md', 'ad', 'rd')
-        report_texts = ('report_fa', 'report_gfa', 'report_nqa',
-                        'report_md', 'report_ad', 'report_rd')
-        export_imgs = ('tdi', 'tdi2', 'tdi_color', 'tdi_end', 'tdi2_end')
         for key in outputs.iterkeys():
             basekey = key.replace('_file', '')
             if key == 'output':
@@ -1042,34 +1114,40 @@ class DSIStudioFiberCommand(DSIStudioCommand):
                     change_ext=True,
                     ext=self.inputs.endpt_format)
 
-            elif basekey in export_texts:
+            elif basekey in DSIInfo.export_texts:
                 inputkey = '_'.join(('export', basekey))
                 if (isdefined(getattr(self.inputs, inputkey)) and
                    getattr(self.inputs, inputkey)):
                         outputs[key] = self._gen_fname(
                             self._gen_filename('output'),
-                            suffix=''.join(('.', basekey)),
+                            suffix='.'.join((
+                                DSIInfo.ot_to_ext(self.inputs.output_type),
+                                basekey)),
                             change_ext=True,
                             ext='.txt')
                         
-            elif basekey in export_imgs:
+            elif basekey in DSIInfo.export_imgs:
                 inputkey = '_'.join(('export', basekey))
                 if (isdefined(getattr(self.inputs, inputkey)) and
                     getattr(self.inputs, inputkey)):
                         outputs[key] = self._gen_fname(
                             self._gen_filename('output'),
-                            suffix=''.join(('.', basekey)),
+                            suffix='.'.join((
+                                DSIInfo.ot_to_ext(self.inputs.output_type),
+                                basekey)),
                             change_ext=True,
                             ext='.nii')
                     
-            elif (basekey in report_texts and
+            elif (basekey in DSIInfo.report_texts and
                   isdefined(getattr(self.inputs, basekey)) and
                   getattr(self.inputs, basekey)):
                 rp = str(getattr(self.inputs, 'report_pstyle'))
                 rb = str(getattr(self.inputs, 'report_bandwidth'))
                 outputs[key] = self._gen_fname(
                     self._gen_filename('output'),
-                    suffix='.'.join(('', basekey.replace('_', '.'), rp, rb)),
+                    suffix='.'.join((
+                        DSIInfo.ot_to_ext(self.inputs.output_type),
+                        basekey.replace('_', '.'), rp, rb)),
                     change_ext=True,
                     ext='.txt')
         return outputs
@@ -1195,27 +1273,6 @@ class DSIStudioTrack(DSIStudioFiberCommand):
     _output_type = 'TRK'
     input_spec = DSIStudioTrackInputSpec
     output_spec = DSIStudioFiberOutputSpec
-    
-    def _gen_filename(self, name):
-        """Executed if self.inputs.name is undefined, but genfile=True"""
-        if name == 'output':
-            path, infilename, _ = split_filename(
-                os.path.abspath(getattr(self.inputs, 'source')))
-            working_dir = os.getcwd()  # present cache working dir
-            tract_name = getattr(self.inputs, 'tract_name')
-            if isdefined(tract_name):
-                pfx = ''.join((tract_name, '_'))
-            else:
-                pfx = ('Track_{:04d}{:02d}{:02d}_{:02d}{:02d}{:02d}_'
-                       .format(*time.localtime(time.time())))
-            fname = []
-            fname.extend((
-                pfx,
-                infilename,
-                DSIInfo.ot_to_ext(self.inputs.output_type)))
-            return self._gen_fname(''.join(fname), change_ext=True)
-        else:
-            return super(DSIStudioFiberCommand, self)._gen_filename(name)
 
 
 class DSIStudioAnalysisInputSpec(DSIStudioFiberInputSpec):
@@ -1260,34 +1317,6 @@ class DSIStudioAnalysis(DSIStudioFiberCommand):
     _output_type = 'TXT'
     input_spec = DSIStudioAnalysisInputSpec
     output_spec = DSIStudioFiberOutputSpec
-    
-    def _gen_filename(self, name):
-        """Executed if self.inputs.name is undefined, but genfile=True"""
-        if name == 'output':
-            tractval = getattr(self.inputs, 'tract')
-            tract_name = getattr(self.inputs, 'tract_name')
-            sourceval = getattr(self.inputs, 'source')
-            working_dir = os.getcwd()  # present cache working dir
-            if isdefined(tract_name):
-                pfx = ''.join((tract_name, '_'))
-            else:
-                pfx = ('Track_{:04d}{:02d}{:02d}_{:02d}{:02d}{:02d}_'
-                       .format(*time.localtime(time.time())))
-                
-            if isdefined(tractval):
-                path, infilename, _ = split_filename(os.path.abspath(tractval))
-                pfx = ''
-            else:
-                path, infilename, _ = split_filename(os.path.abspath(sourceval))
-
-            fname = []
-            fname.extend((
-                pfx,
-                infilename,
-                DSIInfo.ot_to_ext(self.inputs.output_type)))
-            return self._gen_fname(''.join(fname), change_ext=True)
-        else:
-            return super(DSIStudioFiberCommand, self)._gen_filename(name)
 
 
 class DSIStudioSourceInputSpec(DSIStudioInputSpec):

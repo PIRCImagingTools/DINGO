@@ -121,6 +121,8 @@ def join_strs(sep=None, **kwargs):
 
 def split_filename(fname, special_extensions=None):
     """Split a filename into path, base filename, and extension.
+    Similar to nipype.utils.filemanip.split_filename, but with other
+    special extensions, and ability to change them.
     
     Parameters
     ----------
@@ -141,7 +143,8 @@ def split_filename(fname, special_extensions=None):
                   '.tar.gz',
                   '.fib.gz',
                   '.src.gz',
-                  '.trk.gz')
+                  '.trk.gz',
+                  '.trk.txt')
     
     if special_extensions is None:
         special_extensions = default_se
