@@ -502,7 +502,8 @@ class DSI_Merge(DINGOFlow):
 
     def replace_tracts(tract_list, tracts2merge):
         """Return the real tract files from the tract list
-        which match the names in tracts2merge
+        which match the names in tracts2merge.
+        Raise Exception if none are found.
 
         Parameters
         ----------
@@ -514,21 +515,26 @@ class DSI_Merge(DINGOFlow):
         tract_files     :   Sequence(Str, Str, ...)
         """
         import re
+        import os
+        if not isinstance(tract_list, (list, tuple)):
+            tract_list = [tract_list]
+        tract_files = []
         if tracts2merge is not None:
-            tract_files = []
             for tractname in tracts2merge:
                 pattern = ''.join(('(?<=[\\\\_\/])', tractname))
-                found = False
                 for realtract in tract_list:  # realtract is a filepath
                     if re.search(pattern, realtract, flags=re.IGNORECASE):
                         tract_files.append(realtract)
-                        found = True
                         break
-                if not found:
-                    raise Exception('{} not found in tract file list'
-                                    .format(tractname))
-            if len(tract_files) != len(tracts2merge):
-                raise Exception('Incorrect number of tracts found')
+            if len(tract_files) == 0:
+                raise Exception('No tracts found matching any of {}'
+                                .format(tracts2merge))
+            else:
+                new_tracts2merge = []
+                basenames = [os.path.basename(afile) for afile in tract_files]
+                for aname in tracts2merge:
+                    if any((aname in afile for afile in basenames)):
+                        new_tracts2merge.append(aname)
         return tract_files
 
     def merge_tracts(file_list=None, tracts2merge=None, new_tract_name=None):
@@ -536,11 +542,15 @@ class DSI_Merge(DINGOFlow):
         import os
         merged_data = []
         try:
-            for afile in file_list:
-                with open(afile, 'r') as f:
+            for idx in xrange(len(file_list)):
+                with open(file_list[idx], 'r') as f:
                     merged_data.extend(f.readlines())
-            merged_filename = os.path.basename(file_list[0]).replace(
-                tracts2merge[0], new_tract_name)
+            basename = os.path.basename(file_list[0])
+            old = tracts2merge[
+                [tract in basename for tract in tracts2merge]
+                .index(True)]
+            merged_filename = basename.replace(
+                old, new_tract_name)
             merged_file = os.path.abspath(merged_filename)
             with open(merged_file, 'w') as f:
                 f.writelines(merged_data)
