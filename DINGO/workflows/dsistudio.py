@@ -487,7 +487,7 @@ class DSI_Merge(DINGOFlow):
         outputnode = TRKnode(
             name='outputnode',
             interface=IdentityInterface(
-                fields=['merged_file']))
+                fields=['merged_files']))
 
         self.connect([
             (inputnode, replace_tracts, [('tract_list', 'tract_list'),
@@ -497,7 +497,7 @@ class DSI_Merge(DINGOFlow):
                                     ('tracts2merge', 'tracts2merge')]),
             (replace_tracts, convertnode, [('tract_files', 'tract')]),
             (convertnode, mergenode, [('output', 'file_list')]),
-            (mergenode, outputnode, [('merged_file', 'merged_file')])
+            (mergenode, outputnode, [('merged_file', 'merged_files')])
         ])
 
     def replace_tracts(tract_list, tracts2merge):
