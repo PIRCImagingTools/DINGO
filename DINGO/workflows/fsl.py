@@ -149,13 +149,16 @@ class ApplyXFM(DINGOFlow):
         if 'iterfield' in inputs:
             iterfield = inputs['iterfield']
             del inputs['iterfield']
+            xfmnode = pe.MapNode(
+                name='xfmnode',
+                interface=fsl.ApplyXFM(**inputs),
+                iterfield=iterfield)
         else:
-            iterfield = 'in_file'
-        
-        xfmnode = pe.MapNode(
-            name='xfmnode',
-            interface=fsl.ApplyXFM(**inputs),
-            iterfield=iterfield)
+            xfmnode = pe.Node(
+                name='xfmnode',
+                interface=fsl.ApplyXFM(**inputs)
+            )
+
         self.add_nodes([xfmnode])
 
 
