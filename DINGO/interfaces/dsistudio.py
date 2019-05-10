@@ -689,7 +689,6 @@ class DSIStudioFiberCommand(DSIStudioCommand):
 
         self._output_pfx = None
         self._output_basename = None
-        self.inputs.on_trait_change(self._gen_output_pfx_base, 'source,tract')
 
     def _gen_output_pfx_base(self):
         def get_attr_or_undefined(inputs, name):
@@ -1274,6 +1273,10 @@ class DSIStudioTrack(DSIStudioFiberCommand):
     input_spec = DSIStudioTrackInputSpec
     output_spec = DSIStudioFiberOutputSpec
 
+    def __init__(self, **inputs):
+        super(DSIStudioTrack, self).__init__(**inputs)
+        self.inputs.on_trait_change(self._gen_output_pfx_base, 'source')
+
 
 class DSIStudioAnalysisInputSpec(DSIStudioFiberInputSpec):
 
@@ -1317,6 +1320,10 @@ class DSIStudioAnalysis(DSIStudioFiberCommand):
     _output_type = 'TXT'
     input_spec = DSIStudioAnalysisInputSpec
     output_spec = DSIStudioFiberOutputSpec
+
+    def __init__(self, **inputs):
+        super(DSIStudioAnalysis, self).__init__(**inputs)
+        self.inputs.on_trait_change(self._gen_output_pfx_base, 'source,tract')
 
 
 class DSIStudioSourceInputSpec(DSIStudioInputSpec):

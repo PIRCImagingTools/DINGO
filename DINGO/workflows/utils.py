@@ -587,8 +587,8 @@ class FileInSConfig(DINGOFlow):
         read_conf = pe.Node(
             name='read_conf',
             interface=Function(
-                input_names=['configpath'],
-                output_names=['configdict'],
+                input_names=['setuppath'],
+                output_names=['setupdict'],
                 function=read_setup))
                 
         create_ft = pe.Node(
@@ -625,8 +625,8 @@ class FileInSConfig(DINGOFlow):
                                     ('uid', 'uid'),
                                     ('outfields', 'outfields')]),
             (inputnode, filein, [('base_directory', 'base_directory')]),
-            (cfgpath, read_conf, [('path', 'configpath')]),
-            (read_conf, create_ft, [('configdict', 'config')]),
+            (cfgpath, read_conf, [('path', 'setuppath')]),
+            (read_conf, create_ft, [('setupdict', 'config')]),
             (create_ft, filein, [('field_template', 'field_template')])
             ])
 
@@ -652,6 +652,7 @@ class FileInSConfig(DINGOFlow):
             'sequenceid':   uid,
             'parent_dir':   base_directory
         }
+        # defrepl will always be checked for substitution
         # compare (error sanity check) to config
         for k, v in defrepl.iteritems():
             if config[k] != v:
@@ -664,11 +665,13 @@ class FileInSConfig(DINGOFlow):
         if repl is not None:
             if isinstance(repl, (str, unicode)):
                 myrepl.update({repl: config['paths'][repl]})
+                repl = list(repl)
             elif isinstance(repl, (list, tuple)):
                 for e in repl:
                     myrepl.update({e: config['paths'][e]})
             elif isinstance(repl, dict):
                 myrepl = repl
+                repl = repl.keys()
                 
             # value substitution of placeholders
             for e in repl:  # repl must be in most to least dependent order

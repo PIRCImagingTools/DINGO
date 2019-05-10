@@ -135,7 +135,7 @@ class DINGO(pe.Workflow):
         'SplitIDs':         'DINGO.workflows.utils',
         'SplitIDsIterate':  'DINGO.workflows.utils',
         'FileIn':           'DINGO.workflows.utils',
-        'FileIn_SConfig':   'DINGO.workflows.utils',
+        'FileInSConfig':   'DINGO.workflows.utils',
         'FileOut':          'DINGO.workflows.utils',
         'DICE':             'DINGO.workflows.utils',
         'Reorient':         'DINGO.workflows.fsl',
@@ -343,8 +343,9 @@ class DINGO(pe.Workflow):
                            '["connect"]["{1}"] to json to set connection.'
                            .format(destkey, destfield, testsrckey))
                     raise Exception(msg)
-                elif testsrckey == 'Setup' or testsrckey == 'Config' or \
-                        testsrckey == self._inputsname:
+                elif (testsrckey == self._inputsname or
+                      testsrckey.lower() == 'setup' or
+                      testsrckey.lower() == 'config'):
                     srcobj = self.get_node(self._inputsname)
                 else:
                     # testsrckey is step that appears once, name!=step
