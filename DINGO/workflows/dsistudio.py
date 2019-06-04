@@ -5,13 +5,12 @@ from DINGO.interfaces.dsistudio import (DSIStudioSource,
                                         DSIStudioTrack,
                                         DSIStudioAnalysis,
                                         DSIStudioExport)
-from DINGO.utils import tobool
-from DINGO.workflows.utils import HelperFlow
+from DINGO.workflows.utils import (HelperFlow,
+                                   TRKnode,
+                                   TRKjoinnode)
 from nipype import (config, IdentityInterface, Function)
 from nipype.interfaces import fsl
 import nipype.pipeline.engine as pe
-from nipype.pipeline.engine.utils import _parameterization_dir
-from tempfile import mkdtemp
 
 
 class HelperDSI(HelperFlow):
@@ -123,40 +122,6 @@ class DSI_REC(DINGONode):
             **kwargs)
 
 
-class TRKnode(pe.Node):
-    """Replace extended iterable parameterization with simpler based on
-    just id and tract_name, not tract_inputs
-    """
-    @staticmethod
-    def tract_name_dir(param):
-        """Return a reduced parameterization for output directory"""
-        if '_tract_names' in param:
-            return param[param.index('_tract_names'):]
-        return param
-            
-    def output_dir(self):
-        """Return the location of the output directory with tract name, 
-        not tract inputs
-        Mostly the same as nipype.pipeline.engine.Node.output_dir"""
-        if self._output_dir:
-            return self._output_dir
-        
-        if self.base_dir is None:
-            self.base_dir = mkdtemp()
-        outputdir = self.base_dir
-        if self._hierarchy:
-            outputdir = os.path.join(outputdir, *self._hierarchy.split('.'))
-        if self.parameterization:
-            params_str = ['{}'.format(p) for p in self.parameterization]
-            params_str = [TRKnode.tract_name_dir(p) for p in params_str]
-            if not tobool(self.config['execution']['parameterize_dirs']):
-                params_str = [_parameterization_dir(p) for p in params_str]
-            outputdir = os.path.join(outputdir, *params_str)
-            
-        self._output_dir = os.path.abspath(os.path.join(outputdir, self.name))
-        return self._output_dir    
-
-
 class DSI_TRK(DINGOFlow):
     """Nipype wf to create a trk with fiber file and input parameters
     DSIStudioTrack.inputs will not seem to reflect the config until
@@ -251,7 +216,7 @@ class DSI_TRK(DINGOFlow):
         merge_roas = self.create_merge_roas(name='merge_roas')
 
         trknode = TRKnode(
-            name="trknode",
+            name='trknode',
             interface=DSIStudioTrack())
             
         self.connect([
@@ -430,7 +395,7 @@ class DSI_Merge(DINGOFlow):
             req_join = False
 
         if req_join:
-            inputnode = pe.JoinNode(
+            inputnode = TRKjoinnode(
                 name='inputnode',
                 interface=IdentityInterface(
                     fields=['tract_list',
@@ -441,7 +406,7 @@ class DSI_Merge(DINGOFlow):
                 joinsource=self.setup_inputs,
                 joinfield=['tract_list'])
         else:
-            inputnode = pe.Node(
+            inputnode = TRKnode(
                 name='inputnode',
                 interface=IdentityInterface(
                     fields=['tract_list',

@@ -138,7 +138,7 @@ class DINGO(pe.Workflow):
         'SplitIDs':         'DINGO.workflows.utils',
         'SplitIDsIterate':  'DINGO.workflows.utils',
         'FileIn':           'DINGO.workflows.utils',
-        'FileInSConfig':   'DINGO.workflows.utils',
+        'FileInSConfig':    'DINGO.workflows.utils',
         'FileOut':          'DINGO.workflows.utils',
         'DICE':             'DINGO.workflows.utils',
         'Reorient':         'DINGO.workflows.fsl',

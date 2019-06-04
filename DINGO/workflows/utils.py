@@ -1,9 +1,17 @@
 import os
-from DINGO.utils import (read_setup, split_chpid, join_strs)
-from DINGO.base import DINGO, DINGOFlow, DINGONode
-from nipype import IdentityInterface, Function
+from DINGO.utils import (read_setup,
+                         split_chpid,
+                         join_strs,
+                         tobool)
+from DINGO.base import (DINGO,
+                        DINGOFlow,
+                        DINGONode)
+from nipype import (IdentityInterface,
+                    Function)
 import nipype.pipeline.engine as pe
 import nipype.interfaces.io as nio
+from nipype.pipeline.engine.utils import _parameterization_dir
+from tempfile import mkdtemp
 
 
 class HelperFlow(DINGO):
@@ -29,6 +37,46 @@ class HelperFlow(DINGO):
             workflow_to_module=workflow_to_module,
             **kwargs
         )
+
+
+class TRKnode(pe.Node):
+    """Replace extended iterable parameterization with simpler based on
+    just id and tract_name, not tract_inputs
+    """
+
+    @staticmethod
+    def tract_name_dir(param):
+        """Return a reduced parameterization for output directory"""
+        if '_tract_names' in param:
+            return param[param.index('_tract_names'):]
+        return param
+
+    def output_dir(self):
+        """Return the location of the output directory with tract name,
+        not tract inputs
+        Mostly the same as nipype.pipeline.engine.Node.output_dir"""
+        if self._output_dir:
+            return self._output_dir
+
+        if self.base_dir is None:
+            self.base_dir = mkdtemp()
+        outputdir = self.base_dir
+        if self._hierarchy:
+            outputdir = os.path.join(outputdir, *self._hierarchy.split('.'))
+        if self.parameterization:
+            params_str = ['{}'.format(p) for p in self.parameterization]
+            params_str = [TRKnode.tract_name_dir(p) for p in params_str]
+            if not tobool(self.config['execution']['parameterize_dirs']):
+                params_str = [_parameterization_dir(p) for p in params_str]
+            outputdir = os.path.join(outputdir, *params_str)
+
+        self._output_dir = os.path.abspath(os.path.join(outputdir, self.name))
+        return self._output_dir
+
+
+class TRKjoinnode(pe.JoinNode, TRKnode):
+    def __init__(self, **kwargs):
+        super(TRKjoinnode, self).__init__(**kwargs)
 
 
 class DICE(DINGOFlow):
@@ -803,14 +851,13 @@ class FileOut(DINGOFlow):
             nodetype = pe.MapNode
             sinkargs.update(dict(iterfield=inputs['iterfield']))
         else:
-            nodetype = pe.Node
+            nodetype = TRKnode
         
         sink = nodetype(
             name='sink',
-            interface=nio.DataSink(infields=infields),
-            parameterization=False,
+            interface=nio.DataSink(infields=infields,
+                                   parameterization=False),
             **sinkargs)
-        sink.inputs.parameterization = False
         
         if 's2r' in inputs and inputs['s2r'] is not None:
             subs.inputs.s2r = inputs['s2r']
