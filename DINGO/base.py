@@ -353,7 +353,8 @@ class DINGO(pe.Workflow):
                         srckey = reverse_lookup(self.name2step, testsrckey)
                         srcobj = self.subflows[srckey]
                     except ValueError:
-                        print('destination_key: {}'.format(destkey))
+                        print('destination_key: {}, destination_field: {}'
+                              .format(destkey, destfield))
                         raise
 
                 self.make_connection(srcobj, srcfield, destobj, destfield)
