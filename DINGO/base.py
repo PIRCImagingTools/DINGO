@@ -93,7 +93,7 @@ class DINGONodeFlowBase(object):
         if connection_spec is not None:
             self.connection_spec.update(connection_spec)
             for k, v in connection_spec.items():
-                if v == '':
+                if not v:  # v is an empty list
                     del connection_spec[k]
 
 
