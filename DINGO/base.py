@@ -1,4 +1,5 @@
 import os
+import sys
 import smtplib
 from importlib import import_module
 from email.mime.text import MIMEText
@@ -555,4 +556,6 @@ class DINGO(pe.Workflow):
 
 
 if __name__ == '__main__':
-    DINGO()
+    print(sys.argv[1])
+    workflow = DINGO(sys.argv[1])
+    workflow.run()
