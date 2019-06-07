@@ -611,6 +611,7 @@ class TBSSPostReg(DINGOFlow):
                  inputs=dict(target='best',
                              mask_best=True,
                              estimate_skeleton=True,
+                             MNI_reg=True,
                              suffix='warp'),
                  **kwargs):
         
@@ -619,6 +620,8 @@ class TBSSPostReg(DINGOFlow):
             # other possibility is 'FMRIB58_FA_1mm.nii.gz'
         if 'estimate_skeleton' not in inputs:
             inputs.update(estimate_skeleton=True)
+        if 'MNI_reg' not in inputs:
+            inputs.update(MNI_reg=True)
         if 'suffix' not in inputs:
             inputs.update(suffix='inMNI_warp.nii.gz')
         
@@ -675,7 +678,7 @@ class TBSSPostReg(DINGOFlow):
 
         return best_index, best_id, best_mean, best_median
     
-    def create_find_best(self, name="find_best", mask=True):
+    def create_find_best(self, name="find_best", mask=True, reg=True):
         """Find best target for FA warps, to minimize mean deformation
 
         Parameters
@@ -737,9 +740,12 @@ class TBSSPostReg(DINGOFlow):
             ])
         
         # register best to MNI152
+        flirtopts = dict(dof=12)
+        if not reg:
+            flirtopts.update(no_search=True)
         best2mni = pe.Node(
             name='best2MNI',
-            interface=fsl.FLIRT(dof=12))
+            interface=fsl.FLIRT(**flirtopts))
         # Sometimes poor results for flirt when using the -inweight flag,
         # Perhaps particularly for low resolution images?
         # If mask is true (default), will use it
@@ -786,6 +792,7 @@ class TBSSPostReg(DINGOFlow):
                               estimate_skeleton=True,
                               suffix=None,
                               target='best',
+                              MNI_reg=True,
                               mask_best=True,
                               id_list=None,
                               fa_list=None,
@@ -888,7 +895,7 @@ class TBSSPostReg(DINGOFlow):
             
         if target == 'best':
             # Find best target that limits mean deformation, insert before applywarp
-            fb = self.create_find_best(name='find_best', mask=mask_best)
+            fb = self.create_find_best(name='find_best', mask=mask_best, reg=MNI_reg)
             
             rename2target = pe.MapNode(
                 name='rename2target',
