@@ -1172,48 +1172,55 @@ class DSIStudioTrackInputSpec(DSIStudioFiberInputSpec):
         10000000,
         argstr='--seed_count=%d',
         desc='max number of seeds, end criterion')
-    fa_threshold = traits.Float(
-        0.1,
-        argstr='--fa_threshold=%.4f',
-        position=4,
-        desc='fa theshold or qa threshold depending on rec method')
-    threshold_index = traits.Str(
-        argstr='--threshold_index=%s',
-        requires=['fa_threshold'], 
-        desc='assign threshold to another index')
     otsu_threshold = traits.Float(
         0.6,
         argstr='--otsu_threshold=%.4f',
         desc='Otsu threshold ratio, default 0.6, will not apply if fa '
              'threshold specified')
+    fa_threshold = traits.Float(
+        0.1,
+        argstr='--fa_threshold=%.4f',
+        position=4,
+        desc='fa theshold or qa threshold depending on rec method')
+    dt_threshold = traits.Float(
+        0.0,
+        argstr='--dt_threshold=%.4f',
+        desc='percent change')
+    threshold_index = traits.Str(
+        argstr='--threshold_index=%s',
+        requires=['fa_threshold'], 
+        desc='assign threshold to another index')
     initial_dir = traits.Enum(
         0, 1, 2,
         argstr='--initial_dir=%d',
         desc='initial propagation direction, 0:primary fiber (default),'
              '1:random, 2:all fiber orientations')
-    seed_plan = traits.Enum(
-        0, 1,
-        argstr='--seed_plan=%d',
-        desc='seeding strategy, 0:subvoxel random(default), 1:voxelwise center')
     interpolation = traits.Enum(
         0, 1, 2,
         argstr='--interpolation=%d',
         desc='interpolation method, 0:trilinear, 1:gaussian radial, '
              '2:nearest neighbor')
-    thread_count = traits.Int(
-        2,
-        argstr='--thread_count=%d',
-        desc='Assign number of threads to use')
+    seed_plan = traits.Enum(
+        0, 1,
+        argstr='--seed_plan=%d',
+        desc='seeding strategy, 0:subvoxel random(default), 1:voxelwise center')
     random_seed = traits.Enum(
         0, 1,
         argstr='--random_seed=%d',
         desc='whether a timer is used to generate seed points, default is off')
-    step_size = traits.Float(
-        1.00,
-        usedefault=True, 
-        argstr='--step_size=%.2f', 
-        position=8,
-        desc='moving distance in each tracking interval, default 1 mm')
+    check_ending = traits.Enum(
+        0, 1,
+        argstr='--check_ending=%d',
+        desc='whether to check streamline endings, default is off')
+    tip_iteration = traits.Int(
+        0,
+        usedefault=True,
+        argstr='--tip_iteration=%d',
+        desc='number of iterations for topology informed pruning, default 0')
+    thread_count = traits.Int(
+        2,
+        argstr='--thread_count=%d',
+        desc='Assign number of threads to use')
     turning_angle = traits.Int(
         60,
         argstr='--turning_angle=%d', 
@@ -1222,6 +1229,12 @@ class DSIStudioTrackInputSpec(DSIStudioFiberInputSpec):
     # listed on website, but didn't seem to be in code, and I don't know
     # what it's supposed to do - leaving out should get default regardless
     # interpo_angle = traits.Int(60, argstr='--interpo_angle=%d', desc='')
+    step_size = traits.Float(
+        1.00,
+        usedefault=True, 
+        argstr='--step_size=%.2f', 
+        position=8,
+        desc='moving distance in each tracking interval, default 1 mm')
     smoothing = traits.Float(
         0.00,
         usedefault=True, 
