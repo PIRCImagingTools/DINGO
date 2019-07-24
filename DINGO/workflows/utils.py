@@ -167,16 +167,21 @@ class DICE(DINGOFlow):
         ])
 
     def get_tracts(tract_name, tract_list_a, tract_list_b):
-        """Takes a list of tract file strings and single tract name, returns
-        the matching tract from list
+        """Takes two lists of tract file strings and single tract name, returns
+        the matching tract from each list
 
-        tract_list = ['path/to/..._tract_name0.trk...',
-                      '/path/to/tract_name1.trk...']
+        tract_list_a = ['/path/to/tract_name0...',
+                      '/path/to/tract_name1...']
+        tract_list_b = ['/otherpath/to/..._tract_name1...',
+                      '/otherpath/to/..._tract_name2...']
         tract_name = 'tract_name1'
-        tract = get_tract(tract_list, tract_name)
-        tract -> '/path/to/tract_name1.trk...'
+        tract_a, tract_b = get_tracts(tract_name, tract_list_a, tract_list_b)
+        tract_a <- '/path/to/tract_name1...'
+        tract_b <- '/otherpath/to/..._tract_name1...'
         
-        Will raise if tract not matched, or more than one match.
+        Will raise if more than one match.
+        If no match from one list, will return an image with zeros.
+        If no match from either list, will return two images with ones.
         """
         import re
         import os
