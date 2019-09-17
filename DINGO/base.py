@@ -557,5 +557,24 @@ class DINGO(pe.Workflow):
 
 if __name__ == '__main__':
     print(sys.argv[1])
+    run_args = dict()
+    if 'plugin' in sys.argv:
+        plugin = sys.argv[sys.argv.index('plugin')+1]
+    else:
+        plugin = 'Linear'
+    run_args.update(plugin=plugin)
+    if 'plugin_args' in sys.argv:
+        plugin_args_k = sys.argv[sys.argv.index('plugin_args')+1::2]
+        plugin_args_v = sys.argv[sys.argv.index('plugin_args')+2::2]
+        print(len(plugin_args_k))
+        print(len(plugin_args_v))
+        if len(plugin_args_k) == len(plugin_args_v):
+            plugin_args = dict()
+            for i in range(0, len(plugin_args_k)):
+                plugin_args.update({plugin_args_k[i]: plugin_args_v[i]})
+        else:
+            raise(SyntaxError('Number of plugin_args keys does not match number'
+                              ' of plugin_args values'))
+        run_args.update(plugin_args=plugin_args)
     workflow = DINGO(sys.argv[1])
-    workflow.run()
+    workflow.run(**run_args)
