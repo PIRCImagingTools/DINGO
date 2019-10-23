@@ -81,19 +81,19 @@ class TRKjoinnode(pe.JoinNode, TRKnode):
 
 class DICE(DINGOFlow):
     """Nipype node to output dice image and coefficient for lists of niftis
-    
+
     Inputs
     ------
-    inputnode.nii_list_A
-    inputnode.nii_list_B
-    inputnode.tract_names - so that nifti lists don't have to be guaranteed to 
+    inputnode.nii_list_a
+    inputnode.nii_list_b
+    inputnode.tract_names - so that nifti lists don't have to be guaranteed to
         match this parameter is used to search the filename and pass match on
     inputnode.sub_id
     inputnode.scan_id
     inputnode.uid
     inputnode.template - filename template
     inputnode.template_args - arguments to format filename template
-    
+
     Outputs
     -------
     dicenode.dice
@@ -103,39 +103,42 @@ class DICE(DINGOFlow):
     inputnode = 'inputnode'
     outputnode = 'dicenode'
     connection_spec = {
-        'sub_id':   ['SplitIDs', 'sub_id'],
-        'scan_id':  ['SplitIDs', 'scan_id'],
-        'uid':      ['SplitIDs', 'uid']
+        'sub_id': ['SplitIDs', 'sub_id'],
+        'scan_id': ['SplitIDs', 'scan_id'],
+        'uid': ['SplitIDs', 'uid']
     }
-    
+
     def __init__(self, name='DICE', inputs=None, **kwargs):
         super(DICE, self).__init__(name=name, **kwargs)
 
+        input_fields = ['nii_list_a', 'nii_list_b', 'tract_names',
+                        'sub_id', 'scan_id', 'uid',
+                        'template', 'template_args']
         input_iters = ('tract_names', inputs['tract_names'])
-        
+
         inputnode = pe.Node(
             name='inputnode',
-            interface=IdentityInterface(fields=[elt for elt in inputs]),
+            interface=IdentityInterface(fields=input_fields),
             iterables=input_iters)
-            
+
         for elt in inputs:
             if elt is not None:
                 setattr(inputnode.inputs, elt, inputs[elt])
-        
+
         get_tracts = pe.Node(
             name='get_tracts',
             interface=Function(
                 input_names=['tract_name', 'tract_list_a', 'tract_list_b'],
                 output_names=['tract_a', 'tract_b'],
                 function=self.get_tracts))
-        
+
         dicenode = pe.Node(
             name='dicenode',
             interface=Function(
                 input_names=['nii_a', 'nii_b', 'output_bn'],
-                output_names=['img', 'coef'],
+                output_names=['dice', 'coef_file', 'img'],
                 function=self.dice_coef))
-        
+
         create_bn = pe.Node(
             name='create_bn',
             interface=Function(
@@ -145,7 +148,7 @@ class DICE(DINGOFlow):
                              'subid', 'scanid', 'uid'],
                 output_names=['file'],
                 function=self.create_basename))
-                
+
         # Connect
         self.connect([
             (inputnode, get_tracts, [
@@ -155,7 +158,7 @@ class DICE(DINGOFlow):
             (inputnode, create_bn, [
                 ('template', 'template'),
                 ('template_args', 'template_args'),
-                ('tract_name', 'tract_name'),
+                ('tract_names', 'tract_name'),
                 ('sub_id', 'subid'),
                 ('scan_id', 'scanid'),
                 ('uid', 'uid')]),
@@ -178,7 +181,7 @@ class DICE(DINGOFlow):
         tract_a, tract_b = get_tracts(tract_name, tract_list_a, tract_list_b)
         tract_a <- '/path/to/tract_name1...'
         tract_b <- '/otherpath/to/..._tract_name1...'
-        
+
         Will raise if more than one match.
         If no match from one list, will return an image with zeros.
         If no match from either list, will return two images with ones.
@@ -212,29 +215,33 @@ class DICE(DINGOFlow):
         if tract_a is None and tract_b is not None:
             img_b = load_image(tract_b)
             new_img = Image(np.zeros(img_b.shape), img_b.coordmap)
-            tract_a = save_image(new_img, os.path.join(os.getcwd(), 'empty_a'))
+            tract_a = os.path.join(os.getcwd(), 'empty_a.nii')
+            _ = save_image(new_img, tract_a)
         elif tract_a is not None and tract_b is None:
             img_a = load_image(tract_a)
             new_img = Image(np.zeros(img_a.shape), img_a.coordmap)
-            tract_b = save_image(new_img, os.path.join(os.getcwd(), 'empty_b'))
-        else:
+            tract_b = os.path.join(os.getcwd(), 'empty_b.nii')
+            _ = save_image(new_img, tract_b)
+        elif tract_a is None and tract_b is None:
             test_img = load_image(anatfile)
             full_img = Image(np.ones(test_img.shape), test_img.coordmap)
-            tract_a = save_image(full_img, os.path.join(os.getcwd(), 'empty_a'))
-            tract_b = save_image(full_img, os.path.join(os.getcwd(), 'empty_b'))
+            tract_a = os.path.join(os.getcwd(), 'empty_a.nii')
+            _ = save_image(full_img, tract_a)
+            tract_b = os.path.join(os.getcwd(), 'empty_b.nii')
+            _ = save_image(full_img, tract_b)
         return tract_a, tract_b
-    
+
     def create_basename(template=None,
                         template_args=None,
                         **kwargs):
         """Takes a template string and template_args, returns formatted string.
-        
+
         Parameters
         ------
         template        :   Str - format string, default 'DICE_{0}_{1}_{2}_{3}.txt'
         template_args   :   Seq - input arguments for formatting,
                              default: ('tract_name', 'subid', 'scanid', uid')
-        
+
         Returns
         -------
         basename        :   Str - formatted string
@@ -242,7 +249,7 @@ class DICE(DINGOFlow):
         """
         from nipype.interfaces.base import isdefined
         if not isdefined(template) or template is None:
-            template = 'DICE_{0}_{1}_{2}_{3}.txt'
+            template = 'DICE_{0}_{1}_{2}_{3}'
         if not isdefined(template_args) or template_args is None:
             template_args = ('tract_name',
                              'subid',
@@ -255,10 +262,10 @@ class DICE(DINGOFlow):
         """
         Dice Coefficient:
             D = 2*(A == B)/(A)+(B)
-        
+
         Input is two binary masks in the same 3D space
         NII format
-        
+
         Output is a DICE score and overlap image
         """
         # imports in function for nipype
@@ -266,7 +273,7 @@ class DICE(DINGOFlow):
         import numpy as np
         from nipy.core.api import Image
         import os
-        
+
         image_a = load_image(nii_a)
         data_a = image_a.get_data()
         sum_a = np.sum(data_a)
@@ -275,26 +282,26 @@ class DICE(DINGOFlow):
         image_b = load_image(nii_b)
         data_b = image_b.get_data()
         sum_b = np.sum(data_b)
-        
+
         overlap = data_a + data_b
         intersect = overlap[np.where(overlap == 2)].sum()
-        
-        dice = intersect/(sum_a + sum_b)
-        
+
+        dice = np.true_divide(intersect, (sum_a + sum_b))
+
         def save_nii(data, coord, save_file):
             save_path = os.path.join(os.getcwd(), save_file)
             arr_img = Image(data, coord)
             img = save_image(arr_img, save_path)
-            return img
-            
-        def save_txt(dice, save_file_bn):
-            save_file = os.path.join(os.getcwd(), save_file_bn)
-            with open(save_file, 'w') as f:
+            return save_path
+
+        def save_txt(dice, save_file):
+            save_path = os.path.join(os.getcwd(), save_file)
+            with open(save_path, 'w') as f:
                 f.write('{0}'.format(dice))
-            return save_file
-        
-        img = save_nii(overlap, coord, output_bn)
-        coef_file = save_txt(dice, output_bn)
+            return save_path
+
+        img = save_nii(overlap, coord, ''.join((output_bn, '.nii')))
+        coef_file = save_txt(dice, ''.join((output_bn, '.txt')))
         return dice, coef_file, img
 
 

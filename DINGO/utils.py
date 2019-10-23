@@ -28,8 +28,8 @@ def dice_coef(nii_a, nii_b):
     overlap = data_a + data_b
     intersect = overlap[np.where(overlap == 2)].sum()
     
-    dice = intersect / (sum_a + sum_b)
-    
+    dice = np.true_divide(intersect, (sum_a + sum_b))
+
     return dice
 
 
