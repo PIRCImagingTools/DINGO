@@ -262,9 +262,10 @@ class DINGO(pe.Workflow):
                 new_class = dingo_node_factory(name=name,
                                                interface=obj,
                                                **self.input_params[name])
-                if 'engine_type' in self.input_params:
-                    del self.input_params['engine_type']
+                if 'engine_type' in self.input_params[name]:
+                    del self.input_params[name]['engine_type']
                 check_for = dict(
+                    engine_type=(str, unicode),
                     iterables=(tuple, list),
                     itersource=tuple,
                     synchronize=bool,
@@ -276,10 +277,9 @@ class DINGO(pe.Workflow):
                 )
                 kwargs = dict(name=name)
                 for special_key in check_for.keys():
-                    if special_key in self.input_params:
-                        kwargs.update({special_key: self.input_params[special_key]})
-                        del self.input_params[special_key]
-
+                    if special_key in self.input_params[name]:
+                        kwargs.update({special_key: self.input_params[name][special_key]})
+                        del self.input_params[name][special_key]
                 self.subflows[name] = new_class(interface=obj(**self.input_params[name]), **kwargs)
             else:
                 self.subflows[name] = obj(name=name,
