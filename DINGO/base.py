@@ -221,7 +221,7 @@ class DINGO(pe.Workflow):
                                 fields=kwargs.keys()))
             iterable_list = []
 
-        for k, v in kwargs.iteritems():
+        for k, v in kwargs.items():
             setattr(setup.inputs, k, v)
             if isinstance(v, list) and k != 'steps':
                 for elt in iterable_list:
@@ -251,7 +251,7 @@ class DINGO(pe.Workflow):
         add subwf to self.subflows[subwfname]
         """
         setup = self.get_node(self._inputsname)
-        for paramkey, paramval in self.input_params[name].iteritems():
+        for paramkey, paramval in self.input_params[name].items():
             if isinstance(paramval, (str, unicode)) and \
                     hasattr(setup.inputs, paramval):
                 setup_val = getattr(setup.inputs, paramval)
