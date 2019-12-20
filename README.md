@@ -6,13 +6,21 @@ This is an extension of nipype used to conduct analysis of diffusion MRI data in
 
 ## Install
 ### Requirements
+ - [Docker](https://www.docker.com/)
  - [Nipype](http://nipy.org/packages/nipype/index.html)
  - [FSL](https://fsl.fmrib.ox.ac.uk/fsl/fslwiki/)
  - [DSI Studio](http://dsi-studio.labsolver.org/)
 
-### Install
-1) [Download](https://github.com/PIRCImagingTools/DINGO/archive/master.zip) and extract the repository.
-2) Add the DINGO directory to your python path (by adding /path/to/DINGO to your PYTHONPATH environment variable or a new line in a .pth file in your site-packages directory)
+### Docker Install
+1) [Download](https://pitt.box.com/s/3tbmknwhbj8x55dv4yq7nwexy560iqg3) the image.
+2) docker load -i /path/to/dingo_dsi-feb2019.tar
+3) On Linux for convenient use add the following to ~/.bashrc
+   - function DINGO { docker run -it --rm --user=$UID:$UID -v /tmp/.X11-unix:/tmp/.X11-unix:ro -e DISPLAY=$DISPLAY -v $(pwd):/data dingo:dsi-feb2019 "$@"; }
+
+### Non-Docker Install
+1) Install Nipype, FSL, DSI Studio.
+2) [Download](https://github.com/PIRCImagingTools/DINGO/archive/master.zip) and extract the repository.
+3) Add the DINGO directory to your python path (by adding /path/to/DINGO to your PYTHONPATH environment variable or a new line in a .pth file in your site-packages directory)
 
 ## Config Setup
 An analysis config specifies the workflow to be created. Several examples can be found in [res](https://github.com/PIRCImagingTools/DINGO/tree/master/res).
@@ -37,8 +45,19 @@ An analysis config specifies the workflow to be created. Several examples can be
 
 
 ## Usage
+### Docker Usage
 ```
+DINGO run /data/path/to/config.json
+```
+
+### Non-Docker Usage
+```
+python
 from DINGO.base import DINGO
 aworkflow = DINGO('/path/to/config.json')
 aworkflow.run()
+```
+OR
+```
+python /path/to/DINGO/DINGO/base.py /path/to/config.json
 ```
