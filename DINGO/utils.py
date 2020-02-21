@@ -411,13 +411,18 @@ def add_id_subs(input_id=None, subs=None):
 def byteify(data, ignore_dicts=False):
     if isinstance(data, unicode):
         return data.encode('utf-8')
+    if isinstance(data, tuple):
+        return tuple(byteify(item, ignore_dicts=True) for item in data)
     if isinstance(data, list):
         return [byteify(item, ignore_dicts=True) for item in data]
     if isinstance(data, dict) and not ignore_dicts:
-        return {
-            byteify(key, ignore_dicts=True): byteify(value, ignore_dicts=True)
-            for key, value in data.iteritems()
-        }
+        if '__tuple__' in data.keys():
+            return tuple(byteify(data['items']))
+        else:
+            return {
+                byteify(key, ignore_dicts=True): byteify(value, ignore_dicts=True)
+                for key, value in data.iteritems()
+            }
     return data
 
 
