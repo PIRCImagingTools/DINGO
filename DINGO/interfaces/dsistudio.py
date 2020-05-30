@@ -427,7 +427,7 @@ class DSIStudioFiberInputSpec(DSIStudioInputSpec):
         desc='action codes to modify ends regions, list for each end')
     ter = InputMultiPath(
         File(exists=True),
-        argstr='--ter=%s',
+        argstr='--ter%s=%s',
         desc='terminates any track that enters this region, '
              'txt, analyze, or nifti')
     ter_actions = traits.List(
