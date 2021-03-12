@@ -1,0 +1,945 @@
+{
+  "name": "Processing",
+  "email": {
+    "server": "smtp.gmail.com:587",
+    "login": "myemail@gmail.com",
+    "pw": "mypassword",
+    "fromaddr": "myemail@gmail.com",
+    "toaddr": "myemail@gmail.com"
+  },
+  "data_dir": "/home/user/path/to/Parent_Directory",
+  "included_ids": [
+    "patient1_scan1_unique1",
+    "patient1_scan1_unique2",
+    "patient1_scan2_unique1",
+    "patient2_scan2_unique2"
+  ],
+  "steps": [
+    "SplitIDs",
+    [
+      "FileIn_dti_bval_bvec",
+      "FileIn"
+    ],
+    [
+      "FileIn_fa_md_ad_rd",
+      "FileIn"
+    ],
+    [
+      "FileIn_standard_fa_regions",
+      "FileIn"
+    ],
+    [
+      "Reorient2Std",
+      "Reorient"
+    ],
+    [
+      "EddyCorrect",
+      "EddyC"
+    ],
+    [
+      "GenBrainMask",
+      "BET"
+    ],
+    [
+      "GenSrcFile",
+      "DSI_SRC"
+    ],
+    [
+      "ErodeBrainMask",
+      "REC_prep"
+    ],
+    [
+      "GenDTIReconstruction",
+      "DSI_REC"
+    ],
+    [
+      "Export_fa_md_ad_rd",
+      "DSI_EXP"
+    ],
+    [
+      "SplitDSI_fa_md_ad_rd",
+      "nipype.interfaces.utility.base.Split"
+    ],
+    "TBSSPreReg",
+    "TBSSRegNXN",
+    "TBSSPostReg",
+    [
+      "Template2Standard",
+      "DINGO.interfaces.ants_ext.ANTS"
+    ],
+    [
+      "Merge_T2S_Warp_Affine",
+      "nipype.interfaces.utility.base.Merge"
+    ],
+    [
+      "Merge_T2S_Affine_InvWarp",
+      "nipype.interfaces.utility.base.Merge"
+    ],
+    [
+      "StandardRegions2Template",
+      "nipype.interfaces.ants.resampling.WarpImageMultiTransform"
+    ],
+    [
+      "Individual2Template",
+      "DINGO.interfaces.ants_ext.ANTS"
+    ],
+    [
+      "Merge_I2T_Warp_Affine",
+      "nipype.interfaces.utility.base.Merge"
+    ],
+    [
+      "Merge_I2T_Affine_InvWarp",
+      "nipype.interfaces.utility.base.Merge"
+    ],
+    [
+      "TemplateRegions2Individual",
+      "nipype.interfaces.ants.resampling.WarpImageMultiTransform"
+    ],
+    "DSI_TRK",
+    [
+      "Merge_SLFAP",
+      "DSI_Merge"
+    ],
+    [
+      "GenSLFStats",
+      "DSI_ANA"
+    ],
+    [
+      "MergeAllTracts",
+      "nipype.interfaces.utility.base.Merge"
+    ],
+    [
+      "ConvertTRK2NII",
+      "DSI_ANA"
+    ],
+    [
+      "TractNii2Template",
+      "nipype.interfaces.ants.resampling.WarpImageMultiTransform"
+    ],
+    [
+      "IndividualFA2Template",
+      "nipype.interfaces.ants.resampling.WarpImageMultiTransform"
+    ],
+    [
+      "IndividualMD2Template",
+      "nipype.interfaces.ants.resampling.WarpImageMultiTransform"
+    ],
+    [
+      "IndividualAD2Template",
+      "nipype.interfaces.ants.resampling.WarpImageMultiTransform"
+    ],
+    [
+      "IndividualRD2Template",
+      "nipype.interfaces.ants.resampling.WarpImageMultiTransform"
+    ]
+  ],
+  "method": {
+    "SplitIDs": {
+      "inputs": {
+        "id_sep": "_"
+      },
+      "connect": {
+        "psid": [
+          "Config",
+          "included_ids"
+        ]
+      }
+    },
+    "FileIn_dti_bval_bvec": {
+      "inputs": {
+        "base_directory": "data_dir",
+        "outfields": [
+          "dti",
+          "bval",
+          "bvec"
+        ],
+        "field_template": {
+          "dti": "%s/%s/%s_%s_%s.nii.gz",
+          "bval": "%s/%s/%s_%s_%s.bval",
+          "bvec": "%s/%s/%s_%s_%s.bvec"
+        },
+        "template_args": {
+          "dti": [
+            [
+              "sub_id",
+              "scan_id",
+              "sub_id",
+              "scan_id",
+              "uid"
+            ]
+          ],
+          "bval": [
+            [
+              "sub_id",
+              "scan_id",
+              "sub_id",
+              "scan_id",
+              "uid"
+            ]
+          ],
+          "bvec": [
+            [
+              "sub_id",
+              "scan_id",
+              "sub_id",
+              "scan_id",
+              "uid"
+            ]
+          ]
+        }
+      }
+    },
+    "FileIn_standard_fa_regions": {
+      "inputs": {
+        "base_directory": "data_dir",
+        "outfields": [
+          "standard_fa",
+          "standard_regions"
+        ],
+        "field_template": {
+          "standard_fa": "Standard/FMRIB58_FA_1mm.nii.gz",
+          "standard_regions": "Standard/Regions/*.nii.gz"
+        },
+        "template_args": {
+          "standard_fa": [
+            []
+          ],
+          "standard_regions": [
+            []
+          ]
+        }
+      }
+    },
+    "Reorient2Std": {
+      "connect": {
+        "in_file": [
+          "FileIn_dti_bval_bvec",
+          "dti"
+        ]
+      }
+    },
+    "EddyCorrect": {
+      "inputs": {
+        "ref_num": 0
+      },
+      "connect": {
+        "in_file": [
+          "Reorient",
+          "out_file"
+        ]
+      }
+    },
+    "GenBrainMask": {
+      "inputs": {
+        "robust": true,
+        "mask": true
+      },
+      "connect": {
+        "in_file": [
+          "EddyC",
+          "eddy_corrected"
+        ]
+      }
+    },
+    "GenSrcFile": {
+      "connect": {
+        "source": [
+          "FileIn_dti_bval_bvec",
+          "dti"
+        ],
+        "bval": [
+          "FileIn_dti_bval_bvec",
+          "bval"
+        ],
+        "bvec": [
+          "FileIn_dti_bval_bvec",
+          "bvec"
+        ]
+      }
+    },
+    "ErodeBrainMask": {
+      "connect": {
+        "in_file": [
+          "GenBrainMask",
+          "mask_file"
+        ]
+      }
+    },
+    "GenDTIReconstruction": {
+      "inputs": {
+        "method": "dti",
+        "output_dif": 1,
+        "output_tensor": 0,
+        "check_btable": 1,
+        "motion_corr": 1
+      },
+      "connect": {
+        "source": [
+          "GenSrcFile",
+          "output"
+        ],
+        "mask": [
+          "ErodeBrainMask",
+          "out_file"
+        ]
+      }
+    },
+    "Export_fa_md_ad_rd": {
+      "inputs": {
+        "export": [
+          "fa0",
+          "md",
+          "ad",
+          "rd"
+        ],
+        "output_type": "NIFTI"
+      },
+      "connect": {
+        "source": [
+          "GenDTIReconstruction",
+          "fiber_file"
+        ]
+      }
+    },
+    "SplitDSI_fa_md_ad_rd": {
+      "inputs": {
+        "splits": [
+          1,
+          1,
+          1,
+          1
+        ],
+        "squeeze": true
+      },
+      "connect": {
+        "in_list": [
+          "Export_fa_md_ad_rd",
+          "export"
+        ]
+      }
+    },
+    "TBSSPreReg": {
+      "connect": {
+        "fa_list": [
+          "SplitDSI_fa_md_ad_rd",
+          "out1"
+        ]
+      }
+    },
+    "TBSSRegNXN": {
+      "inputs": {
+        "id_list": "included_ids",
+        "n_procs": 7,
+        "memory_gb": 10
+      }
+    },
+    "TBSSPostReg": {
+      "inputs": {
+        "id_list": "included_ids",
+        "mask_best": false
+      }
+    },
+    "Template2Standard": {
+      "inputs": {
+        "transformation_model": "SyN",
+        "output_transform_prefix": "ANTS_OUT_",
+        "dimension": 3,
+        "metric": [
+          "CC"
+        ],
+        "metric_weight": [
+          1
+        ],
+        "number_of_iterations": [
+          50,
+          50,
+          50,
+          50
+        ],
+        "regularization": "Gauss",
+        "regularization_gradient_field_sigma": 0,
+        "regularization_deformation_field_sigma": 3,
+        "gradient_step_length": 25,
+        "number_of_time_steps": 3,
+        "delta_time": 0.05,
+        "radius": [
+          5
+        ]
+      },
+      "connect": {
+        "fixed_image": [
+          "FileIn_standard_fa_regions",
+          "standard_fa"
+        ],
+        "moving_image": [
+          "TBSSPostReg",
+          "meanfa_file"
+        ]
+      }
+    },
+    "Merge_T2S_Affine_InvWarp": {
+      "inputs": {
+        "numinputs": 2
+      },
+      "connect": {
+        "in1": [
+          "Template2Standard",
+          "affine_transform"
+        ],
+        "in2": [
+          "Template2Standard",
+          "inverse_warp_transform"
+        ]
+      }
+    },
+    "Merge_T2S_Warp_Affine": {
+      "inputs": {
+        "numinputs": 2
+      },
+      "connect": {
+        "in1": [
+          "Template2Standard",
+          "warp_transform"
+        ],
+        "in2": [
+          "Template2Standard",
+          "affine_transform"
+        ]
+      }
+    },
+    "StandardRegions2Template": {
+      "inputs": {
+        "engine_type": "MapNode",
+        "iterfield": "input_image",
+        "invert_affine": [
+          1
+        ],
+        "use_nearest": true
+      },
+      "connect": {
+        "input_image": [
+          "FileIn_standard_fa_regions",
+          "regions"
+        ],
+        "reference_image": [
+          "TBSSPostReg",
+          "meanfa_file"
+        ],
+        "transformation_series": [
+          "Merge_T2S_Affine_InvWarp",
+          "out"
+        ]
+      }
+    },
+    "Individual2Template": {
+      "inputs": {
+        "transformation_model": "SyN",
+        "output_transform_prefix": "ANTS_OUT_",
+        "dimension": 3,
+        "metric": [
+          "CC"
+        ],
+        "metric_weight": [
+          1
+        ],
+        "number_of_iterations": [
+          50,
+          50,
+          50,
+          50
+        ],
+        "regularization": "Gauss",
+        "regularization_gradient_field_sigma": 0,
+        "regularization_deformation_field_sigma": 3,
+        "gradient_step_length": 25,
+        "number_of_time_steps": 3,
+        "delta_time": 0.05,
+        "radius": [
+          5
+        ]
+      },
+      "connect": {
+        "fixed_image": [
+          "TBSSPostReg",
+          "meanfa_file"
+        ],
+        "moving_image": [
+          "SplitDSI_fa_md_ad_rd",
+          "out1"
+        ]
+      }
+    },
+    "Merge_I2T_Affine_InvWarp": {
+      "inputs": {
+        "numinputs": 2
+      },
+      "connect": {
+        "in1": [
+          "Individual2Template",
+          "affine_transform"
+        ],
+        "in2": [
+          "Individual2Template",
+          "inverse_warp_transform"
+        ]
+      }
+    },
+    "Merge_I2T_Warp_Affine": {
+      "inputs": {
+        "numinputs": 2
+      },
+      "connect": {
+        "in1": [
+          "Individual2Template",
+          "warp_transform"
+        ],
+        "in2": [
+          "Individual2Template",
+          "affine_transform"
+        ]
+      }
+    },
+    "TemplateRegions2Individual": {
+      "inputs": {
+        "engine_type": "MapNode",
+        "iterfield": "input_image",
+        "invert_affine": [
+          1
+        ],
+        "use_nearest": true
+      },
+      "connect": {
+        "input_image": [
+          "StandardRegions2Template",
+          "output_image"
+        ],
+        "reference_image": [
+          "SplitDSI_fa_md_ad_rd",
+          "out1"
+        ],
+        "transformation_series": [
+          "Merge_I2T_Affine_InvWarp",
+          "out"
+        ]
+      }
+    },
+    "DSI_TRK": {
+      "connect": {
+        "fib_file": [
+          "GenDTIReconstruction",
+          "fiber_file"
+        ],
+        "regions": [
+          "TemplateRegions2Individual",
+          "output_image"
+        ]
+      },
+      "inputs": {
+        "output_type": "TRK",
+        "export_stat": true,
+        "fa_threshold": 0.1,
+        "turning_angle": 45,
+        "fiber_count": 5000,
+        "seed_count": 10000000,
+        "thread_count": 7,
+        "tracts": {
+          "Genu": {
+            "rois": [
+              "Genu",
+              "Sagittal_L",
+              "Sagittal_R"
+            ],
+            "roas": [
+              "PosteriorGenu",
+              "InternalCapsule_L",
+              "InternalCapsule_R"
+            ]
+          },
+          "CCBody": {
+            "rois": [
+              "CCBody",
+              "Sagittal_L",
+              "Sagittal_R"
+            ],
+            "roas": [
+              "ArcuateAxial_L",
+              "ArcuateAxial_R",
+              "ArcuateROA",
+              "BodyCingulumROA",
+              "BodyFornixROA",
+              "CapsuleMerge_L",
+              "CapsuleMerge_R",
+              "Midbody"
+            ]
+          },
+          "Splenium": {
+            "rois": [
+              "Splenium",
+              "Sagittal_L",
+              "Sagittal_R"
+            ],
+            "roas": [
+              "ArcuateCoronal_L",
+              "ArcuateCoronal_R",
+              "FornixBody",
+              "FornixCrura",
+              "Midbody",
+              "SFG_L",
+              "SFG_R",
+              "TemporalCoronal_L",
+              "TemporalCoronal_R"
+            ]
+          },
+          "IFOF_L": {
+            "rois": [
+              "InferiorOccipital_L",
+              "TemporalCoronal_L"
+            ],
+            "roas": [
+              "AnteriorGenuFrontal",
+              "ArcuateCoronal_L",
+              "Cerebellum_L",
+              "Cerebellum_R",
+              "FornixBody",
+              "FornixCrura",
+              "ExternalCapsule_L",
+              "Midbody",
+              "SagittalROA",
+              "UncinateCoronal_L",
+              "UncinateAxial_L"
+            ]
+          },
+          "IFOF_R": {
+            "rois": [
+              "InferiorOccipital_R",
+              "TemporalCoronal_R"
+            ],
+            "roas": [
+              "AnteriorGenuFrontal",
+              "ArcuateCoronal_R",
+              "Cerebellum_L",
+              "Cerebellum_R",
+              "FornixBody",
+              "FornixCrura",
+              "ExternalCapsule_R",
+              "Midbody",
+              "SagittalROA",
+              "UncinateCoronal_R",
+              "UncinateAxial_R"
+            ]
+          },
+          "FOF_L": {
+            "rois": [
+              "PosteriorCingulum",
+              "TemporalCoronal_L",
+              "UncinateCoronal_L"
+            ],
+            "roas": [
+              "AnteriorGenuFrontal",
+              "ArcuateCoronal_L",
+              "Cerebellum_L",
+              "Cerebellum_R",
+              "FornixBody",
+              "FornixCrura",
+              "ExternalCapsule_L",
+              "Midbody",
+              "SagittalROA"
+            ]
+          },
+          "FOF_R": {
+            "rois": [
+              "PosteriorCingulum",
+              "TemporalCoronal_R",
+              "UncinateCoronal_R"
+            ],
+            "roas": [
+              "AnteriorGenuFrontal",
+              "ArcuateCoronal_R",
+              "Cerebellum_L",
+              "Cerebellum_R",
+              "FornixBody",
+              "FornixCrura",
+              "ExternalCapsule_R",
+              "Midbody",
+              "SagittalROA"
+            ]
+          },
+          "SLFA_L": {
+            "rois": [
+              "ArcuateCoronal_L",
+              "PosteriorGenu"
+            ],
+            "roas": [
+              "ArcuateAxial_L",
+              "ArcuateROA",
+              "ExternalCapsule_L",
+              "InternalCapsule_L",
+              "Midbody",
+              "PosteriorCingulum",
+              "SagittalROA",
+              "TemporalCoronal_L"
+            ]
+          },
+          "SLFP_L": {
+            "rois": [
+              "ArcuateCoronal_L",
+              "PosteriorCingulum"
+            ],
+            "roas": [
+              "ArcuateROA",
+              "ExternalCapsule_L",
+              "InternalCapsule_L",
+              "InferiorOccipital_L",
+              "Midbody",
+              "SagittalROA",
+              "TemporalCoronal_L"
+            ]
+          },
+          "SLFA_R": {
+            "rois": [
+              "ArcuateCoronal_R",
+              "PosteriorGenu"
+            ],
+            "roas": [
+              "ArcuateAxial_R",
+              "ArcuateROA",
+              "ExternalCapsule_R",
+              "InternalCapsule_R",
+              "Midbody",
+              "PosteriorCingulum",
+              "SagittalROA",
+              "TemporalCoronal_R"
+            ]
+          },
+          "SLFP_R": {
+            "rois": [
+              "ArcuateCoronal_R",
+              "PosteriorCingulum"
+            ],
+            "roas": [
+              "ArcuateROA",
+              "ExternalCapsule_R",
+              "InternalCapsule_R",
+              "InferiorOccipital_R",
+              "Midbody",
+              "SagittalROA",
+              "TemporalCoronal_R"
+            ]
+          },
+          "CST_L": {
+            "rois": [
+              "AnteriorBrainstem",
+              "InternalCapsule_L",
+              "Medulla",
+              "Midbody"
+            ],
+            "roas": [
+              "ArcuateROA",
+              "Cerebellum_L",
+              "Cerebellum_R",
+              "CingulumROA_L",
+              "ExternalCapsule_L",
+              "InternalCapsule_R",
+              "FornixBody",
+              "FornixCrura",
+              "SagittalROA",
+              "TemporalCoronal_L"
+            ]
+          },
+          "CST_R": {
+            "rois": [
+              "AnteriorBrainstem",
+              "InternalCapsule_R",
+              "Medulla",
+              "Midbody"
+            ],
+            "roas": [
+              "ArcuateROA",
+              "Cerebellum_L",
+              "Cerebellum_R",
+              "CingulumROA_R",
+              "ExternalCapsule_R",
+              "InternalCapsule_L",
+              "FornixBody",
+              "FornixCrura",
+              "SagittalROA",
+              "TemporalCoronal_R"
+            ]
+          }
+        }
+      }
+    },
+    "Merge_SLFAP": {
+      "connect": {
+        "source": [
+          "GenDTIReconstruction",
+          "fiber_file"
+        ],
+        "tract_list": [
+          "DSI_TRK",
+          "output"
+        ]
+      },
+      "inputs": {
+        "output_type": "TXT",
+        "tracts": {
+          "SLF_L": [
+            "SLFA_L",
+            "SLFP_L"
+          ],
+          "SLF_R": [
+            "SLFA_R",
+            "SLFP_R"
+          ]
+        }
+      }
+    },
+    "GenSLFStats": {
+      "connect": {
+        "tract": [
+          "DSI_Merge",
+          "merged_files"
+        ],
+        "source": [
+          "GenDTIReconstruction",
+          "fiber_file"
+        ]
+      },
+      "inputs": {
+        "output_type": "TRK",
+        "export_stat": true
+      }
+    },
+    "MergeAllTracts": {
+      "inputs": {
+        "numinputs": 2
+      },
+      "connect": {
+        "in1": [
+          "DSI_TRK",
+          "output"
+        ],
+        "in2": [
+          "GenSLFStats",
+          "output"
+        ]
+      }
+    },
+    "ConvertTRK2NII": {
+      "inputs": {
+        "output_type": "NIFTI"
+      },
+      "connect": {
+        "source": [
+          "GenDTIReconstruction",
+          "fiber_file"
+        ],
+        "tract": [
+          "MergeAllTracts",
+          "out"
+        ]
+      }
+    },
+    "TractNii2Template": {
+      "inputs": {
+        "engine_type": "MapNode",
+        "iterfield": "input_image",
+        "use_nearest": true
+      },
+      "connect": {
+        "reference_image": [
+          "TBSSPostReg",
+          "meanfa_file"
+        ],
+        "input_image": [
+          "ConvertTRK2NII",
+          "output"
+        ],
+        "transformation_series": [
+          "Merge_I2T_Warp_Affine",
+          "out"
+        ]
+      }
+    },
+    "IndividualFA2Template": {
+      "inputs": {
+        "engine_type": "Node",
+        "use_nearest": false
+      },
+      "connect": {
+        "reference_image": [
+          "TBSSPostReg",
+          "meanfa_file"
+        ],
+        "input_image": [
+          "SplitDSI_fa_md_ad_rd",
+          "out1"
+        ],
+        "transformation_series": [
+          "Merge_I2T_Warp_Affine",
+          "out"
+        ]
+      }
+    },
+    "IndividualMD2Template": {
+      "inputs": {
+        "engine_type": "Node",
+        "use_nearest": false
+      },
+      "connect": {
+        "reference_image": [
+          "TBSSPostReg",
+          "meanfa_file"
+        ],
+        "input_image": [
+          "SplitDSI_fa_md_ad_rd",
+          "out2"
+        ],
+        "transformation_series": [
+          "Merge_I2T_Warp_Affine",
+          "out"
+        ]
+      }
+    },
+    "IndividualAD2Template": {
+      "inputs": {
+        "engine_type": "Node",
+        "use_nearest": false
+      },
+      "connect": {
+        "reference_image": [
+          "TBSSPostReg",
+          "meanfa_file"
+        ],
+        "input_image": [
+          "SplitDSI_fa_md_ad_rd",
+          "out3"
+        ],
+        "transformation_series": [
+          "Merge_I2T_Warp_Affine",
+          "out"
+        ]
+      }
+    },
+    "IndividualRD2Template": {
+      "inputs": {
+        "engine_type": "Node",
+        "use_nearest": false
+      },
+      "connect": {
+        "reference_image": [
+          "TBSSPostReg",
+          "meanfa_file"
+        ],
+        "input_image": [
+          "SplitDSI_fa_md_ad_rd",
+          "out4"
+        ],
+        "transformation_series": [
+          "Merge_I2T_Warp_Affine",
+          "out"
+        ]
+      }
+    }
+  }
+}

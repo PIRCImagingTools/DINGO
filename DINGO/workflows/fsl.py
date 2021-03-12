@@ -598,7 +598,7 @@ class TBSSRegNXN(DINGOFlow):
         
 class TBSSPostReg(DINGOFlow):
     inputnode = 'inputnode'
-    outputnode = 'outputnode'
+    outputnode = 'tbss_3_postreg.outputnode'
     
     connection_spec = {
         'fa_list':      ['TBSSPreReg', 'fa_list'],
