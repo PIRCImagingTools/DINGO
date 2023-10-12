@@ -12,7 +12,7 @@ This is an extension of nipype used to conduct analysis of diffusion MRI data in
  - [DSI Studio](http://dsi-studio.labsolver.org/)
 
 ### Docker Install
-1) [Download](https://pitt.box.com/s/3tbmknwhbj8x55dv4yq7nwexy560iqg3) the image.
+1) [Download](https://pitt-my.sharepoint.com/:u:/g/personal/bdm60_pitt_edu/EcWAFCPUzSxJtf6Skqu0N_EBcI4goN3q2H7Vfv2i-4F9CA?e=25bOaI) the image.
 2) docker load -i /path/to/dingo_dsi-feb2019.tar
 3) On Linux for convenient use add the following to ~/.bashrc
    - function DINGO { docker run -it --rm --user=$UID:$UID -v /tmp/.X11-unix:/tmp/.X11-unix:ro -e DISPLAY=$DISPLAY -v $(pwd):/data dingo:dsi-feb2019 "$@"; }
